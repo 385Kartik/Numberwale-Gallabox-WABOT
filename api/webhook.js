@@ -1,6 +1,7 @@
 import { parseUserMessage } from './utils/aiParser.js';
 import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
 import { saveSession, getSession, isShowMoreIntent, isBotPaused } from './utils/sessionStore.js';
+import { logSearch, logFailedParse } from './utils/analytics.js';
 
 // Vercel Serverless Function entry point
 export default async function handler(req, res) {
@@ -63,11 +64,10 @@ export default async function handler(req, res) {
 
     let jsonQuery;
     let page = 1;
+    const session = getSession(customerPhone);
 
     // ── "Show More" handling ──────────────────────────────────────────────
     if (isShowMoreIntent(userMessage)) {
-      const session = getSession(customerPhone);
-
       if (!session || !session.jsonQuery) {
         const replyText = "Pehle koi search karo, phir *'show more'* likho! 😊\nExample: _req 99 two times_";
         console.log('[Webhook] Show more requested but no session found.');
@@ -78,11 +78,39 @@ export default async function handler(req, res) {
       page = (session.page || 1) + 1;
       console.log(`[Webhook] Show more: page ${page} for query`, jsonQuery);
 
-    // ── Fresh search ──────────────────────────────────────────────────────
+    // ── Fresh search or Follow-up search ──────────────────────────────────
     } else {
-      jsonQuery = await parseUserMessage(userMessage);
-      page = 1;
-      console.log('[Webhook] AI parsed query:', jsonQuery);
+      try {
+        // Pass previous context to AI so it can merge intents (e.g. "Price under 10000" after "req 555")
+        const parsed = await parseUserMessage(userMessage, session?.jsonQuery);
+        jsonQuery = parsed.result;
+        page = 1;
+        console.log('[Webhook] AI parsed query:', jsonQuery);
+        // Fire-and-forget analytics log (non-blocking)
+        logSearch({
+          rawQuery: userMessage,
+          parsedJson: jsonQuery,
+          model: parsed.model,
+          tokensUsed: parsed.tokensUsed,
+        }).catch(() => {});
+      } catch (parseErr) {
+        console.error('[Webhook] AI parse failed:', parseErr.message);
+        logFailedParse(userMessage, parseErr.message).catch(() => {});
+        const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein. 🙏\nExample: _req 99 three times under 5000_";
+        // Still need to send back to user via Gallabox
+        const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
+        const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
+        const channelID = body?.channelId;
+        if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID && customerPhone) {
+          const { default: axios } = await import('axios');
+          await axios.post(
+            'https://server.gallabox.com/devapi/messages/whatsapp',
+            { channelId: channelID, channelType: 'whatsapp', recipient: { name: customerPhone, phone: customerPhone }, whatsapp: { type: 'text', text: { body: errReply } } },
+            { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
+          ).catch(() => {});
+        }
+        return res.status(200).json({ success: true, reason: 'parse_failed' });
+      }
     }
 
     // ── Fetch from backend ────────────────────────────────────────────────
