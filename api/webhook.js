@@ -23,10 +23,11 @@ export default async function handler(req, res) {
                         body?.payload?.message?.text ||
                         body?.message?.payload?.text;
 
-    const customerPhone = body.contact?.phone || 
-                          body.phone || 
-                          body.data?.contact?.phone ||
-                          body.payload?.contact?.phone;
+    const customerPhone = body?.whatsapp?.text?.body ||
+                          body?.contact?.phone || 
+                          body?.phone || 
+                          body?.data?.contact?.phone ||
+                          body?.payload?.contact?.phone;
 
     if (!userMessage) {
       console.log('[Webhook] No message text found. Ignoring.');
