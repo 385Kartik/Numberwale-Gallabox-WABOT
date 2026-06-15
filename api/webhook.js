@@ -29,6 +29,8 @@ export default async function handler(req, res) {
                           body?.data?.contact?.phone ||
                           body?.payload?.contact?.phone;
 
+    const channelID = body?.channelId
+
     if (!userMessage) {
       console.log('[Webhook] No message text found. Ignoring.');
       return res.status(200).json({ success: true, reason: 'no_message' });
@@ -110,8 +112,8 @@ export default async function handler(req, res) {
     // ── Send reply to Gallabox ────────────────────────────────────────────
     const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
     const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-    const GALLABOX_CHANNEL_ID = process.env.GALLABOX_CHANNEL_ID;
-
+    const GALLABOX_CHANNEL_ID = channelID;
+console.log("this is the API key" + GALLABOX_API_KEY + GALLABOX_API_SECRET);
     if (GALLABOX_API_KEY && GALLABOX_API_SECRET && GALLABOX_CHANNEL_ID && customerPhone) {
       try {
         const { default: axios } = await import('axios');
@@ -138,6 +140,8 @@ export default async function handler(req, res) {
           }
         );
         console.log(`[Webhook] ✅ Reply sent to ${customerPhone} via Gallabox`);
+        
+        
       } catch (sendErr) {
         console.error('[Webhook] ❌ Failed to send via Gallabox:', sendErr.response?.data || sendErr.message);
       }
