@@ -15,12 +15,13 @@ export default async function handler(req, res) {
     console.log('[Webhook] Raw payload received:', JSON.stringify(body, null, 2));
 
     // Try to extract message text from various possible Gallabox payload structures
-    const userMessage = body.message?.text || 
-                        body.text || 
-                        body.payload?.text || 
-                        body.data?.message?.text || 
-                        body.payload?.message?.text ||
-                        body.message?.payload?.text;
+    const userMessage = body?.whatsapp?.text?.body ||
+                        body?.message?.text || 
+                        body?.text || 
+                        body?.payload?.text || 
+                        body?.data?.message?.text || 
+                        body?.payload?.message?.text ||
+                        body?.message?.payload?.text;
 
     const customerPhone = body.contact?.phone || 
                           body.phone || 
