@@ -28,7 +28,11 @@ Examples:
 function buildPrompt(activeFilters) {
   let prompt = BASE_SYSTEM_PROMPT;
   if (activeFilters && Object.keys(activeFilters).length > 0) {
-    prompt += `\n\nCurrent state: ${JSON.stringify(activeFilters)}\nMerge new message with state. If completely new search, ignore state.`;
+    prompt += `\n\nCURRENT FILTERS STATE: ${JSON.stringify(activeFilters)}
+CRITICAL INSTRUCTION:
+- If user refines the search (e.g., "under 10k", "must contain 9"), output a JSON that KEEPS the current filters and adds the new ones.
+- If user starts a new search (e.g., "mirror numbers", "req 555"), DISCARD the current state and return only the new JSON.
+You MUST output the final complete JSON.`;
   }
   return prompt;
 }
