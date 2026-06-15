@@ -45,6 +45,8 @@ export default async function handler(req, res) {
     // Remove this block (or clear ALLOWED_PHONES) to go live for everyone.
     const allowedPhones = process.env.ALLOWED_PHONES;
     if (allowedPhones) {
+      console.log(allowedPhones);
+      
       const whitelist = allowedPhones.split(',').map(p => p.trim());
       if (!whitelist.includes(customerPhone)) {
         console.log(`[Webhook] ${customerPhone} not in whitelist. Skipping silently.`);
