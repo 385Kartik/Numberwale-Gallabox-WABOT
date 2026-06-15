@@ -2,6 +2,13 @@ import { parseUserMessage } from './utils/aiParser.js';
 import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
 import { isShowMoreIntent, isBotPaused } from './utils/sessionStore.js';
 import { getCustomerContext, logInteraction } from './utils/analytics.js';
+import { generateUPIQRCode, createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
+
+// ── Intent Detectors ────────────────────────────────────────────────────────
+function extractBuyNumber(text) {
+  const m = text.trim().match(/(?:buy|purchase)\s*(?:this)?\s*(\d{10})/i);
+  return m ? m[1] : null;
+}
 
 // Vercel Serverless Function entry point
 export default async function handler(req, res) {
@@ -85,6 +92,75 @@ export default async function handler(req, res) {
       page = (customerContext.lastPage || 1) + 1;
       console.log(`[Webhook] Show more: page ${page} for query`, jsonQuery);
 
+    // ── "Buy" intent: buy <10-digit-number> ──────────────────────────────
+    } else if (extractBuyNumber(userMessage)) {
+      const buyNumber = extractBuyNumber(userMessage);
+      console.log(`[Webhook] Buy intent for number: ${buyNumber}`);
+      const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
+      const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
+      const channelID = body?.channelId;
+      const { default: axios } = await import('axios');
+
+      try {
+        const product = await fetchProductByNumber(buyNumber);
+        if (!product || !product.price) {
+          const errMsg = `❌ *${buyNumber}* nahi mila ya already sold out ho gaya hai.\n\nDobara search karo: _req ${buyNumber.slice(-4)}_`;
+          if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID) {
+            await axios.post('https://server.gallabox.com/devapi/messages/whatsapp',
+              { channelId: channelID, channelType: 'whatsapp', recipient: { name: customerPhone, phone: customerPhone }, whatsapp: { type: 'text', text: { body: errMsg } } },
+              { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
+            ).catch(() => {});
+          }
+          return res.status(200).json({ success: true });
+        }
+
+        const paymentLink = await createRazorpayPaymentLink({
+          number: buyNumber,
+          price: product.price,
+          customerPhone,
+          customerName
+        });
+        const qrBase64 = await generateUPIQRCode(product.price, `VIP Number ${buyNumber}`);
+
+        const caption = `✅ *Payment Link & QR Ready!*\n\n` +
+          `📱 Number: *${buyNumber}*\n` +
+          `💰 Amount: *₹${product.price.toLocaleString('en-IN')}*\n\n` +
+          `GPay / PhonePe / Paytm se upar diya QR scan karein — amount already filled hoga! ✅\n` +
+          `_UPI: msnumberwale.eazypay@icici_\n\n` +
+          `💳 *Or Pay via Razorpay:*\n${paymentLink}\n\n` +
+          `⚠️ _Yeh link 24 ghante valid hai._`;
+
+        if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID) {
+          await axios.post('https://server.gallabox.com/devapi/messages/whatsapp',
+            { 
+              channelId: channelID, 
+              channelType: 'whatsapp', 
+              recipient: { name: customerPhone, phone: customerPhone }, 
+              whatsapp: { 
+                type: 'image', 
+                image: { 
+                  base64: qrBase64, 
+                  mimeType: 'image/png', 
+                  caption 
+                } 
+              } 
+            },
+            { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
+          ).catch(() => {});
+        }
+        console.log(`[Webhook] Buy reply with QR sent for ${buyNumber}`);
+      } catch (buyErr) {
+        console.error('[Webhook] Buy intent error:', buyErr.message);
+        const errMsg = `❌ Payment link generate nahi hua. Thodi der baad try karo.`;
+        if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID) {
+          await axios.post('https://server.gallabox.com/devapi/messages/whatsapp',
+            { channelId: channelID, channelType: 'whatsapp', recipient: { name: customerPhone, phone: customerPhone }, whatsapp: { type: 'text', text: { body: errMsg } } },
+            { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
+          ).catch(() => {});
+        }
+      }
+      return res.status(200).json({ success: true });
+
     // ── Pre-flight: Catch greetings / conversational text without using AI ────
     } else if (/^(hi|hello|hey|hola|namaste|thanks|thank you|ok|okay|k|good|bye|what is my pin code|help)\b/i.test(userMessage.trim())) {
       console.log('[Webhook] Pre-flight caught conversational message, bypassing AI.');
@@ -117,10 +193,11 @@ export default async function handler(req, res) {
         
         jsonQuery = parsed.result;
 
-        // JS Fallback Merge: If the AI forgot the category and only returned price/freq, merge it forcefully
-        const isOnlyRefinement = Object.keys(jsonQuery).every(k => ['minPrice', 'maxPrice', 'digitFreq1Digit', 'digitFreq1Count', 'mustContain', 'notContain'].includes(k));
-        if (isOnlyRefinement && customerContext.activeFilters && Object.keys(customerContext.activeFilters).length > 0) {
-          console.log('[Webhook] AI forgot state. Force merging in JS.');
+        // JS Fallback Merge: If AI forgot the previous category, force-merge it back
+        // This fires when: old state had a category, new result has none
+        const prevCategory = customerContext.activeFilters?.category;
+        if (prevCategory && !jsonQuery.category) {
+          console.log(`[Webhook] AI dropped category '${prevCategory}'. Force merging.`);
           jsonQuery = { ...customerContext.activeFilters, ...jsonQuery };
         }
 
@@ -206,8 +283,7 @@ export default async function handler(req, res) {
     // ── Send reply to Gallabox ────────────────────────────────────────────
     const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
     const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-    const GALLABOX_CHANNEL_ID = channelID;
-console.log("this is the API key" + GALLABOX_API_KEY + GALLABOX_API_SECRET);
+    const GALLABOX_CHANNEL_ID = body?.channelId;
     if (GALLABOX_API_KEY && GALLABOX_API_SECRET && GALLABOX_CHANNEL_ID && customerPhone) {
       try {
         const { default: axios } = await import('axios');

@@ -106,13 +106,21 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
 
     const incCustomer = isFail ? { failureCount: 1 } : { successCount: 1 };
 
+    // Build $set — always update name; also save activeFilters + lastPage on success
+    const setFields = { name };
+    if (!isFail && jsonQuery && Object.keys(jsonQuery).length > 0) {
+      setFields.activeFilters = jsonQuery;
+      setFields.lastPage = page;
+    }
+
     await CustomerProfile.findOneAndUpdate(
       { phone },
       { 
-        $set: { name }, // update name if changed
+        $set: setFields,
         $inc: incCustomer,
-        $push: { history: { $each: historyEntries } }
-      }
+        $push: { history: { $each: historyEntries, $slice: -20 } }
+      },
+      { upsert: true }
     );
 
   } catch (err) {
