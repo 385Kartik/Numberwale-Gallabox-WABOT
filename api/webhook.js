@@ -12,8 +12,20 @@ export default async function handler(req, res) {
     const payload = req.body;
     const body = typeof payload === 'string' ? JSON.parse(payload) : payload;
 
-    const userMessage = body.message?.text || body.text || body.payload?.text;
-    const customerPhone = body.contact?.phone || body.phone;
+    console.log('[Webhook] Raw payload received:', JSON.stringify(body, null, 2));
+
+    // Try to extract message text from various possible Gallabox payload structures
+    const userMessage = body.message?.text || 
+                        body.text || 
+                        body.payload?.text || 
+                        body.data?.message?.text || 
+                        body.payload?.message?.text ||
+                        body.message?.payload?.text;
+
+    const customerPhone = body.contact?.phone || 
+                          body.phone || 
+                          body.data?.contact?.phone ||
+                          body.payload?.contact?.phone;
 
     if (!userMessage) {
       console.log('[Webhook] No message text found. Ignoring.');
