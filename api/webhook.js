@@ -1,7 +1,7 @@
 import { parseUserMessage } from './utils/aiParser.js';
 import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
-import { saveSession, getSession, isShowMoreIntent, isBotPaused } from './utils/sessionStore.js';
-import { logSearch, logFailedParse } from './utils/analytics.js';
+import { isShowMoreIntent, isBotPaused } from './utils/sessionStore.js';
+import { getCustomerContext, logInteraction } from './utils/analytics.js';
 
 // Vercel Serverless Function entry point
 export default async function handler(req, res) {
@@ -64,38 +64,98 @@ export default async function handler(req, res) {
 
     let jsonQuery;
     let page = 1;
-    const session = getSession(customerPhone);
+    const customerName = body?.contact?.name || 'Unknown';
+    
+    // Fetch state from MongoDB (avoids Vercel stateless wiping)
+    const customerContext = await getCustomerContext(customerPhone, customerName);
+
+    let parsedTokens = 0;
+    let parsedModel = null;
 
     // ── "Show More" handling ──────────────────────────────────────────────
     if (isShowMoreIntent(userMessage)) {
-      if (!session || !session.jsonQuery) {
+      const activeFilters = customerContext.activeFilters;
+      if (!activeFilters || Object.keys(activeFilters).length === 0) {
         const replyText = "Pehle koi search karo, phir *'show more'* likho! 😊\nExample: _req 99 two times_";
         console.log('[Webhook] Show more requested but no session found.');
         return res.status(200).json({ success: true, reply: replyText });
       }
 
-      jsonQuery = session.jsonQuery;
-      page = (session.page || 1) + 1;
+      jsonQuery = activeFilters;
+      page = (customerContext.lastPage || 1) + 1;
       console.log(`[Webhook] Show more: page ${page} for query`, jsonQuery);
 
-    // ── Fresh search or Follow-up search ──────────────────────────────────
+    // ── Pre-flight: Catch greetings / conversational text without using AI ────
+    } else if (/^(hi|hello|hey|hola|namaste|thanks|thank you|ok|okay|k|good|bye|what is my pin code|help)\b/i.test(userMessage.trim())) {
+      console.log('[Webhook] Pre-flight caught conversational message, bypassing AI.');
+      const errReply = "Namaste! 🙏 Main Numberwale ka AI assistant hun. Main sirf VIP mobile numbers search karne mein aapki madad kar sakta hun.\n\nAapko kaisa number chahiye? (e.g. _req 555_ ya _mirror numbers under 10000_)";
+      
+      logInteraction({
+        phone: customerPhone, name: customerName,
+        userText: userMessage, botText: "Sent conversational greeting",
+        isFail: true, model: null, tokensUsed: 0
+      }).catch(() => {});
+
+      const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
+      const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
+      const channelID = body?.channelId;
+      if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID && customerPhone) {
+        const { default: axios } = await import('axios');
+        await axios.post(
+          'https://server.gallabox.com/devapi/messages/whatsapp',
+          { channelId: channelID, channelType: 'whatsapp', recipient: { name: customerPhone, phone: customerPhone }, whatsapp: { type: 'text', text: { body: errReply } } },
+          { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
+        ).catch(() => {});
+      }
+      return res.status(200).json({ success: true, reason: 'conversational_bypass' });
+
+    // ── Fresh search or Follow-up search (AI Parsing) ────────────────────────
     } else {
       try {
-        // Pass previous context to AI so it can merge intents (e.g. "Price under 10000" after "req 555")
-        const parsed = await parseUserMessage(userMessage, session?.jsonQuery);
+        // Pass ONLY current DB JSON state to AI to save tokens drastically
+        const parsed = await parseUserMessage(userMessage, customerContext.activeFilters);
         jsonQuery = parsed.result;
         page = 1;
+        parsedTokens = parsed.tokensUsed;
+        parsedModel = parsed.model;
+        
         console.log('[Webhook] AI parsed query:', jsonQuery);
-        // Fire-and-forget analytics log (non-blocking)
-        logSearch({
-          rawQuery: userMessage,
-          parsedJson: jsonQuery,
-          model: parsed.model,
-          tokensUsed: parsed.tokensUsed,
-        }).catch(() => {});
+
+        // Check if query was unrelated (AI returned empty JSON)
+        const hasFilters = Object.values(jsonQuery).some(val => val !== null && val !== "" && val !== 0);
+        if (!hasFilters) {
+          console.log('[Webhook] AI returned empty filters (unrelated query).');
+          const errReply = "Maafi chahta hun, main Numberwale ka AI assistant hun aur sirf VIP mobile numbers search karne mein aapki madad kar sakta hun. 🙏\nKya aapko koi specific number chahiye? Jaise: _req 555_ ya _mirror numbers_";
+          
+          logInteraction({
+            phone: customerPhone, name: customerName,
+            userText: userMessage, botText: "Sent unrelated query warning",
+            isFail: true, model: parsedModel, tokensUsed: parsedTokens
+          }).catch(() => {});
+
+          const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
+          const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
+          const channelID = body?.channelId;
+          if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID && customerPhone) {
+            const { default: axios } = await import('axios');
+            await axios.post(
+              'https://server.gallabox.com/devapi/messages/whatsapp',
+              { channelId: channelID, channelType: 'whatsapp', recipient: { name: customerPhone, phone: customerPhone }, whatsapp: { type: 'text', text: { body: errReply } } },
+              { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
+            ).catch(() => {});
+          }
+          return res.status(200).json({ success: true, reason: 'unrelated_query_ignored' });
+        }
+
       } catch (parseErr) {
         console.error('[Webhook] AI parse failed:', parseErr.message);
-        logFailedParse(userMessage, parseErr.message).catch(() => {});
+        
+        logInteraction({
+          phone: customerPhone, name: customerName,
+          userText: userMessage, botText: `Parse Error: ${parseErr.message}`,
+          isFail: true
+        }).catch(() => {});
+
         const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein. 🙏\nExample: _req 99 three times under 5000_";
         // Still need to send back to user via Gallabox
         const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
@@ -117,10 +177,7 @@ export default async function handler(req, res) {
     const result = await fetchNumbers(jsonQuery, page);
     console.log(`[Webhook] Fetched ${result.products.length} products (page ${page}/${result.totalPages})`);
 
-    // ── Save session (always update after every search/show more) ─────────
-    if (customerPhone) {
-      saveSession(customerPhone, { jsonQuery, page });
-    }
+    // (State is now saved automatically via logInteraction at the end)
 
     // ── Format reply ──────────────────────────────────────────────────────
     if (result.products.length === 0 && page > 1) {
@@ -177,7 +234,21 @@ console.log("this is the API key" + GALLABOX_API_KEY + GALLABOX_API_SECRET);
       console.log('[Webhook] ⚠️  Gallabox credentials missing — skipping outbound send.');
     }
 
-    return res.status(200).json({ success: true, reply: replyText });
+    // ── Log optimized interaction and Save DB State ───────────────
+    const optimizedBotText = `✨ ${result.totalCount} numbers found for category '${jsonQuery?.category || 'generic'}' (Page ${result.currentPage}/${result.totalPages})`;
+    logInteraction({
+      phone: customerPhone,
+      name: customerName,
+      userText: userMessage,
+      botText: optimizedBotText,
+      isFail: false,
+      model: parsedModel,
+      tokensUsed: parsedTokens,
+      jsonQuery: jsonQuery, // Saves activeFilters
+      page: result.currentPage // Saves lastPage
+    }).catch(() => {});
+
+    return res.status(200).json({ success: true });
 
   } catch (error) {
     console.error('[Webhook] Fatal Error:', error);

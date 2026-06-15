@@ -5,47 +5,32 @@ import Groq from "groq-sdk";
 // Compact but complete — same rules as AISearch.jsx, far fewer tokens.
 // ⚠️  Keep in sync with AISearch.jsx on the website!
 // ─────────────────────────────────────────────────────────────────────────────
-const BASE_SYSTEM_PROMPT = `Parse VIP mobile number search query into JSON. Output ONLY raw JSON, no markdown.
+const BASE_SYSTEM_PROMPT = `Parse VIP mobile number search query into JSON. Output ONLY raw JSON. Omit empty fields.
 
-Fields (omit if not needed):
-category: one of [without-248-numbers,mirror-numbers,semi-mirror-numbers,three-digit-numbers,two-digit-numbers,counting-numbers,doubling-numbers,triple-numbers,tetra-numbers,penta-numbers,hexa-numbers,septa-numbers,octa-numbers,abc-abc-abc-numbers,abc-abc-numbers,ab-ab-ab-numbers,start-ab-ab-numbers,middle-ab-ab-numbers,ending-ab-ab-numbers,aaa-bbb-numbers,ab-ab-xy-xy-numbers,108-numbers,786-numbers,unique-numbers]
-startsWith,endsWith,anywhere,mustContain,notContain: string
-literSum,trapSum,scoreSum,minPrice,maxPrice: number
-exactDigitPlacement: 10-char string with ? for wildcards e.g. 98????????
-digitFreq1Digit,mostContainDigit: string
-digitFreq1Count,mostContainCount: number
+Valid categories (must end with -numbers):
+without-248, mirror, semi-mirror, three-digit, two-digit, counting, doubling, triple, tetra, penta, hexa, septa, octa, abc-abc-abc, abc-abc, ab-ab-ab, start-ab-ab, middle-ab-ab, ending-ab-ab, aaa-bbb, ab-ab-xy-xy, 108, 786, unique
+
+Fields:
+category, startsWith, endsWith, anywhere, mustContain, notContain, literSum, trapSum, scoreSum, minPrice, maxPrice, exactDigitPlacement, digitFreq1Digit, digitFreq1Count
 
 Rules:
-- "req 222" or "222" → {anywhere:"222"} NOT digitFreq
-- Use digitFreq only for "X times" / "X three times" etc.
-- "starting/ending triple/penta/mirror..." → startsWith/endsWith:"TRIPLE"/"PENTA"/"MIRROR" etc. Keywords: DOUBLE,TRIPLE,TETRA,PENTA,HEXA,SEPTA,OCTA,COUNTING,DOUBLING,ABC_ABC,ABC_ABC_ABC,AB_AB,AB_AB_AB,AAA_BBB,AB_AB_XY_XY,MIRROR,SEMI_MIRROR
-- "under/below/less than X" → maxPrice:X
-- "above/over/more than X" → minPrice:X
-- "budget X to Y" → minPrice:X, maxPrice:Y
-- scoreSum is single digit 1-9 (numerology total)
-- literSum = sum of all 10 digits exactly
+- "222" => anywhere:"222"
+- freq only when "X times"
+- under X => maxPrice
+- 786 => category:"786-numbers"
+- unrelated => {}
 
 Examples:
-"mirror numbers"→{"category":"mirror-numbers"}
-"99 two times avoid 2480 total 5"→{"digitFreq1Digit":"99","digitFreq1Count":2,"notContain":"2480","scoreSum":5}
-"starts 98 ends 00"→{"startsWith":"98","endsWith":"00"}
-"budget 1000 to 5000"→{"minPrice":1000,"maxPrice":5000}
-"7 three times"→{"digitFreq1Digit":"7","digitFreq1Count":3}
-"four zeros together"→{"anywhere":"0000"}
-"req 555 under 10000"→{"anywhere":"555","maxPrice":10000}
-"ending penta"→{"endsWith":"PENTA"}
-"mujhe 786 chahiye aur 99 bhi ho"→{"anywhere":"786","mustContain":"99"}`;
+"mirror"→{"category":"mirror-numbers"}
+"786 with 55"→{"category":"786-numbers", "mustContain":"55"}
+"req 555"→{"anywhere":"555"}`;
 
-// Build context-aware prompt by merging previousState minimally
-function buildPrompt(previousState) {
-  if (!previousState || Object.keys(previousState).length === 0) {
-    return BASE_SYSTEM_PROMPT;
+function buildPrompt(activeFilters) {
+  let prompt = BASE_SYSTEM_PROMPT;
+  if (activeFilters && Object.keys(activeFilters).length > 0) {
+    prompt += `\n\nCurrent state: ${JSON.stringify(activeFilters)}\nMerge new message with state. If completely new search, ignore state.`;
   }
-  // Only inject the previous state — keep it short
-  return `${BASE_SYSTEM_PROMPT}
-
-Previous search: ${JSON.stringify(previousState)}
-If new message refines it (e.g. "under 10000"), MERGE. If new search, IGNORE previous.`;
+  return prompt;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +44,7 @@ const GROQ_MODELS = [
   'meta-llama/llama-4-scout-17b-16e-instruct', // Scout — good balance
 ];
 
-export async function parseUserMessage(query, previousState = null) {
+export async function parseUserMessage(query, history = []) {
   const groqKey = process.env.GROQ_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
 
@@ -67,7 +52,7 @@ export async function parseUserMessage(query, previousState = null) {
     throw new Error("AI API keys missing. Add GROQ_API_KEY or OPENAI_API_KEY to env.");
   }
 
-  const systemPrompt = buildPrompt(previousState);
+  const systemPrompt = buildPrompt(history);
   const userMsg = query.trim();
   let resultText = null;
 
@@ -146,3 +131,4 @@ export async function parseUserMessage(query, previousState = null) {
   }
 
   throw new Error("All AI models returned empty response.");
+}

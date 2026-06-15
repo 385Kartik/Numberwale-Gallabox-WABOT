@@ -34,18 +34,18 @@ async function runTest() {
 
   // Test 1: Fresh search
   console.log("📍 Test 1: Fresh Search");
-  await makeRequest("req 55 two times");
+  await makeRequest("mujhe kuch vip numbers batao");
 
   // Small delay
-  await new Promise(r => setTimeout(r, 1000));
+  // await new Promise(r => setTimeout(r, 1000));
 
   // Test 2: Show more (should fetch page 2 of same query)
-  console.log("📍 Test 2: Show More");
-  await makeRequest("show more");
+  // console.log("📍 Test 2: Show More");
+  // await makeRequest("show more");
 
   // Test 3: Show more again (page 3)
-  console.log("📍 Test 3: Show More Again");
-  await makeRequest("aur dikhao");
+  // console.log("📍 Test 3: Show More Again");
+  // await makeRequest("aur dikhao");
 }
 
 runTest();

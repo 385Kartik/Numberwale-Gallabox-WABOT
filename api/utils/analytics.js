@@ -14,7 +14,7 @@ async function connectDB() {
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
-// One document per calendar day — upserted on every request
+// One document per calendar day — upserted on every request (For Charts)
 const DailyStatsSchema = new mongoose.Schema({
   date: { type: String, required: true, unique: true }, // "YYYY-MM-DD"
   totalSearches: { type: Number, default: 0 },
@@ -24,97 +24,121 @@ const DailyStatsSchema = new mongoose.Schema({
   tokensByModel: { type: Map, of: Number, default: {} },
 }, { timestamps: true });
 
-// One document per search — used to compute top searches per day
-const SearchLogSchema = new mongoose.Schema({
-  date: { type: String, required: true, index: true },       // "YYYY-MM-DD"
-  rawQuery: { type: String, required: true },
-  parsedJson: { type: mongoose.Schema.Types.Mixed, default: null },
-  model: { type: String, default: null },
-  tokensUsed: { type: Number, default: 0 },
-  success: { type: Boolean, default: true },
-  timestamp: { type: Date, default: Date.now },
-});
-
-// One document per failed parse — for error log table
-const FailedParseSchema = new mongoose.Schema({
-  date: { type: String, required: true, index: true },
-  rawQuery: { type: String, required: true },
-  errorMessage: { type: String, default: 'Unknown error' },
-  timestamp: { type: Date, default: Date.now },
-});
+// One document per customer (Unified Logging)
+const CustomerBotProfileSchema = new mongoose.Schema({
+  phone: { type: String, required: true, unique: true },
+  name: { type: String, default: 'Unknown' },
+  successCount: { type: Number, default: 0 },
+  failureCount: { type: Number, default: 0 },
+  history: [{
+    role: { type: String, enum: ['user', 'bot'], required: true },
+    text: { type: String, required: true },
+    isFail: { type: Boolean, default: false },
+    tokensUsed: { type: Number, default: 0 },
+    timestamp: { type: Date, default: Date.now }
+  }],
+  activeFilters: { type: mongoose.Schema.Types.Mixed, default: {} },
+  lastPage: { type: Number, default: 1 }
+}, { timestamps: true });
 
 // Use existing models to avoid OverwriteModelError on hot reloads
 const DailyStats = mongoose.models.BotDailyStats || mongoose.model('BotDailyStats', DailyStatsSchema);
-const SearchLog  = mongoose.models.BotSearchLog  || mongoose.model('BotSearchLog', SearchLogSchema);
-const FailedParse = mongoose.models.BotFailedParse || mongoose.model('BotFailedParse', FailedParseSchema);
+const CustomerProfile = mongoose.models.CustomerBotProfile || mongoose.model('CustomerBotProfile', CustomerBotProfileSchema);
 
 // ─── Helper: Today's date string ─────────────────────────────────────────────
 function todayStr() {
   return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 }
 
+// ─── One-time cleanup of old collections ──────────────────────────────────────
+async function cleanupOldCollections() {
+  try {
+    const db = mongoose.connection.db;
+    if (!db) return;
+    const collections = await db.listCollections().toArray();
+    const names = collections.map(c => c.name);
+    
+    if (names.includes('botsearchlogs')) await db.dropCollection('botsearchlogs');
+    if (names.includes('botfailedparses')) await db.dropCollection('botfailedparses');
+  } catch (err) {
+    console.error('[Analytics] Cleanup error:', err.message);
+  }
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Log a successful search.
- * @param {object} opts
- * @param {string} opts.rawQuery     - The raw user message
- * @param {object} opts.parsedJson   - The AI-parsed JSON
- * @param {string} opts.model        - The AI model used
- * @param {number} opts.tokensUsed   - Total tokens consumed
+ * Fetch the user's active filters and last page (for context)
  */
-export async function logSearch({ rawQuery, parsedJson, model, tokensUsed = 0 }) {
+export async function getCustomerContext(phone, name) {
   try {
     await connectDB();
-    const date = todayStr();
+    await cleanupOldCollections(); // Run cleanup quietly
 
-    // Upsert daily stats
-    await DailyStats.findOneAndUpdate(
-      { date },
-      {
-        $inc: {
-          totalSearches: 1,
-          successfulReplies: 1,
-          totalTokens: tokensUsed,
-          [`tokensByModel.${model || 'unknown'}`]: tokensUsed,
-        }
-      },
-      { upsert: true }
+    const profile = await CustomerProfile.findOneAndUpdate(
+      { phone },
+      { $setOnInsert: { name, phone, successCount: 0, failureCount: 0, history: [], activeFilters: {}, lastPage: 1 } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    // Insert search log entry
-    await SearchLog.create({ date, rawQuery, parsedJson, model, tokensUsed, success: true });
+    return {
+      activeFilters: profile.activeFilters || {},
+      lastPage: profile.lastPage || 1
+    };
   } catch (err) {
-    console.error('[Analytics] logSearch failed (non-critical):', err.message);
+    console.error('[Analytics] getCustomerContext error:', err.message);
+    return { activeFilters: {}, lastPage: 1 };
   }
 }
 
 /**
- * Log a failed parse.
- * @param {string} rawQuery
- * @param {string} errorMessage
+ * Log a single interaction cycle (User Msg -> Bot Reply)
  */
-export async function logFailedParse(rawQuery, errorMessage) {
+export async function logInteraction({ phone, name, userText, botText, isFail = false, model = null, tokensUsed = 0, jsonQuery = null, page = 1 }) {
   try {
     await connectDB();
     const date = todayStr();
 
+    // 1. Update Daily Stats
+    const incDaily = {
+      totalSearches: 1,
+      totalTokens: tokensUsed,
+    };
+    if (isFail) incDaily.failedParses = 1;
+    else incDaily.successfulReplies = 1;
+    if (model) incDaily[`tokensByModel.${model}`] = tokensUsed;
+
     await DailyStats.findOneAndUpdate(
       { date },
-      { $inc: { totalSearches: 1, failedParses: 1 } },
+      { $inc: incDaily },
       { upsert: true }
     );
 
-    await FailedParse.create({ date, rawQuery, errorMessage });
+    // 2. Update Customer Profile
+    const historyEntries = [
+      { role: 'user', text: userText, isFail, tokensUsed: 0 },
+      { role: 'bot', text: botText, isFail: false, tokensUsed } // Associate tokens with bot reply
+    ];
+
+    const incCustomer = isFail ? { failureCount: 1 } : { successCount: 1 };
+
+    await CustomerProfile.findOneAndUpdate(
+      { phone },
+      { 
+        $set: { name }, // update name if changed
+        $inc: incCustomer,
+        $push: { history: { $each: historyEntries } }
+      }
+    );
+
   } catch (err) {
-    console.error('[Analytics] logFailedParse failed (non-critical):', err.message);
+    console.error('[Analytics] logInteraction failed:', err.message);
   }
 }
 
 /**
  * Fetch analytics data for the admin dashboard.
- * Returns daily stats for the last N days + top searches + recent failed parses.
- * @param {number} days - How many past days to fetch (default 30)
+ * Adapted to pull from CustomerProfile.history instead of old logs.
  */
 export async function getAnalytics(days = 30) {
   await connectDB();
@@ -125,34 +149,46 @@ export async function getAnalytics(days = 30) {
   startDate.setDate(startDate.getDate() - (days - 1));
   const startStr = startDate.toISOString().slice(0, 10);
 
-  // 1. Daily stats (last N days)
+  // 1. Daily stats
   const dailyStats = await DailyStats.find(
     { date: { $gte: startStr } },
     { _id: 0, date: 1, totalSearches: 1, successfulReplies: 1, failedParses: 1, totalTokens: 1, tokensByModel: 1 }
   ).sort({ date: 1 }).lean();
 
-  // 2. Top searches (last 30 days, top 15)
-  const topSearches = await SearchLog.aggregate([
-    { $match: { date: { $gte: startStr }, success: true } },
-    { $group: { _id: '$rawQuery', count: { $sum: 1 } } },
+  // 2. Top queries (unwind history)
+  const topSearches = await CustomerProfile.aggregate([
+    { $unwind: "$history" },
+    { $match: { "history.role": "user", "history.isFail": false, "history.timestamp": { $gte: startDate } } },
+    { $group: { _id: "$history.text", count: { $sum: 1 } } },
     { $sort: { count: -1 } },
     { $limit: 15 },
-    { $project: { query: '$_id', count: 1, _id: 0 } }
+    { $project: { query: "$_id", count: 1, _id: 0 } }
   ]);
 
-  // 3. Token usage by model (last 30 days)
-  const tokensByModel = await SearchLog.aggregate([
-    { $match: { date: { $gte: startStr }, model: { $ne: null } } },
-    { $group: { _id: '$model', totalTokens: { $sum: '$tokensUsed' }, count: { $sum: 1 } } },
-    { $sort: { totalTokens: -1 } },
-    { $project: { model: '$_id', totalTokens: 1, count: 1, _id: 0 } }
-  ]);
+  // 3. Token usage by model (using DailyStats map)
+  let tokensByModel = [];
+  const modelMap = {};
+  dailyStats.forEach(stat => {
+    if (stat.tokensByModel) {
+      for (const [model, tokens] of Object.entries(stat.tokensByModel)) {
+        modelMap[model] = (modelMap[model] || 0) + tokens;
+      }
+    }
+  });
+  for (const [model, totalTokens] of Object.entries(modelMap)) {
+    tokensByModel.push({ model, totalTokens, count: 1 }); // count not accurate here but UI just needs totalTokens
+  }
+  tokensByModel.sort((a, b) => b.totalTokens - a.totalTokens);
 
-  // 4. Recent failed parses (last 50)
-  const failedParses = await FailedParse.find(
-    { date: { $gte: startStr } },
-    { _id: 0, rawQuery: 1, errorMessage: 1, timestamp: 1, date: 1 }
-  ).sort({ timestamp: -1 }).limit(50).lean();
+  // 4. Recent failed parses
+  const failedParsesAgg = await CustomerProfile.aggregate([
+    { $unwind: "$history" },
+    { $match: { "history.role": "user", "history.isFail": true, "history.timestamp": { $gte: startDate } } },
+    { $sort: { "history.timestamp": -1 } },
+    { $limit: 50 },
+    { $project: { rawQuery: "$history.text", errorMessage: "AI Failed or Unrelated", timestamp: "$history.timestamp", date: { $dateToString: { format: "%Y-%m-%d", date: "$history.timestamp" } }, _id: 0 } }
+  ]);
+  const failedParses = failedParsesAgg;
 
   // 5. Today summary
   const todayStats = dailyStats.find(s => s.date === todayStr()) || {

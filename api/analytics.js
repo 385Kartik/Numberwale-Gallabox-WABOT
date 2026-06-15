@@ -1,4 +1,4 @@
-import { getAnalytics } from '../utils/analytics.js';
+import { getAnalytics } from './utils/analytics.js';
 
 /**
  * GET /api/analytics
