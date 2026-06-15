@@ -78,7 +78,7 @@ export async function getCustomerContext(phone, name) {
     const profile = await CustomerProfile.findOneAndUpdate(
       { phone },
       { $setOnInsert: { name, phone, successCount: 0, failureCount: 0, history: [], activeFilters: {}, lastPage: 1 } },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     return {
