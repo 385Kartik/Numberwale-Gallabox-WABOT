@@ -23,7 +23,7 @@ export default async function handler(req, res) {
                         body?.payload?.message?.text ||
                         body?.message?.payload?.text;
 
-    const customerPhone = body?.whatsapp?.text?.body ||
+    const customerPhone = body?.whatsapp?.from ||
                           body?.contact?.phone || 
                           body?.phone || 
                           body?.data?.contact?.phone ||
