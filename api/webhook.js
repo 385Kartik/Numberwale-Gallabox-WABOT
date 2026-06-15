@@ -90,7 +90,7 @@ export default async function handler(req, res) {
       console.log('[Webhook] Pre-flight caught conversational message, bypassing AI.');
       const errReply = "Namaste! 🙏 Main Numberwale ka AI assistant hun. Main sirf VIP mobile numbers search karne mein aapki madad kar sakta hun.\n\nAapko kaisa number chahiye? (e.g. _req 555_ ya _mirror numbers under 10000_)";
       
-      logInteraction({
+      await logInteraction({
         phone: customerPhone, name: customerName,
         userText: userMessage, botText: "Sent conversational greeting",
         isFail: true, model: null, tokensUsed: 0
@@ -112,9 +112,18 @@ export default async function handler(req, res) {
     // ── Fresh search or Follow-up search (AI Parsing) ────────────────────────
     } else {
       try {
-        // Pass ONLY current DB JSON state to AI to save tokens drastically
+        // Pass ONLY current DB JSON state to AI
         const parsed = await parseUserMessage(userMessage, customerContext.activeFilters);
+        
         jsonQuery = parsed.result;
+
+        // JS Fallback Merge: If the AI forgot the category and only returned price/freq, merge it forcefully
+        const isOnlyRefinement = Object.keys(jsonQuery).every(k => ['minPrice', 'maxPrice', 'digitFreq1Digit', 'digitFreq1Count', 'mustContain', 'notContain'].includes(k));
+        if (isOnlyRefinement && customerContext.activeFilters && Object.keys(customerContext.activeFilters).length > 0) {
+          console.log('[Webhook] AI forgot state. Force merging in JS.');
+          jsonQuery = { ...customerContext.activeFilters, ...jsonQuery };
+        }
+
         page = 1;
         parsedTokens = parsed.tokensUsed;
         parsedModel = parsed.model;
@@ -127,11 +136,11 @@ export default async function handler(req, res) {
           console.log('[Webhook] AI returned empty filters (unrelated query).');
           const errReply = "Maafi chahta hun, main Numberwale ka AI assistant hun aur sirf VIP mobile numbers search karne mein aapki madad kar sakta hun. 🙏\nKya aapko koi specific number chahiye? Jaise: _req 555_ ya _mirror numbers_";
           
-          logInteraction({
-            phone: customerPhone, name: customerName,
-            userText: userMessage, botText: "Sent unrelated query warning",
-            isFail: true, model: parsedModel, tokensUsed: parsedTokens
-          }).catch(() => {});
+           await logInteraction({
+          phone: customerPhone, name: customerName,
+          userText: userMessage, botText: "Sent fallback error (parsing failed)",
+          isFail: true, model: parsedModel, tokensUsed: parsedTokens
+        }).catch(() => {});
 
           const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
           const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
@@ -150,7 +159,7 @@ export default async function handler(req, res) {
       } catch (parseErr) {
         console.error('[Webhook] AI parse failed:', parseErr.message);
         
-        logInteraction({
+        await logInteraction({
           phone: customerPhone, name: customerName,
           userText: userMessage, botText: `Parse Error: ${parseErr.message}`,
           isFail: true
@@ -236,7 +245,7 @@ console.log("this is the API key" + GALLABOX_API_KEY + GALLABOX_API_SECRET);
 
     // ── Log optimized interaction and Save DB State ───────────────
     const optimizedBotText = `✨ ${result.totalCount} numbers found for category '${jsonQuery?.category || 'generic'}' (Page ${result.currentPage}/${result.totalPages})`;
-    logInteraction({
+    await logInteraction({
       phone: customerPhone,
       name: customerName,
       userText: userMessage,

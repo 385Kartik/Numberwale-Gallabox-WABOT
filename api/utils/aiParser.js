@@ -43,8 +43,8 @@ You MUST output the final complete JSON.`;
 // Larger models only as fallback if smaller ones fail.
 // ─────────────────────────────────────────────────────────────────────────────
 const GROQ_MODELS = [
-  'llama-3.1-8b-instant',          // Fastest + cheapest — handles most queries fine
-  'llama-3.3-70b-versatile',       // Better for complex Hindi/mixed queries
+  'llama-3.3-70b-versatile',       // 70b understands context merging much better
+  'llama-3.1-8b-instant',          // Fastest + cheapest fallback
   'meta-llama/llama-4-scout-17b-16e-instruct', // Scout — good balance
 ];
 

@@ -50,21 +50,6 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 }
 
-// ─── One-time cleanup of old collections ──────────────────────────────────────
-async function cleanupOldCollections() {
-  try {
-    const db = mongoose.connection.db;
-    if (!db) return;
-    const collections = await db.listCollections().toArray();
-    const names = collections.map(c => c.name);
-    
-    if (names.includes('botsearchlogs')) await db.dropCollection('botsearchlogs');
-    if (names.includes('botfailedparses')) await db.dropCollection('botfailedparses');
-  } catch (err) {
-    console.error('[Analytics] Cleanup error:', err.message);
-  }
-}
-
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -73,7 +58,6 @@ async function cleanupOldCollections() {
 export async function getCustomerContext(phone, name) {
   try {
     await connectDB();
-    await cleanupOldCollections(); // Run cleanup quietly
 
     const profile = await CustomerProfile.findOneAndUpdate(
       { phone },
