@@ -48,6 +48,8 @@ export default async function handler(req, res) {
       console.log(allowedPhones);
       
       const whitelist = allowedPhones.split(',').map(p => p.trim());
+      console.log("whitelist is" + whitelist);
+      
       if (!whitelist.includes(customerPhone)) {
         console.log(`[Webhook] ${customerPhone} not in whitelist. Skipping silently.`);
         return res.status(200).json({ success: true, reason: 'not_whitelisted' });
