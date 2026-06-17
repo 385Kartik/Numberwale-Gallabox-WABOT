@@ -22,7 +22,8 @@ Schema definition (only include fields if explicitly requested or logically impl
   "mostContainDigit": "string | null",
   "mostContainCount": "number | null",
   "digitFreq1Digit": "string | null",
-  "digitFreq1Count": "number | null"
+  "digitFreq1Count": "number | null",
+  "digitFreq1MaxCount": "number | null"
 }
 
 Examples:
@@ -79,24 +80,52 @@ const GROQ_MODELS = [
   'qwen/qwen3-32b'
 ];
 
+let groqRoundRobinIndex = 0;
+
+import { extractFiltersFromQuery } from './queryRules.js';
+
 export async function parseUserMessage(query, activeFilters = {}) {
-  const groqKey = process.env.GROQ_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
 
-  if (!groqKey && !openaiKey) {
+  // Retrieve available Groq keys
+  const groqKeys = [
+    process.env.GROQ_API_KEY,
+    process.env.GROQ_API_KEY_2,
+    process.env.GROQ_API_KEY_3,
+    process.env.GROQ_API_KEY_4
+  ].filter(key => key && key.trim().length > 0);
+
+  if (groqKeys.length === 0 && !openaiKey) {
     throw new Error("AI API keys missing. Add GROQ_API_KEY or OPENAI_API_KEY to env.");
   }
 
-  const systemPrompt = buildPrompt(activeFilters);
   const userMsg = query.trim();
 
+  // ── 0. Rule Engine (Zero-Cost Bypass) ──────────────────────────────────
+  const { extracted, confident } = extractFiltersFromQuery(userMsg);
+  
+  if (confident) {
+    console.log(`[AI] ✅ Skipped LLM — Rules confident:`, extracted);
+    return {
+      result: extracted,
+      model: "rules-engine",
+      tokensUsed: 0
+    };
+  }
+
+  const systemPrompt = buildPrompt(activeFilters);
+
   // ── 1. Try Groq (cheapest first) ─────────────────────────────────────────
-  if (groqKey) {
-    const groq = new Groq({ apiKey: groqKey });
+  if (groqKeys.length > 0) {
+    // Pick the next key in the sequence
+    const currentKey = groqKeys[groqRoundRobinIndex % groqKeys.length];
+    groqRoundRobinIndex++;
+
+    const groq = new Groq({ apiKey: currentKey });
 
     for (const model of GROQ_MODELS) {
       try {
-        console.log(`[AI] Trying ${model}...`);
+        console.log(`[AI] Trying ${model} with key index ${(groqRoundRobinIndex - 1) % groqKeys.length}...`);
         const completion = await groq.chat.completions.create({
           model,
           messages: [
@@ -123,43 +152,6 @@ export async function parseUserMessage(query, activeFilters = {}) {
     }
   }
 
-  // ── 2. Fallback: OpenAI gpt-4o-mini ──────────────────────────────────────
-  if (!openaiKey) {
-    throw new Error("All Groq models failed and OPENAI_API_KEY is not set.");
-  }
-  try {
-    console.log("[AI] Falling back to OpenAI gpt-4o-mini...");
-    const { default: axios } = await import('axios');
-    const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMsg }
-        ],
-        temperature: 0,
-        max_tokens: 200
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${openaiKey}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    const text = response.data.choices?.[0]?.message?.content;
-    if (text) {
-      return {
-        result: JSON.parse(text),
-        model: 'openai/gpt-4o-mini',
-        tokensUsed: response.data.usage?.total_tokens ?? 0,
-      };
-    }
-  } catch (err) {
-    console.error("[AI] OpenAI fallback failed:", err.response?.data || err.message);
-    throw new Error("AI parsing failed across all models.");
-  }
-
-  throw new Error("All AI models returned empty response.");
+  // ── 2. Fallback: Throw error if Groq fails (NO OPENAI) ─────────────────
+  throw new Error("All Groq models failed. OpenAI fallback disabled to prevent costs.");
 }

@@ -63,17 +63,22 @@ export async function createRazorpayPaymentLink({ number, price, customerPhone, 
   };
 
   const { default: axios } = await import('axios');
-  const response = await axios.post(
-    'https://api.razorpay.com/v1/payment_links',
-    payload,
-    {
-      auth: { username: keyId, password: keySecret },
-      headers: { 'Content-Type': 'application/json' }
-    }
-  );
+  try {
+    const response = await axios.post(
+      'https://api.razorpay.com/v1/payment_links',
+      payload,
+      {
+        auth: { username: keyId, password: keySecret },
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
 
-  console.log(`[Payment] Created Razorpay link for ${number}: ${response.data.short_url}`);
-  return response.data.short_url;
+    console.log(`[Payment] Created Razorpay link for ${number}: ${response.data.short_url}`);
+    return response.data.short_url;
+  } catch (err) {
+    console.error('[Payment] Razorpay Link Error:', err.response?.data || err.message);
+    throw new Error(err.response?.data?.error?.description || err.message);
+  }
 }
 
 /**
