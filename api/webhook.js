@@ -201,7 +201,7 @@ export default async function handler(req, res) {
           customerName
         });
 
-        const qrUrl = generateUPIQRCodeUrl(totalAmount, `VIP Number ${buyNumber}`, req.headers.host);
+        const qrUrl = generateUPIQRCodeUrl(totalAmount, `VIP Number ${buyNumber}`);
 
         let priceBreakdown = ``;
         const effDiscount = product.myDiscount !== 0 && product.myDiscount ? product.myDiscount : product.vendorDiscount;
@@ -266,6 +266,16 @@ export default async function handler(req, res) {
 
     // ── Fresh search or Follow-up search (AI Parsing) ─────────────────────
     } else {
+      // Guard: if user sends a greeting/acknowledgement, don't trigger a search
+      const greetingRegex = /^(hi|hello|hii|helo|hey|ok|okay|thanks|thank you|shukriya|theek hai|thik hai|👍|🙏|haan|ha|yes|no|nahi|hmm|hm|good|great|nice|👌)$/i;
+      if (greetingRegex.test(lowerMsg.trim())) {
+        const greetMsg = customerContext.activeFilters && Object.keys(customerContext.activeFilters).length > 0
+          ? `😊 Koi baat nahi! Kya aap apni pichli search continue karna chahte hain ya naya search karna hai?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for new search`
+          : `👋 Hello! Main aapki kaise madad kar sakta hun?\n\nExample: _req 786 numbers under 20000_`;
+        await sendToGallabox(customerPhone, greetMsg, channelID);
+        return res.status(200).json({ success: true });
+      }
+
       try {
         const parsed = await parseUserMessage(userMessage, customerContext.activeFilters);
         
@@ -273,7 +283,7 @@ export default async function handler(req, res) {
         parsedTokens = parsed.tokens || 0;
         parsedModel = parsed.modelUsed;
 
-        // Remove empty strings from jsonQuery
+        // Remove empty strings / nulls from jsonQuery
         if (jsonQuery && typeof jsonQuery === 'object') {
           for (const key in jsonQuery) {
             if (jsonQuery[key] === "" || jsonQuery[key] === null) {
@@ -282,7 +292,10 @@ export default async function handler(req, res) {
           }
         }
 
-        if (customerContext.activeFilters?.category && !jsonQuery.category) {
+        // Only carry category forward if AI returned at least ONE other filter
+        // (prevents stale category being re-triggered by unrelated messages)
+        const aiReturnedSomething = jsonQuery && Object.keys(jsonQuery).length > 0;
+        if (aiReturnedSomething && customerContext.activeFilters?.category && !jsonQuery.category) {
           jsonQuery.category = customerContext.activeFilters.category;
         }
 
