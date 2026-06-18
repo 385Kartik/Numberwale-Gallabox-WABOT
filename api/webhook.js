@@ -69,7 +69,8 @@ export default async function handler(req, res) {
         console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
         await updateCustomerInfo(customerPhone, { botState: 'ACTIVE' });
         const resumeMsg = "👋 Hi! Main AI assistant wapas aa gaya hun.\n\nAapko kaise VIP mobile numbers chahiye?";
-        return await sendToGallabox(res, customerPhone, resumeMsg, channelID);
+        await sendToGallabox(customerPhone, resumeMsg, channelID);
+        return res.status(200).json({ success: true });
       }
       console.log('[Webhook] Ignoring regular outbound message.');
       return res.status(200).json({ success: true, reason: 'outbound' });
@@ -94,20 +95,23 @@ export default async function handler(req, res) {
       await addGallaboxTag(customerPhone, "REQUIRE_AGENT", channelID);
 
       const errReply = "Aapki conversation hamare human agent ko transfer ki ja rahi hai. Kripya thoda intezaar karein. 🙏";
-      return await sendToGallabox(res, customerPhone, errReply, channelID);
+      await sendToGallabox(customerPhone, errReply, channelID);
+        return res.status(200).json({ success: true });
     }
 
     if (resetRegex.test(lowerMsg) && currentState === 'ACTIVE') {
       await resetActiveFilters(customerPhone);
       const errReply = "✅ Aapka pichla search reset kar diya gaya hai.\n\nAap naya number kaisa chahte hain? (e.g., 'need mirror numbers under 5000')";
-      return await sendToGallabox(res, customerPhone, errReply, channelID);
+      await sendToGallabox(customerPhone, errReply, channelID);
+        return res.status(200).json({ success: true });
     }
 
     // ── State Machine: Onboarding ─────────────────────────────────────────
     if (currentState === 'NEW') {
       const welcomeReply = "Welcome to Numberwale! 🙏\n\nHum aapko best VIP mobile numbers dhundhne mein madad karenge.\n\nKripya apna *Naam* aur *6-digit Pincode* type karke bhejein taaki hum local availability check kar sakein.\n\nExample: _Rahul 131001_";
       await updateCustomerInfo(customerPhone, { botState: 'AWAITING_INFO' });
-      return await sendToGallabox(res, customerPhone, welcomeReply, channelID);
+      await sendToGallabox(customerPhone, welcomeReply, channelID);
+        return res.status(200).json({ success: true });
     }
 
     if (currentState === 'AWAITING_INFO') {
@@ -131,10 +135,12 @@ export default async function handler(req, res) {
           `🔹 _"9999 ending without 4 and 8"_\n` +
           `🔹 _"Sum 5 numbers"_\n\n` +
           `Type kijiye aur hum numbers fetch karenge!`;
-        return await sendToGallabox(res, customerPhone, instructions, channelID);
+        await sendToGallabox(customerPhone, instructions, channelID);
+        return res.status(200).json({ success: true });
       } else {
         const errReply = "❌ Invalid format.\n\nKripya apna *Naam* aur *6-digit Pincode* ek sath likh kar bhejein.\nExample: _Rahul 131001_";
-        return await sendToGallabox(res, customerPhone, errReply, channelID);
+        await sendToGallabox(customerPhone, errReply, channelID);
+        return res.status(200).json({ success: true });
       }
     }
 
@@ -150,7 +156,8 @@ export default async function handler(req, res) {
       if (!activeFilters || Object.keys(activeFilters).length === 0) {
         const replyText = "Pehle koi search karo, phir *'show more'* likho! 😊\nExample: _req 99 two times_";
         console.log('[Webhook] Show more requested but no session found.');
-        return await sendToGallabox(res, customerPhone, replyText, channelID);
+        await sendToGallabox(customerPhone, replyText, channelID);
+        return res.status(200).json({ success: true });
       }
 
       jsonQuery = activeFilters;
@@ -169,7 +176,8 @@ export default async function handler(req, res) {
         const product = await fetchProductByNumber(buyNumber);
         if (!product || !product.price) {
           const errMsg = `❌ *${buyNumber}* nahi mila ya already sold out ho gaya hai.\n\nDobara search karo: _req ${buyNumber.slice(-4)}_`;
-          return await sendToGallabox(res, customerPhone, errMsg, channelID);
+          await sendToGallabox(customerPhone, errMsg, channelID);
+        return res.status(200).json({ success: true });
         }
 
         const paymentLink = await createRazorpayPaymentLink({
@@ -210,7 +218,8 @@ export default async function handler(req, res) {
       } catch (buyErr) {
         console.error('[Webhook] Buy intent error:', buyErr.message);
         const errMsg = `❌ Payment link generate nahi hua. Thodi der baad try karo.`;
-        return await sendToGallabox(res, customerPhone, errMsg, channelID);
+        await sendToGallabox(customerPhone, errMsg, channelID);
+        return res.status(200).json({ success: true });
       }
       return res.status(200).json({ success: true });
 
@@ -229,12 +238,14 @@ export default async function handler(req, res) {
 
         if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
           const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein. 🙏\nExample: _need numbers under 5000_";
-          return await sendToGallabox(res, customerPhone, errReply, channelID);
+          await sendToGallabox(customerPhone, errReply, channelID);
+        return res.status(200).json({ success: true });
         }
       } catch (parseErr) {
         console.error('[Webhook] NLP Parse Error:', parseErr);
         const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein. 🙏\nExample: _req 99 three times under 5000_";
-        return await sendToGallabox(res, customerPhone, errReply, channelID);
+        await sendToGallabox(customerPhone, errReply, channelID);
+        return res.status(200).json({ success: true });
       }
     }
 
@@ -246,10 +257,12 @@ export default async function handler(req, res) {
     if (!result.products || result.products.length === 0) {
       if (page > 1) {
         const replyText = "Yahi tak the numbers! Koi aur search karo. 😊";
-        return await sendToGallabox(res, customerPhone, replyText, channelID);
+        await sendToGallabox(customerPhone, replyText, channelID);
+        return res.status(200).json({ success: true });
       } else {
         const emptyMsg = `Oops! Aapke criteria (${JSON.stringify(jsonQuery)}) se match karte hue numbers abhi available nahi hain. 😔\n\nKoi dusra pattern try karein (e.g., _req 9999_).`;
-        return await sendToGallabox(res, customerPhone, emptyMsg, channelID);
+        await sendToGallabox(customerPhone, emptyMsg, channelID);
+        return res.status(200).json({ success: true });
       }
     }
 
@@ -260,7 +273,7 @@ export default async function handler(req, res) {
       result.totalPages
     );
 
-    await sendToGallabox(res, customerPhone, replyText, channelID);
+    await sendToGallabox(customerPhone, replyText, channelID);
 
     // ── Log optimized interaction and Save DB State ───────────────
     const optimizedBotText = `✨ ${result.totalCount} numbers found for category '${jsonQuery?.category || 'generic'}' (Page ${result.currentPage}/${result.totalPages})`;
@@ -285,7 +298,7 @@ export default async function handler(req, res) {
 }
 
 // ── Helper Function ─────────────────────────────────────────────────────────
-async function sendToGallabox(res, phone, text, channelId) {
+async function sendToGallabox(phone, text, channelId) {
   const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
   const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
   
@@ -314,11 +327,6 @@ async function sendToGallabox(res, phone, text, channelId) {
     }
   } else {
     console.log('[Webhook] ⚠️ Gallabox credentials missing — skipping outbound send.');
-  }
-  
-  // Always return success 200 to prevent Vercel retries
-  if (res && !res.headersSent) {
-    return res.status(200).json({ success: true });
   }
 }
 

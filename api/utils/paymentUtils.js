@@ -58,7 +58,7 @@ export async function createRazorpayPaymentLink({ number, price, customerPhone, 
       mobile_number: number,
       source: 'WhatsApp Bot'
     },
-    callback_url: `${process.env.VERCEL_URL || 'https://numberwale-gallabox-wabot.vercel.app'}/api/payment-webhook`,
+    callback_url: `${(process.env.VERCEL_URL && process.env.VERCEL_URL.startsWith('http')) ? process.env.VERCEL_URL : ('https://' + (process.env.VERCEL_URL || 'numberwale-gallabox-wabot.vercel.app'))}/api/payment-webhook`,
     callback_method: 'get'
   };
 
