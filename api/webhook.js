@@ -34,6 +34,7 @@ export default async function handler(req, res) {
     const userMessage = typeof rawMsg === 'object' ? rawMsg?.body : rawMsg;
 
     const customerPhone = body?.whatsapp?.from ||
+                          body?.whatsapp?.to ||
                           body?.contact?.phone || 
                           body?.phone || 
                           body?.data?.contact?.phone ||
@@ -64,7 +65,11 @@ export default async function handler(req, res) {
     const customerContext = await getCustomerContext(customerPhone, customerName);
     let currentState = customerContext.botState;
 
-    const isOutbound = body?.direction === 'OUTBOUND' || body?.message?.direction === 'outbound' || body?.message?.type === 'sent';
+    const isOutbound = body?.direction === 'OUTBOUND' || 
+                       body?.message?.direction === 'outbound' || 
+                       body?.message?.type === 'sent' ||
+                       (body?.whatsapp?.to && !body?.whatsapp?.from) ||
+                       (body?.sender && body?.contactId && body.sender !== body.contactId);
     const isStatusEvent = body?.event && !['message', 'message_received'].includes(body.event);
     
     if (isOutbound) {
