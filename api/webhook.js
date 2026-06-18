@@ -40,7 +40,33 @@ export default async function handler(req, res) {
                           body?.data?.contact?.phone ||
                           body?.payload?.contact?.phone;
 
-    const channelID = body?.channelId
+    const channelID = body?.channelId;
+
+    // ── Detect outbound / status events FIRST (before any text checks) ──
+    // sender !== contactId means it was sent BY an agent, not the customer
+    const isOutbound = body?.direction === 'OUTBOUND' ||
+                       body?.message?.direction === 'outbound' ||
+                       body?.message?.type === 'sent' ||
+                       (body?.whatsapp?.to && !body?.whatsapp?.from) ||
+                       (body?.sender && body?.contactId && body.sender !== body.contactId);
+    const isStatusEvent = body?.event && !['message', 'message_received'].includes(body.event);
+
+    if (isStatusEvent) {
+      return res.status(200).json({ success: true, reason: 'status_event' });
+    }
+
+    if (isOutbound) {
+      // Only act on #bot on command; everything else silently drop
+      if (userMessage && userMessage.trim().toLowerCase() === '#bot on') {
+        console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
+        await updateCustomerInfo(customerPhone, { botState: 'ACTIVE' });
+        const resumeMsg = "👋 Hi! Main AI assistant wapas aa gaya hun.\n\nAapko kaise VIP mobile numbers chahiye?";
+        await sendToGallabox(customerPhone, resumeMsg, channelID);
+        return res.status(200).json({ success: true });
+      }
+      console.log('[Webhook] Outbound/echo message received. Ignoring.');
+      return res.status(200).json({ success: true, reason: 'outbound' });
+    }
 
     if (!userMessage) {
       console.log('[Webhook] No message text found. Ignoring.');
@@ -64,29 +90,6 @@ export default async function handler(req, res) {
     const customerName = body?.contact?.name || 'Unknown';
     const customerContext = await getCustomerContext(customerPhone, customerName);
     let currentState = customerContext.botState;
-
-    const isOutbound = body?.direction === 'OUTBOUND' || 
-                       body?.message?.direction === 'outbound' || 
-                       body?.message?.type === 'sent' ||
-                       (body?.whatsapp?.to && !body?.whatsapp?.from) ||
-                       (body?.sender && body?.contactId && body.sender !== body.contactId);
-    const isStatusEvent = body?.event && !['message', 'message_received'].includes(body.event);
-    
-    if (isOutbound) {
-      if (lowerMsg === '#bot on') {
-        console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
-        await updateCustomerInfo(customerPhone, { botState: 'ACTIVE' });
-        const resumeMsg = "👋 Hi! Main AI assistant wapas aa gaya hun.\n\nAapko kaise VIP mobile numbers chahiye?";
-        await sendToGallabox(customerPhone, resumeMsg, channelID);
-        return res.status(200).json({ success: true });
-      }
-      console.log('[Webhook] Ignoring regular outbound message.');
-      return res.status(200).json({ success: true, reason: 'outbound' });
-    }
-
-    if (isStatusEvent) {
-      return res.status(200).json({ success: true, reason: 'status_event' });
-    }
 
     if (currentState === 'PAUSED') {
       console.log(`[Webhook] Bot is PAUSED for ${customerPhone}. Skipping — agent is handling.`);

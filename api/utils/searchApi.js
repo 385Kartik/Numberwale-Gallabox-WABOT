@@ -255,21 +255,38 @@ export function formatNumbersReply(products, totalCount = 0, currentPage = 1, to
   reply += `━━━━━━━━━━━━━━━━━\n\n`;
 
   products.forEach((p, index) => {
-    const number     = p.productMobileNumber || 'N/A';
-    const price      = p.pricing?.nwFinalPrice || null;
-    const catName    = p.category?.name || null;
-    const brand      = p.productBrand || null;
-    const liters     = p.liters ?? null;
-    const trap       = p.trap ?? null;
-    const score      = p.score ?? null;
+    const number   = p.productMobileNumber || 'N/A';
+    const subtotal = p.pricing?.nwFinalPrice || null;   // nwFinalPrice = subtotal (before GST)
+    const basePrice = p.pricing?.nwBasePrice?.inr || null;
+    const myDiscount = p.pricing?.nwMyDiscount || 0;
+    const vendorDiscount = p.vendor?.vendorDiscount || 0;
+    const effDiscount = myDiscount !== 0 ? myDiscount : vendorDiscount;
+    const catName  = p.category?.name || null;
+    const brand    = p.productBrand || null;
+    const liters   = p.liters ?? null;
+    const trap     = p.trap ?? null;
+    const score    = p.score ?? null;
 
-    // Bold-formatted number using classifier
     const formattedNum = formatNumberForWhatsApp(number);
-
     reply += `${index + 1}. ${formattedNum}\n`;
     if (catName) reply += `   📁 ${catName}\n`;
     if (brand)   reply += `   🏷️  ${brand}\n`;
-    if (price)   reply += `   💰 ₹${price.toLocaleString('en-IN')}\n`;
+
+    if (subtotal) {
+      const gstAmt = Math.round(subtotal * 0.18);
+      const totalAmt = subtotal + gstAmt;
+
+      if (effDiscount > 0 && basePrice) {
+        const discountAmt = Math.round(basePrice * (effDiscount / 100));
+        reply += `   💰 ~₹${basePrice.toLocaleString('en-IN')}~ ₹${subtotal.toLocaleString('en-IN')} *(${effDiscount}% off)*\n`;
+        reply += `   🏛️ +GST 18%: ₹${gstAmt.toLocaleString('en-IN')}\n`;
+        reply += `   ✅ *Total: ₹${totalAmt.toLocaleString('en-IN')}*\n`;
+      } else {
+        reply += `   💰 Subtotal: ₹${subtotal.toLocaleString('en-IN')}\n`;
+        reply += `   🏛️ +GST 18%: ₹${gstAmt.toLocaleString('en-IN')}\n`;
+        reply += `   ✅ *Total: ₹${totalAmt.toLocaleString('en-IN')}*\n`;
+      }
+    }
 
     const numsLine = [];
     if (liters !== null) numsLine.push(`Sum: ${liters}`);
