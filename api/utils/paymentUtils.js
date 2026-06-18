@@ -37,7 +37,7 @@ export function generateUPIQRCodeUrl(amount, note = '') {
   if (cleanNote) upiUrl += `&tn=${encodeURIComponent(cleanNote)}`;
 
   console.log(`[QR] Generating UPI QR URL for ₹${formattedAmount} | ${NUMBERWALE_UPI_ID}`);
-  return `https://quickchart.io/qr?text=${encodeURIComponent(upiUrl)}&size=400`;
+  return `https://quickchart.io/qr?format=png&size=400&text=${encodeURIComponent(upiUrl)}&.png`;
 }
 
 /**
@@ -110,6 +110,9 @@ export async function fetchProductByNumber(mobileNumber) {
       return {
         number: exact.productMobileNumber,
         price: exact.pricing?.nwFinalPrice,
+        basePrice: exact.pricing?.nwBasePrice?.inr,
+        myDiscount: exact.pricing?.nwMyDiscount,
+        vendorDiscount: exact.vendor?.vendorDiscount,
         category: exact.category?.name,
         id: exact._id,
       };

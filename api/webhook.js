@@ -194,9 +194,34 @@ export default async function handler(req, res) {
 
         const qrUrl = generateUPIQRCodeUrl(product.price, `VIP Number ${buyNumber}`);
 
+        // Calculate GST and Subtotal
+        const totalAmount = product.price;
+        const subtotal = Math.round(totalAmount / 1.18);
+        const gstAmount = totalAmount - subtotal;
+        
+        let priceBreakdown = ``;
+        const effDiscount = product.myDiscount !== 0 && product.myDiscount ? product.myDiscount : product.vendorDiscount;
+        
+        if (effDiscount && product.basePrice) {
+          const discountAmt = Math.round(product.basePrice * (effDiscount / 100));
+          priceBreakdown += `*Price Breakdown:*\n` +
+            `💰 Base Price: ₹${product.basePrice.toLocaleString('en-IN')}\n` +
+            `🏷️ Discount: ${effDiscount}% (-₹${discountAmt.toLocaleString('en-IN')})\n` +
+            `🧾 Subtotal: ₹${subtotal.toLocaleString('en-IN')}\n` +
+            `🏛️ GST (18%): ₹${gstAmount.toLocaleString('en-IN')}\n` +
+            `━━━━━━━━━━━━━━━━━\n` +
+            `✅ *Total Amount: ₹${totalAmount.toLocaleString('en-IN')}*\n\n`;
+        } else {
+          priceBreakdown += `*Price Breakdown:*\n` +
+            `🧾 Subtotal: ₹${subtotal.toLocaleString('en-IN')}\n` +
+            `🏛️ GST (18%): ₹${gstAmount.toLocaleString('en-IN')}\n` +
+            `━━━━━━━━━━━━━━━━━\n` +
+            `✅ *Total Amount: ₹${totalAmount.toLocaleString('en-IN')}*\n\n`;
+        }
+
         const caption = `🛒 *Payment Link & QR Ready!*\n\n` +
-          `📱 Number: *${buyNumber}*\n` +
-          `💸 Amount: *₹${product.price.toLocaleString('en-IN')}*\n\n` +
+          `📱 Number: *${buyNumber}*\n\n` +
+          priceBreakdown +
           `GPay / PhonePe / Paytm se upar diya QR scan karein — amount already filled hoga! 🎯\n` +
           `_UPI: msnumberwale.eazypay@icici_\n\n` +
           `💳 *Or Pay via Razorpay:*\n${paymentLink}\n\n` +
