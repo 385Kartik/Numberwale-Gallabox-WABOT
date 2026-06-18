@@ -29,7 +29,7 @@ export async function generateUPIQRCode(amount, note = '') {
   return qrDataUrl.replace(/^data:image\/png;base64,/, '');
 }
 
-export function generateUPIQRCodeUrl(amount, note = '') {
+export function generateUPIQRCodeUrl(amount, note = '', host = 'numberwale-gallabox.vercel.app') {
   const formattedAmount = parseFloat(amount).toFixed(2);
   const cleanNote = String(note).substring(0, 100).trim();
 
@@ -37,7 +37,7 @@ export function generateUPIQRCodeUrl(amount, note = '') {
   if (cleanNote) upiUrl += `&tn=${encodeURIComponent(cleanNote)}`;
 
   console.log(`[QR] Generating UPI QR URL for ₹${formattedAmount} | ${NUMBERWALE_UPI_ID}`);
-  return `https://quickchart.io/qr?format=png&size=400&text=${encodeURIComponent(upiUrl)}&.png`;
+  return `https://${host}/api/qr.png?text=${encodeURIComponent(upiUrl)}`;
 }
 
 /**

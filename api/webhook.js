@@ -185,20 +185,21 @@ export default async function handler(req, res) {
           return res.status(200).json({ success: true });
         }
 
+        // Calculate GST and Total Amount (product.price is the subtotal)
+        const subtotal = product.price;
+        const gstPercentage = 18; // Fixed 18% GST as per backend
+        const gstAmount = Math.round(subtotal * (gstPercentage / 100));
+        const totalAmount = subtotal + gstAmount;
+
         const paymentLink = await createRazorpayPaymentLink({
           number: buyNumber,
-          price: product.price,
+          price: totalAmount, // Pass totalAmount with GST to Razorpay
           customerPhone,
           customerName
         });
 
-        const qrUrl = generateUPIQRCodeUrl(product.price, `VIP Number ${buyNumber}`);
+        const qrUrl = generateUPIQRCodeUrl(totalAmount, `VIP Number ${buyNumber}`, req.headers.host);
 
-        // Calculate GST and Subtotal
-        const totalAmount = product.price;
-        const subtotal = Math.round(totalAmount / 1.18);
-        const gstAmount = totalAmount - subtotal;
-        
         let priceBreakdown = ``;
         const effDiscount = product.myDiscount !== 0 && product.myDiscount ? product.myDiscount : product.vendorDiscount;
         
@@ -222,7 +223,7 @@ export default async function handler(req, res) {
         const caption = `🛒 *Payment Link & QR Ready!*\n\n` +
           `📱 Number: *${buyNumber}*\n\n` +
           priceBreakdown +
-          `GPay / PhonePe / Paytm se upar diya QR scan karein — amount already filled hoga! 🎯\n` +
+          `GPay / PhonePe / Paytm se is UPI ID par direct pay kar sakte hain:\n` +
           `_UPI: msnumberwale.eazypay@icici_\n\n` +
           `💳 *Or Pay via Razorpay:*\n${paymentLink}\n\n` +
           `⚠️ _Yeh link 24 ghante valid hai._`;
