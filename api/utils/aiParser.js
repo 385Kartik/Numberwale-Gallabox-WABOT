@@ -101,13 +101,14 @@ export async function parseUserMessage(query, activeFilters = {}) {
 
   const userMsg = query.trim();
 
-  // ── 0. Rule Engine (Zero-Cost Bypass) ──────────────────────────────────
+  // 🧠 0. Rule Engine (Zero-Cost Bypass) 🧠
   const { extracted, confident } = extractFiltersFromQuery(userMsg);
   
   if (confident) {
-    console.log(`[AI] ✅ Skipped LLM — Rules confident:`, extracted);
+    console.log(`[AI] ⚡ Skipped LLM — Rules confident:`, extracted);
     return {
-      result: extracted,
+      // Merge previous context with the newly extracted rules
+      result: { ...activeFilters, ...extracted },
       model: "rules-engine",
       tokensUsed: 0
     };

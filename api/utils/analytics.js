@@ -38,7 +38,8 @@ const CustomerBotProfileSchema = new mongoose.Schema({
     timestamp: { type: Date, default: Date.now }
   }],
   activeFilters: { type: mongoose.Schema.Types.Mixed, default: {} },
-  lastPage: { type: Number, default: 1 }
+  lastPage: { type: Number, default: 1 },
+  isAiEnabled: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // Use existing models to avoid OverwriteModelError on hot reloads
@@ -67,11 +68,29 @@ export async function getCustomerContext(phone, name) {
 
     return {
       activeFilters: profile.activeFilters || {},
-      lastPage: profile.lastPage || 1
+      lastPage: profile.lastPage || 1,
+      isAiEnabled: profile.isAiEnabled || false
     };
   } catch (err) {
     console.error('[Analytics] getCustomerContext error:', err.message);
-    return { activeFilters: {}, lastPage: 1 };
+    return { activeFilters: {}, lastPage: 1, isAiEnabled: false };
+  }
+}
+
+/**
+ * Enable or disable AI for a customer (e.g. based on Gallabox menu clicks)
+ */
+export async function setAiEnabled(phone, isEnabled) {
+  try {
+    await connectDB();
+    await CustomerProfile.findOneAndUpdate(
+      { phone },
+      { $set: { isAiEnabled: isEnabled, activeFilters: {}, lastPage: 1 } },
+      { upsert: true }
+    );
+    console.log(`[Analytics] AI Enabled set to ${isEnabled} for ${phone}`);
+  } catch (err) {
+    console.error('[Analytics] setAiEnabled error:', err.message);
   }
 }
 

@@ -1,7 +1,7 @@
 import { parseUserMessage } from './utils/aiParser.js';
 import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
 import { isShowMoreIntent, isBotPaused } from './utils/sessionStore.js';
-import { getCustomerContext, logInteraction } from './utils/analytics.js';
+import { getCustomerContext, logInteraction, setAiEnabled } from './utils/analytics.js';
 import { generateUPIQRCode, createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
@@ -79,13 +79,36 @@ export default async function handler(req, res) {
 
     console.log(`[Webhook] From ${customerPhone || 'Unknown'}: "${userMessage}"`);
 
-    let jsonQuery;
-    let page = 1;
-    const customerName = body?.contact?.name || 'Unknown';
-    
+    // 🚦 AI Opt-In / Menu Catch Logic 🚦
+    const lowerMsg = userMessage.toLowerCase().trim();
+    const aiTriggerKeywords = ["find vip number", "search vip number"];
+    const aiDisableKeywords = [
+      "selected a number", "payments & orders", "verify numberwale", 
+      "other query", "booking process", "need payment details", 
+      "activation process", "talk to consultant", "talk to agent"
+    ];
+
+    if (aiTriggerKeywords.includes(lowerMsg)) {
+      await setAiEnabled(customerPhone, true);
+      // Wait for user to actually type their query, don't reply yet
+      return res.status(200).json({ success: true, reason: 'ai_activated_silently' });
+    } else if (aiDisableKeywords.includes(lowerMsg)) {
+      await setAiEnabled(customerPhone, false);
+      return res.status(200).json({ success: true, reason: 'ai_deactivated_silently' });
+    }
+
     // Fetch state from MongoDB (avoids Vercel stateless wiping)
+    const customerName = body?.contact?.name || 'Unknown';
     const customerContext = await getCustomerContext(customerPhone, customerName);
 
+    // 🚦 Enforce AI Status 🚦
+    if (!customerContext.isAiEnabled) {
+      console.log(`[Webhook] AI is disabled for ${customerPhone}. Waiting for menu click.`);
+      return res.status(200).json({ success: true, reason: 'ai_disabled' });
+    }
+
+    let jsonQuery;
+    let page = 1;
     let parsedTokens = 0;
     let parsedModel = null;
 
