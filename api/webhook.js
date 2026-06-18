@@ -244,14 +244,23 @@ export default async function handler(req, res) {
         parsedTokens = parsed.tokens || 0;
         parsedModel = parsed.modelUsed;
 
+        // Remove empty strings from jsonQuery
+        if (jsonQuery && typeof jsonQuery === 'object') {
+          for (const key in jsonQuery) {
+            if (jsonQuery[key] === "" || jsonQuery[key] === null) {
+              delete jsonQuery[key];
+            }
+          }
+        }
+
         if (customerContext.activeFilters?.category && !jsonQuery.category) {
           jsonQuery.category = customerContext.activeFilters.category;
         }
 
         if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
-          const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein. 🙏\nExample: _need numbers under 5000_";
+          const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya pura likhein. 💡\nExample: _req numbers ending with 555_";
           await sendToGallabox(customerPhone, errReply, channelID);
-        return res.status(200).json({ success: true });
+          return res.status(200).json({ success: true });
         }
       } catch (parseErr) {
         console.error('[Webhook] NLP Parse Error:', parseErr);
