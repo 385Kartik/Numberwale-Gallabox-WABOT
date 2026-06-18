@@ -693,4 +693,4 @@ function extractFiltersFromQuery(rawQuery) {
   return { extracted, confident, unconsumedDigits };
 }
 
-module.exports = { extractFiltersFromQuery };
+export { extractFiltersFromQuery };
