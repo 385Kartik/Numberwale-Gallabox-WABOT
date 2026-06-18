@@ -1,7 +1,7 @@
 import { parseUserMessage } from './utils/aiParser.js';
 import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
-import { isShowMoreIntent, isBotPaused } from './utils/sessionStore.js';
-import { getCustomerContext, logInteraction, setAiEnabled } from './utils/analytics.js';
+import { isShowMoreIntent, isBotPaused, pauseBot } from './utils/sessionStore.js';
+import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters } from './utils/analytics.js';
 import { generateUPIQRCode, createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
@@ -22,7 +22,6 @@ export default async function handler(req, res) {
 
     console.log('[Webhook] Raw payload received:', JSON.stringify(body, null, 2));
 
-    // Try to extract message text from various possible Gallabox payload structures
     const userMessage = body?.whatsapp?.text?.body ||
                         body?.message?.text || 
                         body?.text || 
@@ -44,33 +43,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, reason: 'no_message' });
     }
 
-    // 🚦 Ignore Outbound/Admin Messages 🚦
-    // Do not process messages sent by the business/agent or system events like 'delivered'/'read'
-    const isOutbound = body?.direction === 'OUTBOUND' || body?.message?.direction === 'outbound' || body?.message?.type === 'sent';
-    const isStatusEvent = body?.event && !['message', 'message_received'].includes(body.event);
-    
-    if (isOutbound || isStatusEvent) {
-      console.log('[Webhook] Ignoring outbound or system status event.');
-      return res.status(200).json({ success: true, reason: 'outbound_or_status' });
-    }
-
-    // ── Bot Pause Check ───────────────────────────────────────────────────
-    if (customerPhone && isBotPaused(customerPhone)) {
-      console.log(`[Webhook] Bot is PAUSED for ${customerPhone}. Skipping — agent is handling.`);
-      return res.status(200).json({ success: true, reason: 'bot_paused' });
-    }
-
-    // ── Whitelist Check ───────────────────────────────────────────────────
-    // During testing: only respond to numbers in ALLOWED_PHONES env var.
-    // Format: comma-separated, e.g. "919876543210,918888888888"
-    // Remove this block (or clear ALLOWED_PHONES) to go live for everyone.
     const allowedPhones = process.env.ALLOWED_PHONES;
     if (allowedPhones) {
-      console.log(allowedPhones);
-      
       const whitelist = allowedPhones.split(',').map(p => p.trim());
-      console.log("whitelist is" + whitelist);
-      
       if (!whitelist.includes(customerPhone)) {
         console.log(`[Webhook] ${customerPhone} not in whitelist. Skipping silently.`);
         return res.status(200).json({ success: true, reason: 'not_whitelisted' });
@@ -79,34 +54,91 @@ export default async function handler(req, res) {
 
     console.log(`[Webhook] From ${customerPhone || 'Unknown'}: "${userMessage}"`);
 
-    // 🚦 AI Opt-In / Menu Catch Logic 🚦
     const lowerMsg = userMessage.toLowerCase().trim();
-    const aiTriggerKeywords = ["find vip number", "search vip number"];
-    const aiDisableKeywords = [
-      "selected a number", "payments & orders", "verify numberwale", 
-      "other query", "booking process", "need payment details", 
-      "activation process", "talk to consultant", "talk to agent"
-    ];
 
-    if (aiTriggerKeywords.includes(lowerMsg)) {
-      await setAiEnabled(customerPhone, true);
-      // Wait for user to actually type their query, don't reply yet
-      return res.status(200).json({ success: true, reason: 'ai_activated_silently' });
-    } else if (aiDisableKeywords.includes(lowerMsg)) {
-      await setAiEnabled(customerPhone, false);
-      return res.status(200).json({ success: true, reason: 'ai_deactivated_silently' });
-    }
-
-    // Fetch state from MongoDB (avoids Vercel stateless wiping)
+    // Fetch state from MongoDB early
     const customerName = body?.contact?.name || 'Unknown';
     const customerContext = await getCustomerContext(customerPhone, customerName);
+    let currentState = customerContext.botState;
 
-    // 🚦 Enforce AI Status 🚦
-    if (!customerContext.isAiEnabled) {
-      console.log(`[Webhook] AI is disabled for ${customerPhone}. Waiting for menu click.`);
-      return res.status(200).json({ success: true, reason: 'ai_disabled' });
+    const isOutbound = body?.direction === 'OUTBOUND' || body?.message?.direction === 'outbound' || body?.message?.type === 'sent';
+    const isStatusEvent = body?.event && !['message', 'message_received'].includes(body.event);
+    
+    if (isOutbound) {
+      if (lowerMsg === '#bot on') {
+        console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
+        await updateCustomerInfo(customerPhone, { botState: 'ACTIVE' });
+        const resumeMsg = "👋 Hi! Main AI assistant wapas aa gaya hun.\n\nAapko kaise VIP mobile numbers chahiye?";
+        return await sendToGallabox(res, customerPhone, resumeMsg, channelID);
+      }
+      console.log('[Webhook] Ignoring regular outbound message.');
+      return res.status(200).json({ success: true, reason: 'outbound' });
     }
 
+    if (isStatusEvent) {
+      return res.status(200).json({ success: true, reason: 'status_event' });
+    }
+
+    if (currentState === 'PAUSED') {
+      console.log(`[Webhook] Bot is PAUSED for ${customerPhone}. Skipping — agent is handling.`);
+      return res.status(200).json({ success: true, reason: 'bot_paused' });
+    }
+
+    // ── Global Commands ───────────────────────────────────────────────────
+    const agentRegex = /^(agent|human|talk|call|help|customer care|executive|insan|bhai|bhaiya)\b/i;
+    const resetRegex = /^(menu|restart|reset|clear|start)\b/i;
+
+    if (agentRegex.test(lowerMsg)) {
+      await updateCustomerInfo(customerPhone, { botState: 'PAUSED' });
+      // Call Gallabox API to add REQUIRE_AGENT tag to contact
+      await addGallaboxTag(customerPhone, "REQUIRE_AGENT", channelID);
+
+      const errReply = "Aapki conversation hamare human agent ko transfer ki ja rahi hai. Kripya thoda intezaar karein. 🙏";
+      return await sendToGallabox(res, customerPhone, errReply, channelID);
+    }
+
+    if (resetRegex.test(lowerMsg) && currentState === 'ACTIVE') {
+      await resetActiveFilters(customerPhone);
+      const errReply = "✅ Aapka pichla search reset kar diya gaya hai.\n\nAap naya number kaisa chahte hain? (e.g., 'need mirror numbers under 5000')";
+      return await sendToGallabox(res, customerPhone, errReply, channelID);
+    }
+
+    // ── State Machine: Onboarding ─────────────────────────────────────────
+    if (currentState === 'NEW') {
+      const welcomeReply = "Welcome to Numberwale! 🙏\n\nHum aapko best VIP mobile numbers dhundhne mein madad karenge.\n\nKripya apna *Naam* aur *6-digit Pincode* type karke bhejein taaki hum local availability check kar sakein.\n\nExample: _Rahul 131001_";
+      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_INFO' });
+      return await sendToGallabox(res, customerPhone, welcomeReply, channelID);
+    }
+
+    if (currentState === 'AWAITING_INFO') {
+      // Look for a 6 digit number
+      const pinMatch = userMessage.match(/\b\d{6}\b/);
+      // Look for a name (any alphabetic word)
+      const nameMatch = userMessage.match(/\b[A-Za-z]+\b/);
+
+      if (pinMatch && nameMatch) {
+        const extractedPin = pinMatch[0];
+        const extractedName = nameMatch[0];
+        
+        await updateCustomerInfo(customerPhone, { 
+          botState: 'ACTIVE', 
+          pinCode: extractedPin, 
+          name: extractedName 
+        });
+
+        const instructions = `Awesome, ${extractedName}! Aapka Pincode ${extractedPin} save ho gaya hai. 🎉\n\nAap kaise VIP number dhoondh rahe hain? Aap mujhe bata sakte hain:\n\n` +
+          `🔹 _"Need mirror numbers under 5000"_\n` +
+          `🔹 _"9999 ending without 4 and 8"_\n` +
+          `🔹 _"Sum 5 numbers"_\n\n` +
+          `Type kijiye aur hum numbers fetch karenge!`;
+        return await sendToGallabox(res, customerPhone, instructions, channelID);
+      } else {
+        const errReply = "❌ Invalid format.\n\nKripya apna *Naam* aur *6-digit Pincode* ek sath likh kar bhejein.\nExample: _Rahul 131001_";
+        return await sendToGallabox(res, customerPhone, errReply, channelID);
+      }
+    }
+
+    // If state is ACTIVE, proceed normally
     let jsonQuery;
     let page = 1;
     let parsedTokens = 0;
@@ -118,33 +150,26 @@ export default async function handler(req, res) {
       if (!activeFilters || Object.keys(activeFilters).length === 0) {
         const replyText = "Pehle koi search karo, phir *'show more'* likho! 😊\nExample: _req 99 two times_";
         console.log('[Webhook] Show more requested but no session found.');
-        return res.status(200).json({ success: true, reply: replyText });
+        return await sendToGallabox(res, customerPhone, replyText, channelID);
       }
 
       jsonQuery = activeFilters;
       page = (customerContext.lastPage || 1) + 1;
       console.log(`[Webhook] Show more: page ${page} for query`, jsonQuery);
 
-    // ── "Buy" intent: buy <10-digit-number> ──────────────────────────────
+    // ── "Buy" intent: buy <10-digit-number> ───────────────────────────────
     } else if (extractBuyNumber(userMessage)) {
       const buyNumber = extractBuyNumber(userMessage);
       console.log(`[Webhook] Buy intent for number: ${buyNumber}`);
       const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
       const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-      const channelID = body?.channelId;
       const { default: axios } = await import('axios');
 
       try {
         const product = await fetchProductByNumber(buyNumber);
         if (!product || !product.price) {
           const errMsg = `❌ *${buyNumber}* nahi mila ya already sold out ho gaya hai.\n\nDobara search karo: _req ${buyNumber.slice(-4)}_`;
-          if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID) {
-            await axios.post('https://server.gallabox.com/devapi/messages/whatsapp',
-              { channelId: channelID, channelType: 'whatsapp', recipient: { name: customerPhone, phone: customerPhone }, whatsapp: { type: 'text', text: { body: errMsg } } },
-              { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
-            ).catch(() => {});
-          }
-          return res.status(200).json({ success: true });
+          return await sendToGallabox(res, customerPhone, errMsg, channelID);
         }
 
         const paymentLink = await createRazorpayPaymentLink({
@@ -155,12 +180,12 @@ export default async function handler(req, res) {
         });
         const qrBase64 = await generateUPIQRCode(product.price, `VIP Number ${buyNumber}`);
 
-        const caption = `✅ *Payment Link & QR Ready!*\n\n` +
+        const caption = `🚀 *Payment Link & QR Ready!*\n\n` +
           `📱 Number: *${buyNumber}*\n` +
-          `💰 Amount: *₹${product.price.toLocaleString('en-IN')}*\n\n` +
-          `GPay / PhonePe / Paytm se upar diya QR scan karein — amount already filled hoga! ✅\n` +
+          `💳 Amount: *₹${product.price.toLocaleString('en-IN')}*\n\n` +
+          `GPay / PhonePe / Paytm se upar diya QR scan karein — amount already filled hoga! 🚀\n` +
           `_UPI: msnumberwale.eazypay@icici_\n\n` +
-          `💳 *Or Pay via Razorpay:*\n${paymentLink}\n\n` +
+          `👉 *Or Pay via Razorpay:*\n${paymentLink}\n\n` +
           `⚠️ _Yeh link 24 ghante valid hai._`;
 
         if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID) {
@@ -185,172 +210,57 @@ export default async function handler(req, res) {
       } catch (buyErr) {
         console.error('[Webhook] Buy intent error:', buyErr.message);
         const errMsg = `❌ Payment link generate nahi hua. Thodi der baad try karo.`;
-        if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID) {
-          await axios.post('https://server.gallabox.com/devapi/messages/whatsapp',
-            { channelId: channelID, channelType: 'whatsapp', recipient: { name: customerPhone, phone: customerPhone }, whatsapp: { type: 'text', text: { body: errMsg } } },
-            { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
-          ).catch(() => {});
-        }
+        return await sendToGallabox(res, customerPhone, errMsg, channelID);
       }
       return res.status(200).json({ success: true });
 
-    // ── Pre-flight: Catch greetings / conversational text without using AI ────
-    } else if (/^(hi|hello|hey|hola|namaste|thanks|thank you|ok|okay|k|good|bye|what is my pin code|help)\b/i.test(userMessage.trim())) {
-      console.log('[Webhook] Pre-flight caught conversational message, bypassing AI.');
-      const errReply = "Namaste! 🙏 Main Numberwale ka AI assistant hun. Main sirf VIP mobile numbers search karne mein aapki madad kar sakta hun.\n\nAapko kaisa number chahiye? (e.g. _req 555_ ya _mirror numbers under 10000_)";
-      
-      await logInteraction({
-        phone: customerPhone, name: customerName,
-        userText: userMessage, botText: "Sent conversational greeting",
-        isFail: true, model: null, tokensUsed: 0
-      }).catch(() => {});
-
-      const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
-      const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-      const channelID = body?.channelId;
-      if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID && customerPhone) {
-        const { default: axios } = await import('axios');
-        await axios.post(
-          'https://server.gallabox.com/devapi/messages/whatsapp',
-          { channelId: channelID, channelType: 'whatsapp', recipient: { name: customerPhone, phone: customerPhone }, whatsapp: { type: 'text', text: { body: errReply } } },
-          { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
-        ).catch(() => {});
-      }
-      return res.status(200).json({ success: true, reason: 'conversational_bypass' });
-
-    // ── Fresh search or Follow-up search (AI Parsing) ────────────────────────
+    // ── Fresh search or Follow-up search (AI Parsing) ─────────────────────
     } else {
       try {
-        // Pass ONLY current DB JSON state to AI
         const parsed = await parseUserMessage(userMessage, customerContext.activeFilters);
         
         jsonQuery = parsed.result;
+        parsedTokens = parsed.tokens || 0;
+        parsedModel = parsed.modelUsed;
 
-        // JS Fallback Merge: If AI forgot the previous category, force-merge it back
-        // This fires when: old state had a category, new result has none
-        const prevCategory = customerContext.activeFilters?.category;
-        if (prevCategory && !jsonQuery.category) {
-          console.log(`[Webhook] AI dropped category '${prevCategory}'. Force merging.`);
-          jsonQuery = { ...customerContext.activeFilters, ...jsonQuery };
+        if (customerContext.activeFilters?.category && !jsonQuery.category) {
+          jsonQuery.category = customerContext.activeFilters.category;
         }
 
-        page = 1;
-        parsedTokens = parsed.tokensUsed;
-        parsedModel = parsed.model;
-        
-        console.log('[Webhook] AI parsed query:', jsonQuery);
-
-        // Check if query was unrelated (AI returned empty JSON)
-        const hasFilters = Object.values(jsonQuery).some(val => val !== null && val !== "" && val !== 0);
-        if (!hasFilters) {
-          console.log('[Webhook] AI returned empty filters (unrelated query).');
-          const errReply = "Maafi chahta hun, main Numberwale ka AI assistant hun aur sirf VIP mobile numbers search karne mein aapki madad kar sakta hun. 🙏\nKya aapko koi specific number chahiye? Jaise: _req 555_ ya _mirror numbers_";
-          
-           await logInteraction({
-          phone: customerPhone, name: customerName,
-          userText: userMessage, botText: "Sent fallback error (parsing failed)",
-          isFail: true, model: parsedModel, tokensUsed: parsedTokens
-        }).catch(() => {});
-
-          const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
-          const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-          const channelID = body?.channelId;
-          if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID && customerPhone) {
-            const { default: axios } = await import('axios');
-            await axios.post(
-              'https://server.gallabox.com/devapi/messages/whatsapp',
-              { channelId: channelID, channelType: 'whatsapp', recipient: { name: customerPhone, phone: customerPhone }, whatsapp: { type: 'text', text: { body: errReply } } },
-              { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
-            ).catch(() => {});
-          }
-          return res.status(200).json({ success: true, reason: 'unrelated_query_ignored' });
+        if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
+          const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein. 🙏\nExample: _need numbers under 5000_";
+          return await sendToGallabox(res, customerPhone, errReply, channelID);
         }
-
       } catch (parseErr) {
-        console.error('[Webhook] AI parse failed:', parseErr.message);
-        
-        await logInteraction({
-          phone: customerPhone, name: customerName,
-          userText: userMessage, botText: `Parse Error: ${parseErr.message}`,
-          isFail: true
-        }).catch(() => {});
-
+        console.error('[Webhook] NLP Parse Error:', parseErr);
         const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein. 🙏\nExample: _req 99 three times under 5000_";
-        // Still need to send back to user via Gallabox
-        const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
-        const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-        const channelID = body?.channelId;
-        if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID && customerPhone) {
-          const { default: axios } = await import('axios');
-          await axios.post(
-            'https://server.gallabox.com/devapi/messages/whatsapp',
-            { channelId: channelID, channelType: 'whatsapp', recipient: { name: customerPhone, phone: customerPhone }, whatsapp: { type: 'text', text: { body: errReply } } },
-            { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
-          ).catch(() => {});
-        }
-        return res.status(200).json({ success: true, reason: 'parse_failed' });
+        return await sendToGallabox(res, customerPhone, errReply, channelID);
       }
     }
 
-    // ── Fetch from backend ────────────────────────────────────────────────
+    // ── Fetch results from external API ───────────────────────────────────
     const result = await fetchNumbers(jsonQuery, page);
-    console.log(`[Webhook] Fetched ${result.products.length} products (page ${page}/${result.totalPages})`);
-
-    // (State is now saved automatically via logInteraction at the end)
+    console.log(`[Webhook] Fetched ${result.products?.length || 0} products (page ${page}/${result.totalPages})`);
 
     // ── Format reply ──────────────────────────────────────────────────────
-    if (result.products.length === 0 && page > 1) {
-      const replyText = "Yahi tak the numbers! Koi aur search karo. 😊";
-      return res.status(200).json({ success: true, reply: replyText });
+    if (!result.products || result.products.length === 0) {
+      if (page > 1) {
+        const replyText = "Yahi tak the numbers! Koi aur search karo. 😊";
+        return await sendToGallabox(res, customerPhone, replyText, channelID);
+      } else {
+        const emptyMsg = `Oops! Aapke criteria (${JSON.stringify(jsonQuery)}) se match karte hue numbers abhi available nahi hain. 😔\n\nKoi dusra pattern try karein (e.g., _req 9999_).`;
+        return await sendToGallabox(res, customerPhone, emptyMsg, channelID);
+      }
     }
 
     const replyText = formatNumbersReply(
-      result.products,
-      result.totalCount,
-      result.currentPage,
+      result.products, 
+      result.totalCount, 
+      page, 
       result.totalPages
     );
 
-    console.log(`[Webhook] Reply:\n${replyText}`);
-
-    // ── Send reply to Gallabox ────────────────────────────────────────────
-    const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
-    const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-    const GALLABOX_CHANNEL_ID = body?.channelId;
-    if (GALLABOX_API_KEY && GALLABOX_API_SECRET && GALLABOX_CHANNEL_ID && customerPhone) {
-      try {
-        const { default: axios } = await import('axios');
-        await axios.post(
-          'https://server.gallabox.com/devapi/messages/whatsapp',
-          {
-            channelId: GALLABOX_CHANNEL_ID,
-            channelType: "whatsapp",
-            recipient: {
-              name: customerPhone,
-              phone: customerPhone
-            },
-            whatsapp: {
-              type: "text",
-              text: { body: replyText }
-            }
-          },
-          {
-            headers: {
-              'apiKey': GALLABOX_API_KEY,
-              'apiSecret': GALLABOX_API_SECRET,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        console.log(`[Webhook] ✅ Reply sent to ${customerPhone} via Gallabox`);
-        
-        
-      } catch (sendErr) {
-        console.error('[Webhook] ❌ Failed to send via Gallabox:', sendErr.response?.data || sendErr.message);
-      }
-    } else {
-      console.log('[Webhook] ⚠️  Gallabox credentials missing — skipping outbound send.');
-    }
+    await sendToGallabox(res, customerPhone, replyText, channelID);
 
     // ── Log optimized interaction and Save DB State ───────────────
     const optimizedBotText = `✨ ${result.totalCount} numbers found for category '${jsonQuery?.category || 'generic'}' (Page ${result.currentPage}/${result.totalPages})`;
@@ -371,5 +281,82 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('[Webhook] Fatal Error:', error);
     return res.status(500).json({ error: 'Internal Server Error', details: error.message });
+  }
+}
+
+// ── Helper Function ─────────────────────────────────────────────────────────
+async function sendToGallabox(res, phone, text, channelId) {
+  const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
+  const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
+  
+  if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelId && phone) {
+    try {
+      const { default: axios } = await import('axios');
+      await axios.post(
+        'https://server.gallabox.com/devapi/messages/whatsapp',
+        {
+          channelId: channelId,
+          channelType: "whatsapp",
+          recipient: { name: phone, phone: phone },
+          whatsapp: { type: "text", text: { body: text } }
+        },
+        {
+          headers: {
+            'apiKey': GALLABOX_API_KEY,
+            'apiSecret': GALLABOX_API_SECRET,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      console.log(`[Webhook] 📤 Reply sent to ${phone} via Gallabox`);
+    } catch (sendErr) {
+      console.error('[Webhook] ❌ Failed to send via Gallabox:', sendErr.response?.data || sendErr.message);
+    }
+  } else {
+    console.log('[Webhook] ⚠️ Gallabox credentials missing — skipping outbound send.');
+  }
+  
+  // Always return success 200 to prevent Vercel retries
+  if (res && !res.headersSent) {
+    return res.status(200).json({ success: true });
+  }
+}
+
+// ── Tag Helper Function ─────────────────────────────────────────────────────
+async function addGallaboxTag(phone, tagName, channelId) {
+  const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
+  const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
+  const ACCOUNT_ID          = process.env.GALLABOX_ACCOUNT_ID; // Need account ID for tagging
+
+  if (!GALLABOX_API_KEY || !GALLABOX_API_SECRET) {
+    console.log('[Webhook] ⚠️ Missing Gallabox API keys for tagging.');
+    return;
+  }
+
+  try {
+    const { default: axios } = await import('axios');
+    
+    // Many WhatsApp CRMs allow updating tags via their Contacts API.
+    // For Gallabox specifically, we assume a standard PUT / contacts route.
+    // Replace the URL with exact Gallabox endpoint if known.
+    // Example using generic contact tag update:
+    await axios.post(
+      `https://server.gallabox.com/devapi/contacts/tags`, 
+      {
+        phone: phone,
+        tags: [tagName]
+      },
+      {
+        headers: {
+          'apiKey': GALLABOX_API_KEY,
+          'apiSecret': GALLABOX_API_SECRET,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    console.log(`[Webhook] 🏷️ Tag '${tagName}' added to ${phone} in Gallabox.`);
+  } catch (err) {
+    console.error('[Webhook] ❌ Failed to add Gallabox tag:', err.response?.data || err.message);
+    // Silent fail so we don't break the user experience
   }
 }

@@ -279,12 +279,14 @@ export function formatNumbersReply(products, totalCount = 0, currentPage = 1, to
     reply += '\n';
   });
 
-  reply += `━━━━━━━━━━━━━━━━━\n`;
+  reply += `┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`;
   if (currentPage < totalPages) {
-    reply += `📄 Reply *"show more"* for next numbers\n`;
+    reply += `👉 Reply *"more"* for next page\n`;
   }
+  reply += `👉 Reply *"reset"* for new search\n`;
+  reply += `👉 Reply *"agent"* to talk to us\n\n`;
   reply += `🛒 *Kharidne ke liye reply karo:*\n`;
-  reply += `👉 *I want to buy this <number>*  _(e.g. I want to buy this ${products[0]?.productMobileNumber})_`;
+  reply += `_"buy ${products[0]?.productMobileNumber}"_`;
 
   return reply;
 }

@@ -39,7 +39,9 @@ const CustomerBotProfileSchema = new mongoose.Schema({
   }],
   activeFilters: { type: mongoose.Schema.Types.Mixed, default: {} },
   lastPage: { type: Number, default: 1 },
-  isAiEnabled: { type: Boolean, default: false }
+  botState: { type: String, enum: ['NEW', 'AWAITING_INFO', 'ACTIVE', 'PAUSED'], default: 'NEW' },
+  pinCode: { type: String },
+  name: { type: String }
 }, { timestamps: true });
 
 // Use existing models to avoid OverwriteModelError on hot reloads
@@ -69,28 +71,44 @@ export async function getCustomerContext(phone, name) {
     return {
       activeFilters: profile.activeFilters || {},
       lastPage: profile.lastPage || 1,
-      isAiEnabled: profile.isAiEnabled || false
+      botState: profile.botState || 'NEW',
+      name: profile.name,
+      pinCode: profile.pinCode
     };
   } catch (err) {
     console.error('[Analytics] getCustomerContext error:', err.message);
-    return { activeFilters: {}, lastPage: 1, isAiEnabled: false };
+    return { activeFilters: {}, lastPage: 1, botState: 'NEW' };
   }
 }
 
 /**
- * Enable or disable AI for a customer (e.g. based on Gallabox menu clicks)
+ * Update the customer's onboarding state, name, and pincode
  */
-export async function setAiEnabled(phone, isEnabled) {
+export async function updateCustomerInfo(phone, updates) {
   try {
     await connectDB();
     await CustomerProfile.findOneAndUpdate(
       { phone },
-      { $set: { isAiEnabled: isEnabled, activeFilters: {}, lastPage: 1 } },
+      { $set: updates },
       { upsert: true }
     );
-    console.log(`[Analytics] AI Enabled set to ${isEnabled} for ${phone}`);
   } catch (err) {
-    console.error('[Analytics] setAiEnabled error:', err.message);
+    console.error('[Analytics] updateCustomerInfo error:', err.message);
+  }
+}
+
+/**
+ * Clear the active filters but keep name, pincode, and state intact
+ */
+export async function resetActiveFilters(phone) {
+  try {
+    await connectDB();
+    await CustomerProfile.findOneAndUpdate(
+      { phone },
+      { $set: { activeFilters: {}, lastPage: 1 } }
+    );
+  } catch (err) {
+    console.error('[Analytics] resetActiveFilters error:', err.message);
   }
 }
 
