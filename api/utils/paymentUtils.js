@@ -29,6 +29,17 @@ export async function generateUPIQRCode(amount, note = '') {
   return qrDataUrl.replace(/^data:image\/png;base64,/, '');
 }
 
+export function generateUPIQRCodeUrl(amount, note = '') {
+  const formattedAmount = parseFloat(amount).toFixed(2);
+  const cleanNote = String(note).substring(0, 100).trim();
+
+  let upiUrl = `upi://pay?pa=${NUMBERWALE_UPI_ID}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${formattedAmount}&cu=INR`;
+  if (cleanNote) upiUrl += `&tn=${encodeURIComponent(cleanNote)}`;
+
+  console.log(`[QR] Generating UPI QR URL for ₹${formattedAmount} | ${NUMBERWALE_UPI_ID}`);
+  return `https://quickchart.io/qr?text=${encodeURIComponent(upiUrl)}&size=400`;
+}
+
 /**
  * Create a Razorpay Payment Link for a specific number purchase.
  * Returns the short_url (e.g. https://rzp.io/l/abc123)

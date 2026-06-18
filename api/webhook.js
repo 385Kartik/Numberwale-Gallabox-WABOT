@@ -2,7 +2,7 @@ import { parseUserMessage } from './utils/aiParser.js';
 import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
 import { isShowMoreIntent, isBotPaused, pauseBot } from './utils/sessionStore.js';
 import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters } from './utils/analytics.js';
-import { generateUPIQRCode, createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
+import { generateUPIQRCodeUrl, createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
 function extractBuyNumber(text) {
@@ -22,13 +22,16 @@ export default async function handler(req, res) {
 
     console.log('[Webhook] Raw payload received:', JSON.stringify(body, null, 2));
 
-    const userMessage = body?.whatsapp?.text?.body ||
-                        body?.message?.text || 
-                        body?.text || 
-                        body?.payload?.text || 
-                        body?.data?.message?.text || 
-                        body?.payload?.message?.text ||
-                        body?.message?.payload?.text;
+    let rawMsg = body?.whatsapp?.text?.body ||
+                 body?.message?.text?.body ||
+                 body?.message?.text || 
+                 body?.text || 
+                 body?.payload?.text || 
+                 body?.data?.message?.text || 
+                 body?.payload?.message?.text ||
+                 body?.message?.payload?.text;
+                 
+    const userMessage = typeof rawMsg === 'object' ? rawMsg?.body : rawMsg;
 
     const customerPhone = body?.whatsapp?.from ||
                           body?.contact?.phone || 
@@ -168,16 +171,13 @@ export default async function handler(req, res) {
     } else if (extractBuyNumber(userMessage)) {
       const buyNumber = extractBuyNumber(userMessage);
       console.log(`[Webhook] Buy intent for number: ${buyNumber}`);
-      const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
-      const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-      const { default: axios } = await import('axios');
 
       try {
         const product = await fetchProductByNumber(buyNumber);
         if (!product || !product.price) {
           const errMsg = `❌ *${buyNumber}* nahi mila ya already sold out ho gaya hai.\n\nDobara search karo: _req ${buyNumber.slice(-4)}_`;
           await sendToGallabox(customerPhone, errMsg, channelID);
-        return res.status(200).json({ success: true });
+          return res.status(200).json({ success: true });
         }
 
         const paymentLink = await createRazorpayPaymentLink({
@@ -186,15 +186,20 @@ export default async function handler(req, res) {
           customerPhone,
           customerName
         });
-        const qrBase64 = await generateUPIQRCode(product.price, `VIP Number ${buyNumber}`);
 
-        const caption = `🚀 *Payment Link & QR Ready!*\n\n` +
+        const qrUrl = generateUPIQRCodeUrl(product.price, `VIP Number ${buyNumber}`);
+
+        const caption = `🛒 *Payment Link & QR Ready!*\n\n` +
           `📱 Number: *${buyNumber}*\n` +
-          `💳 Amount: *₹${product.price.toLocaleString('en-IN')}*\n\n` +
-          `GPay / PhonePe / Paytm se upar diya QR scan karein — amount already filled hoga! 🚀\n` +
+          `💸 Amount: *₹${product.price.toLocaleString('en-IN')}*\n\n` +
+          `GPay / PhonePe / Paytm se upar diya QR scan karein — amount already filled hoga! 🎯\n` +
           `_UPI: msnumberwale.eazypay@icici_\n\n` +
-          `👉 *Or Pay via Razorpay:*\n${paymentLink}\n\n` +
+          `💳 *Or Pay via Razorpay:*\n${paymentLink}\n\n` +
           `⚠️ _Yeh link 24 ghante valid hai._`;
+
+        const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
+        const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
+        const { default: axios } = await import('axios');
 
         if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID) {
           await axios.post('https://server.gallabox.com/devapi/messages/whatsapp',
@@ -205,16 +210,18 @@ export default async function handler(req, res) {
               whatsapp: { 
                 type: 'image', 
                 image: { 
-                  base64: qrBase64, 
-                  mimeType: 'image/png', 
-                  caption 
+                  link: qrUrl, 
+                  caption: caption 
                 } 
               } 
             },
             { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
-          ).catch(() => {});
+          ).catch((e) => console.error('[Webhook] Image Send Error:', e.message));
+        } else {
+          await sendToGallabox(customerPhone, caption, channelID);
         }
-        console.log(`[Webhook] Buy reply with QR sent for ${buyNumber}`);
+
+        console.log(`[Webhook] Buy reply sent for ${buyNumber}`);
       } catch (buyErr) {
         console.error('[Webhook] Buy intent error:', buyErr.message);
         const errMsg = `❌ Payment link generate nahi hua. Thodi der baad try karo.`;

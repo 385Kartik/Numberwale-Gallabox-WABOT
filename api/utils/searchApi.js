@@ -149,8 +149,8 @@ function formatNumberForWhatsApp(number) {
 
   const { matches } = classifyEngine(d);
   if (!matches || matches.length === 0) {
-    // No pattern — just group as 5+5
-    return `${d.slice(0, 5)}-${d.slice(5)}`;
+    // No pattern — just group as 5 5
+    return `${d.slice(0, 5)} ${d.slice(5)}`;
   }
 
   const sorted = [...matches].sort((a, b) => a[0] - b[0]);
@@ -159,22 +159,23 @@ function formatNumberForWhatsApp(number) {
 
   for (const [start, end] of sorted) {
     if (start > last) {
-      // Non-pattern section: add dashes between digits
+      // Non-pattern section: add space between segments
       const seg = d.slice(last, start);
-      result += (result ? '-' : '') + seg.split('').join('');
-      result += '-';
+      result += (result ? ' ' : '') + seg;
+      result += ' ';
     } else if (result) {
-      result += '-';
+      result += ' ';
     }
-    result += `*${d.slice(start, end)}*`;
+    // Pattern section: no bold, just text
+    result += `${d.slice(start, end)}`;
     last = end;
   }
   if (last < d.length) {
-    result += `-${d.slice(last)}`;
+    result += (result ? ' ' : '') + d.slice(last);
   }
 
-  // Clean up multiple dashes
-  return result.replace(/-{2,}/g, '-').replace(/^-|-$/g, '');
+  // Remove any double spaces
+  return result.replace(/\s+/g, ' ').trim();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -265,9 +266,9 @@ export function formatNumbersReply(products, totalCount = 0, currentPage = 1, to
     // Bold-formatted number using classifier
     const formattedNum = formatNumberForWhatsApp(number);
 
-    reply += `*${index + 1}. ${formattedNum}*\n`;
-    if (catName) reply += `   📂 ${catName}\n`;
-    if (brand)   reply += `   📶 ${brand}\n`;
+    reply += `${index + 1}. ${formattedNum}\n`;
+    if (catName) reply += `   📁 ${catName}\n`;
+    if (brand)   reply += `   🏷️  ${brand}\n`;
     if (price)   reply += `   💰 ₹${price.toLocaleString('en-IN')}\n`;
 
     const numsLine = [];
