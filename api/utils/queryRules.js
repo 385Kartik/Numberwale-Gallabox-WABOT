@@ -60,6 +60,8 @@ const PATTERN_KEYWORDS = [
   [/\btetra\b/i,               'TETRA'],
   [/\btriple\b/i,              'TRIPLE'],
   [/\bdouble\b/i,              'DOUBLE'],
+  [/\b(?:start(?:ing|s)?|first|shuru)\b/i, 'START'],
+  [/\b(?:end(?:ing|s)?|last|khatam|aakhir)\b/i, 'END'],
 ];
 
 function wordToNum(w) {
@@ -143,10 +145,11 @@ function extractPositional(q, consumed) {
   const out = {};
 
   // ── endsWith ──────────────────────────────────────────────────────────────
-  // "ending with 786", "786 ending", "ends with 00", "last 00", "aakhir 786"
   const endDigitRx = [
-    /(?:end(?:ing|s)?\s*(?:with|in)?|last|aakhir(?:\s*mein)?|khatam(?:\s*mein)?)\s*(\d{1,10})/i,
-    /(\d{1,10})\s*(?:ending|end\b|se\s*khatam|aakhir)/i,
+    // Examples: "ending 987", "ends with 987", "last 987", "at end 987"
+    /(?:end(?:ing|s)?\s*(?:with|in)?|last|at\s*end|aakhir(?:\s*mein)?|khatam(?:\s*mein)?)\s*(\d{1,10})/i,
+    // Examples: "987 ending", "987 ends", "987 last", "987 at end"
+    /(\d{1,10})\s*(?:ending|end\b|at\s*end\b|se\s*khatam|aakhir)/i,
   ];
   for (const rx of endDigitRx) {
     const m = q.match(rx);
@@ -537,7 +540,29 @@ function extractPureAnywhere(q, consumed) {
 // MASTER EXTRACTOR
 // ─────────────────────────────────────────────────────────────────────────────
 function extractFiltersFromQuery(rawQuery) {
-  const q = rawQuery.trim();
+  let q = rawQuery || '';
+
+  // FIREWALL: Zero-Relevance Check (Save AI Tokens)
+  // If the query contains NO digits and NO known pattern/category keywords,
+  // it is entirely irrelevant (e.g. "hi", "i need a sofa").
+  // We return confident: true with empty object so AI is completely skipped.
+  const hasDigits = /\d/.test(q);
+  const hasPatternKeywords = PATTERN_KEYWORDS.some(([rx]) => rx.test(q));
+  
+  // Intent keywords that signify a genuine search even without digits or explicit patterns
+  // Includes spelled-out numbers (one, two) and domain terms (numerology, moolank)
+  const intentKeywords = /\b(numerology|moolank|baba|lucky|astrology|total|sum|avoid|req|chahiye|need|want|one|two|three|four|five|six|seven|eight|nine|ten)\b/i;
+  const hasIntent = intentKeywords.test(q);
+
+  if (!hasDigits && !hasPatternKeywords && !hasIntent) {
+    return {
+      extracted: {},
+      confident: true, // Bypass AI
+      unconsumedDigits: []
+    };
+  }
+
+  q = q.trim();
   const consumed = []; // digit strings "claimed" by an extractor
 
   // Run all extractors
@@ -629,8 +654,8 @@ function extractFiltersFromQuery(rawQuery) {
       const isCaptured = 
         (extracted.category && extracted.category.replace(/-/g, '_').toUpperCase().includes(kw)) ||
         (kw === 'DOUBLE' && extracted.category === 'doubling-numbers') ||
-        (extracted.startsWith === kw) ||
-        (extracted.endsWith === kw) ||
+        (kw === 'START' && extracted.startsWith !== undefined) ||
+        (kw === 'END' && extracted.endsWith !== undefined) ||
         (['DOUBLE','TRIPLE','TETRA','PENTA','HEXA','SEPTA','OCTA'].includes(kw) && extracted.digitFreq1Count !== undefined);
       
       if (!isCaptured) {

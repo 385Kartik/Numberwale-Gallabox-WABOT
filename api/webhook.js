@@ -44,6 +44,16 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, reason: 'no_message' });
     }
 
+    // 🚦 Ignore Outbound/Admin Messages 🚦
+    // Do not process messages sent by the business/agent or system events like 'delivered'/'read'
+    const isOutbound = body?.direction === 'OUTBOUND' || body?.message?.direction === 'outbound' || body?.message?.type === 'sent';
+    const isStatusEvent = body?.event && !['message', 'message_received'].includes(body.event);
+    
+    if (isOutbound || isStatusEvent) {
+      console.log('[Webhook] Ignoring outbound or system status event.');
+      return res.status(200).json({ success: true, reason: 'outbound_or_status' });
+    }
+
     // ── Bot Pause Check ───────────────────────────────────────────────────
     if (customerPhone && isBotPaused(customerPhone)) {
       console.log(`[Webhook] Bot is PAUSED for ${customerPhone}. Skipping — agent is handling.`);
