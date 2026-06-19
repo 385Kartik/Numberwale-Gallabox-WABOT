@@ -37,8 +37,9 @@ export function generateUPIQRCodeUrl(amount, note = '') {
   if (cleanNote) upiUrl += `&tn=${encodeURIComponent(cleanNote)}`;
 
   console.log(`[QR] Generating UPI QR URL for ₹${formattedAmount} | ${NUMBERWALE_UPI_ID}`);
-  // quickchart.io returns direct image/png — WhatsApp accepts this reliably
-  return `https://quickchart.io/qr?format=png&size=400&text=${encodeURIComponent(upiUrl)}`;
+  
+  // Use Vercel serverless function with .png in the PATH to satisfy WhatsApp Cloud API validation
+  return `https://numberwale-gallabox-wabot.vercel.app/api/qr.png?text=${encodeURIComponent(upiUrl)}`;
 }
 
 /**

@@ -194,12 +194,19 @@ export default async function handler(req, res) {
         const gstAmount = Math.round(subtotal * (gstPercentage / 100));
         const totalAmount = subtotal + gstAmount;
 
-        const paymentLink = await createRazorpayPaymentLink({
-          number: buyNumber,
-          price: totalAmount, // Pass totalAmount with GST to Razorpay
-          customerPhone,
-          customerName
-        });
+        let paymentLinkText = "";
+        try {
+          const paymentLink = await createRazorpayPaymentLink({
+            number: buyNumber,
+            price: totalAmount, // Pass totalAmount with GST to Razorpay
+            customerPhone,
+            customerName
+          });
+          paymentLinkText = `💳 *Or Pay via Razorpay:*\n${paymentLink}\n\n⚠️ _Yeh link 24 ghante valid hai._`;
+        } catch (rzpErr) {
+          console.error('[Webhook] Razorpay Link Error:', rzpErr.message);
+          paymentLinkText = `⚠️ *Razorpay Link Issue:* ${rzpErr.message}\n_Please use the UPI QR code above to pay._`;
+        }
 
         const qrUrl = generateUPIQRCodeUrl(totalAmount, `VIP Number ${buyNumber}`);
 
@@ -228,14 +235,17 @@ export default async function handler(req, res) {
           priceBreakdown +
           `GPay / PhonePe / Paytm se is UPI ID par direct pay kar sakte hain:\n` +
           `_UPI: msnumberwale.eazypay@icici_\n\n` +
-          `💳 *Or Pay via Razorpay:*\n${paymentLink}\n\n` +
-          `⚠️ _Yeh link 24 ghante valid hai._`;
+          paymentLinkText;
 
+        // 1. ALWAYS send the text details first so it's guaranteed to deliver
+        await sendToGallabox(customerPhone, caption, channelID);
+
+        // 2. Then attempt to send the QR Code image separately
         const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
         const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-        const { default: axios } = await import('axios');
-
+        
         if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelID) {
+          const { default: axios } = await import('axios');
           await axios.post('https://server.gallabox.com/devapi/messages/whatsapp',
             { 
               channelId: channelID, 
@@ -245,14 +255,12 @@ export default async function handler(req, res) {
                 type: 'image', 
                 image: { 
                   link: qrUrl, 
-                  caption: caption 
+                  caption: `Scanner to pay directly via UPI` 
                 } 
               } 
             },
             { headers: { 'apiKey': GALLABOX_API_KEY, 'apiSecret': GALLABOX_API_SECRET, 'Content-Type': 'application/json' } }
-          ).catch((e) => console.error('[Webhook] Image Send Error:', e.message));
-        } else {
-          await sendToGallabox(customerPhone, caption, channelID);
+          ).catch((e) => console.error('[Webhook] QR Image Send Error:', e.message));
         }
 
         console.log(`[Webhook] Buy reply sent for ${buyNumber}`);
