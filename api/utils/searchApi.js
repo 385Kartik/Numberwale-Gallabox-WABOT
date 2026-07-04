@@ -208,21 +208,26 @@ export async function fetchNumbers(jsonQuery, page = 1) {
       if (jsonQuery[`digitFreq${i}Digit`] && jsonQuery[`digitFreq${i}Count`]) {
         advancedFields[`digitFreq${i}Digit`] = String(jsonQuery[`digitFreq${i}Digit`]);
         advancedFields[`digitFreq${i}Count`] = Number(jsonQuery[`digitFreq${i}Count`]);
+        if (jsonQuery[`digitFreq${i}MaxCount`]) {
+          advancedFields[`digitFreq${i}MaxCount`] = Number(jsonQuery[`digitFreq${i}MaxCount`]);
+        }
       }
     }
 
     if (Object.keys(advancedFields).length > 0) searchParams.advanced = advancedFields;
 
+    let priceRangeStr = null;
     if (jsonQuery.minPrice && jsonQuery.maxPrice) {
-      searchParams.priceRange = `${jsonQuery.minPrice}-${jsonQuery.maxPrice}`;
+      priceRangeStr = `${jsonQuery.minPrice}-${jsonQuery.maxPrice}`;
     } else if (jsonQuery.minPrice) {
-      searchParams.priceRange = `${jsonQuery.minPrice}-1000000`;
+      priceRangeStr = `${jsonQuery.minPrice}-1000000`;
     } else if (jsonQuery.maxPrice) {
-      searchParams.priceRange = `0-${jsonQuery.maxPrice}`;
+      priceRangeStr = `0-${jsonQuery.maxPrice}`;
     }
 
     const finalQuery = { search: searchParams, page, limit: PAGE_SIZE };
     if (jsonQuery.category) finalQuery.category = jsonQuery.category;
+    if (priceRangeStr) finalQuery.priceRange = priceRangeStr;
 
     console.log(`[Search] Querying ${API_URL}/api/v1/products/get-products with:`, finalQuery);
 
