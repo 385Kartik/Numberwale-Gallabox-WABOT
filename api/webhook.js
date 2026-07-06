@@ -195,7 +195,7 @@ export default async function handler(req, res) {
         const totalAmount = subtotal + gstAmount;
 
         const FRONTEND_URL = process.env.FRONTEND_URL || 'https://www.numberwale.com';
-        const checkoutLink = `${FRONTEND_URL}/cart-add/${buyNumber}?phone=${encodeURIComponent(customerPhone)}&name=${encodeURIComponent(customerName)}`;
+        const checkoutLink = `${FRONTEND_URL}/cart-add/${buyNumber}`;
 
         let priceBreakdown = ``;
         const effDiscount = product.myDiscount !== 0 && product.myDiscount ? product.myDiscount : product.vendorDiscount;
