@@ -39,9 +39,10 @@ const CustomerBotProfileSchema = new mongoose.Schema({
   }],
   activeFilters: { type: mongoose.Schema.Types.Mixed, default: {} },
   lastPage: { type: Number, default: 1 },
-  botState: { type: String, enum: ['NEW', 'AWAITING_INFO', 'ACTIVE', 'PAUSED'], default: 'NEW' },
+  botState: { type: String, enum: ['NEW', 'AWAITING_LANGUAGE', 'AWAITING_INFO', 'ACTIVE', 'PAUSED'], default: 'NEW' },
   pinCode: { type: String },
-  name: { type: String }
+  name: { type: String },
+  language: { type: String, default: null }
 }, { timestamps: true });
 
 // Use existing models to avoid OverwriteModelError on hot reloads
@@ -73,11 +74,12 @@ export async function getCustomerContext(phone, name) {
       lastPage: profile.lastPage || 1,
       botState: profile.botState || 'NEW',
       name: profile.name,
-      pinCode: profile.pinCode
+      pinCode: profile.pinCode,
+      language: profile.language || null
     };
   } catch (err) {
     console.error('[Analytics] getCustomerContext error:', err.message);
-    return { activeFilters: {}, lastPage: 1, botState: 'NEW' };
+    return { activeFilters: {}, lastPage: 1, botState: 'NEW', language: null };
   }
 }
 

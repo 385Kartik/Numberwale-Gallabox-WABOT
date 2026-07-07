@@ -231,7 +231,9 @@ export async function fetchNumbers(jsonQuery, page = 1) {
 
     console.log(`[Search] Querying ${API_URL}/api/v1/products/get-products with:`, finalQuery);
 
-    const response = await axios.get(`${API_URL}/api/v1/products/get-products`, { params: finalQuery });
+    // Timeout is set to 7000ms (7 seconds) to prevent Vercel Serverless Function (10s limit) from killing the execution.
+    // This ensures we catch the timeout and gracefully reply with "Oops!" instead of dropping the message entirely.
+    const response = await axios.get(`${API_URL}/api/v1/products/get-products`, { params: finalQuery, timeout: 7000 });
 
     if (response.data && Array.isArray(response.data.products)) {
       return {
@@ -307,7 +309,8 @@ export function formatNumbersReply(products, totalCount = 0, currentPage = 1, to
     reply += `👉 Reply *"more"* for next page\n`;
   }
   reply += `👉 Reply *"reset"* for new search\n`;
-  reply += `👉 Reply *"agent"* to talk to us\n\n`;
+  reply += `👉 Reply *"agent"* to talk to us\n`;
+  reply += `👉 Reply *"language"* to change language\n\n`;
   reply += `🛒 *Kharidne ke liye reply karo:*\n`;
   reply += `_"buy ${products[0]?.productMobileNumber}"_`;
 

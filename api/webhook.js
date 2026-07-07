@@ -6,8 +6,12 @@ import { generateUPIQRCodeUrl, createRazorpayPaymentLink, fetchProductByNumber }
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
 function extractBuyNumber(text) {
-  const m = text.trim().match(/(?:buy|purchase)\s*(?:this)?\s*(\d{10})/i);
-  return m ? m[1] : null;
+  const m = text.trim().match(/(?:buy|purchase)\s*(?:this)?\s*([\d\s\-]{10,15})/i);
+  if (m) {
+    const cleanNum = m[1].replace(/\D/g, '');
+    if (cleanNum.length === 10) return cleanNum;
+  }
+  return null;
 }
 
 // Vercel Serverless Function entry point
@@ -99,6 +103,7 @@ export default async function handler(req, res) {
     // ── Global Commands ───────────────────────────────────────────────────
     const agentRegex = /^(agent|human|talk|call|help|customer care|executive|insan|bhai|bhaiya)\b/i;
     const resetRegex = /^(menu|restart|reset|clear|start)\b/i;
+    const languageRegex = /^(language|change language|bhasha|bhasa)\b/i;
 
     if (agentRegex.test(lowerMsg)) {
       await updateCustomerInfo(customerPhone, { botState: 'PAUSED' });
@@ -117,12 +122,55 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true });
     }
 
+    if (languageRegex.test(lowerMsg)) {
+      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE', language: null });
+      const langReply = "Please select your preferred language / Kripya apni bhasha chune:\n1. English\n2. Hindi\n3. Gujarati\n4. Marathi\n5. Hinglish";
+      await sendToGallabox(customerPhone, langReply, channelID);
+      return res.status(200).json({ success: true });
+    }
+
     // ── State Machine: Onboarding ─────────────────────────────────────────
     if (currentState === 'NEW') {
-      const welcomeReply = "Welcome to Numberwale! 🙏\n\nHum aapko best VIP mobile numbers dhundhne mein madad karenge.\n\nKripya apna *Naam* aur *6-digit Pincode* type karke bhejein taaki hum local availability check kar sakein.\n\nExample: _Rahul 131001_";
-      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_INFO' });
-      await sendToGallabox(customerPhone, welcomeReply, channelID);
+      if (!customerContext.language) {
+        const langReply = "Please select your preferred language / Kripya apni bhasha chune:\n1. English\n2. Hindi\n3. Gujarati\n4. Marathi\n5. Hinglish";
+        await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE' });
+        await sendToGallabox(customerPhone, langReply, channelID);
         return res.status(200).json({ success: true });
+      }
+      // Should not reach here normally, but just in case
+      currentState = 'AWAITING_INFO';
+    }
+
+    if (currentState === 'AWAITING_LANGUAGE') {
+      const selected = userMessage.trim().toLowerCase();
+      let chosenLanguage = null;
+      if (selected === '1' || selected === 'english') chosenLanguage = 'English';
+      else if (selected === '2' || selected === 'hindi') chosenLanguage = 'Hindi';
+      else if (selected === '3' || selected === 'gujarati') chosenLanguage = 'Gujarati';
+      else if (selected === '4' || selected === 'marathi') chosenLanguage = 'Marathi';
+      else if (selected === '5' || selected === 'hinglish') chosenLanguage = 'Hinglish';
+      
+      if (!chosenLanguage) {
+        const errorReply = "❌ Invalid selection. Please reply with 1, 2, 3, 4, or 5.\nGalat chunaav. Kripya 1, 2, 3, 4, ya 5 reply karein.";
+        await sendToGallabox(customerPhone, errorReply, channelID);
+        return res.status(200).json({ success: true });
+      }
+      
+      let welcomeReply = "Welcome to Numberwale! 🙏\n\nHum aapko best VIP mobile numbers dhundhne mein madad karenge.\n\nKripya apna *Naam* aur *6-digit Pincode* type karke bhejein taaki hum local availability check kar sakein.\n\nExample: _Rahul 131001_";
+      
+      if (chosenLanguage === 'English') {
+        welcomeReply = "Welcome to Numberwale! 🙏\n\nWe will help you find the best VIP mobile numbers.\n\nPlease type your *Name* and *6-digit Pincode* so we can check local availability.\n\nExample: _Rahul 131001_";
+      } else if (chosenLanguage === 'Hindi') {
+        welcomeReply = "Numberwale mein aapka swagat hai! 🙏\n\nHum aapko best VIP mobile numbers dhundhne mein madad karenge.\n\nKripya apna *Naam* aur *6-digit Pincode* type karke bhejein taaki hum local availability check kar sakein.\n\nExample: _Rahul 131001_";
+      } else if (chosenLanguage === 'Gujarati') {
+        welcomeReply = "Numberwale ma tamaru swagat che! 🙏\n\nAme tamne best VIP mobile numbers shodhmva ma madad karishu.\n\nKrupa kari tamaru *Naam* ane *6-digit Pincode* type kari moklo jethi ame local availability check kari shakiye.\n\nExample: _Rahul 131001_";
+      } else if (chosenLanguage === 'Marathi') {
+        welcomeReply = "Numberwale madhye tumche swagat aahe! 🙏\n\nAamhi tumhala best VIP mobile numbers shodhnyat madat karu.\n\nKrupaya tumche *Naav* aani *6-digit Pincode* type karun pathva jeणेkarun aamhi local availability check karu shaku.\n\nExample: _Rahul 131001_";
+      }
+      
+      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_INFO', language: chosenLanguage });
+      await sendToGallabox(customerPhone, welcomeReply, channelID);
+      return res.status(200).json({ success: true });
     }
 
     if (currentState === 'AWAITING_INFO') {
@@ -194,7 +242,8 @@ export default async function handler(req, res) {
         const gstAmount = Math.round(subtotal * (gstPercentage / 100));
         const totalAmount = subtotal + gstAmount;
 
-        const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+        // Temporarily hardcoded to localhost as requested by user
+        const FRONTEND_URL = 'http://localhost:5173';
         const checkoutLink = `${FRONTEND_URL}/cart-add/${buyNumber}`;
 
         let priceBreakdown = ``;
@@ -241,8 +290,8 @@ export default async function handler(req, res) {
       const greetingRegex = /^(hi|hello|hii|helo|hey|ok|okay|thanks|thank you|shukriya|theek hai|thik hai|👍|🙏|haan|ha|yes|no|nahi|hmm|hm|good|great|nice|👌)$/i;
       if (greetingRegex.test(lowerMsg.trim())) {
         const greetMsg = customerContext.activeFilters && Object.keys(customerContext.activeFilters).length > 0
-          ? `😊 Koi baat nahi! Kya aap apni pichli search continue karna chahte hain ya naya search karna hai?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for new search`
-          : `👋 Hello! Main aapki kaise madad kar sakta hun?\n\nExample: _req 786 numbers under 20000_`;
+          ? `😊 Koi baat nahi! Kya aap apni pichli search continue karna chahte hain ya naya search karna hai?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for new search\n👉 Reply *"language"* to change language`
+          : `👋 Hello! Main aapki kaise madad kar sakta hun?\n\nExample: _req 786 numbers under 20000_\n\n👉 Reply *"language"* to change language`;
         await sendToGallabox(customerPhone, greetMsg, channelID);
         return res.status(200).json({ success: true });
       }
@@ -339,23 +388,35 @@ async function sendToGallabox(phone, text, channelId) {
   if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelId && phone) {
     try {
       const { default: axios } = await import('axios');
-      await axios.post(
-        'https://server.gallabox.com/devapi/messages/whatsapp',
-        {
-          channelId: channelId,
-          channelType: "whatsapp",
-          recipient: { name: phone, phone: phone },
-          whatsapp: { type: "text", text: { body: text } }
-        },
-        {
-          headers: {
-            'apiKey': GALLABOX_API_KEY,
-            'apiSecret': GALLABOX_API_SECRET,
-            'Content-Type': 'application/json'
-          }
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          await axios.post(
+            'https://server.gallabox.com/devapi/messages/whatsapp',
+            {
+              channelId: channelId,
+              channelType: "whatsapp",
+              recipient: { name: phone, phone: phone },
+              whatsapp: { type: "text", text: { body: text } }
+            },
+            {
+              headers: {
+                'apiKey': GALLABOX_API_KEY,
+                'apiSecret': GALLABOX_API_SECRET,
+                'Content-Type': 'application/json'
+              },
+              timeout: 5000 // 5 seconds timeout for sending message
+            }
+          );
+          console.log(`[Webhook] ✉️  Reply sent to ${phone} via Gallabox`);
+          break; // Success, break the retry loop
+        } catch (err) {
+          retries--;
+          if (retries === 0) throw err;
+          console.log(`[Webhook] ⚠️ Gallabox send failed, retrying... (${retries} attempts left)`);
+          await new Promise(res => setTimeout(res, 500)); // wait 500ms before retry
         }
-      );
-      console.log(`[Webhook] 📤 Reply sent to ${phone} via Gallabox`);
+      }
     } catch (sendErr) {
       console.error('[Webhook] ❌ Failed to send via Gallabox:', sendErr.response?.data || sendErr.message);
     }
