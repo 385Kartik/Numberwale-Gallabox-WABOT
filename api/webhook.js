@@ -288,7 +288,7 @@ export default async function handler(req, res) {
     } else {
       // Guard: if user sends a greeting/acknowledgement, don't trigger a search
       const greetingRegex = /^(hi|hello|hii|helo|hey|ok|okay|thanks|thank you|shukriya|theek hai|thik hai|👍|🙏|haan|ha|yes|no|nahi|hmm|hm|good|great|nice|👌)$/i;
-      if (greetingRegex.test(lowerMsg.trim())) {
+      if (greetingRegex.test(lowerMsg.trim()) || lowerMsg.includes('found your website') || lowerMsg.includes('question about fancy numbers')) {
         const greetMsg = customerContext.activeFilters && Object.keys(customerContext.activeFilters).length > 0
           ? `😊 Koi baat nahi! Kya aap apni pichli search continue karna chahte hain ya naya search karna hai?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for new search\n👉 Reply *"language"* to change language`
           : `👋 Hello! Main aapki kaise madad kar sakta hun?\n\nExample: _req 786 numbers under 20000_\n\n👉 Reply *"language"* to change language`;
