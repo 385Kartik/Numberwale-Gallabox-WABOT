@@ -322,7 +322,7 @@ export default async function handler(req, res) {
         const totalAmount = subtotal + gstAmount;
 
         // Temporarily hardcoded to localhost as requested by user
-        const FRONTEND_URL = 'http://localhost:5173';
+        const FRONTEND_URL = 'http://localhost:5174';
         const checkoutLink = `${FRONTEND_URL}/cart-add/${buyNumber}`;
 
         let priceBreakdown = ``;
