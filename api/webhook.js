@@ -64,7 +64,20 @@ export default async function handler(req, res) {
       if (userMessage && userMessage.trim().toLowerCase() === '#bot on') {
         console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
         await updateCustomerInfo(customerPhone, { botState: 'ACTIVE' });
-        const resumeMsg = "👋 Hi! Main AI assistant wapas aa gaya hun.\n\nAapko kaise VIP mobile numbers chahiye?";
+        
+        const lang = customerContext.language || 'English';
+        let resumeMsg = "👋 Hi! Main AI assistant wapas aa gaya hun.\n\nAapko kaise VIP mobile numbers chahiye?";
+        
+        if (lang === 'English') {
+          resumeMsg = "👋 Hi! I am the AI assistant, back online.\n\nWhat kind of VIP mobile numbers are you looking for?";
+        } else if (lang === 'Hindi') {
+          resumeMsg = "👋 नमस्ते! मैं AI असिस्टेंट वापस आ गया हूँ।\n\nआपको कैसे VIP मोबाइल नंबर्स चाहिए?";
+        } else if (lang === 'Gujarati') {
+          resumeMsg = "👋 નમસ્તે! હું AI આસિસ્ટન્ટ પાછો આવી ગયો છું.\n\nતમારે કેવા VIP મોબાઈલ નંબર્સ જોઈએ છે?";
+        } else if (lang === 'Marathi') {
+          resumeMsg = "👋 नमस्कार! मी AI सहाय्यक परत आलो आहे.\n\nतुम्हाला कसे VIP मोबाईल नंबर पाहिजे आहेत?";
+        }
+        
         await sendToGallabox(customerPhone, resumeMsg, channelID);
         return res.status(200).json({ success: true });
       }
@@ -101,16 +114,28 @@ export default async function handler(req, res) {
     }
 
     // ── Global Commands ───────────────────────────────────────────────────
-    const agentRegex = /^(agent|human|talk|call|help|customer care|executive|insan|bhai|bhaiya)\b/i;
-    const resetRegex = /^(menu|restart|reset|clear|start)\b/i;
-    const languageRegex = /^(language|change language|bhasha|bhasa)\b/i;
+    const agentRegex = /^(agent|human|talk|call|help|customer care|executive|insan|bhai|bhaiya|madad|सहायता)\b/i;
+    const resetRegex = /^(menu|restart|reset|clear|start|शुरू|वापस)\b/i;
+    const languageRegex = /^(language|change language|bhasha|bhasa|english|hindi|gujarati|marathi|hinglish|1|2|3|4|5|हिंदी|ગુજરાતી|मराठी|ભાષા|भाषा)\b/i;
 
     if (agentRegex.test(lowerMsg)) {
       await updateCustomerInfo(customerPhone, { botState: 'PAUSED' });
       // Call Gallabox API to add REQUIRE_AGENT tag to contact
       await addGallaboxTag(customerPhone, "REQUIRE_AGENT", channelID);
 
-      const errReply = "Aapki conversation hamare human agent ko transfer ki ja rahi hai. Kripya thoda intezaar karein. 🙏";
+      const lang = customerContext.language || 'English';
+      let errReply = "Aapki conversation hamare human agent ko transfer ki ja rahi hai. Kripya thoda intezaar karein. 👨‍💻";
+      
+      if (lang === 'English') {
+        errReply = "Your conversation is being transferred to our human agent. Please wait a moment. 👨‍💻";
+      } else if (lang === 'Hindi') {
+        errReply = "आपकी बातचीत हमारे ह्यूमन एजेंट को ट्रांसफर की जा रही है। कृपया थोड़ी प्रतीक्षा करें। 👨‍💻";
+      } else if (lang === 'Gujarati') {
+        errReply = "તમારી વાતચીત અમારા એજન્ટને ટ્રાન્સફર કરવામાં આવી રહી છે. કૃપા કરીને થોડી રાહ જુઓ. 👨‍💻";
+      } else if (lang === 'Marathi') {
+        errReply = "तुमचा संवाद आमच्या प्रतिनिधीकडे वर्ग केला जात आहे. कृपया थोडा वेळ प्रतीक्षा करा. 👨‍💻";
+      }
+
       await sendToGallabox(customerPhone, errReply, channelID);
         return res.status(200).json({ success: true });
     }
