@@ -124,7 +124,7 @@ export default async function handler(req, res) {
 
     if (languageRegex.test(lowerMsg)) {
       await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE', language: null });
-      const langReply = "Please select your preferred language / Kripya apni bhasha chune:\n1. English\n2. Hindi\n3. Gujarati\n4. Marathi\n5. Hinglish";
+      const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish";
       await sendToGallabox(customerPhone, langReply, channelID);
       return res.status(200).json({ success: true });
     }
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
     // ── State Machine: Onboarding ─────────────────────────────────────────
     if (currentState === 'NEW') {
       if (!customerContext.language) {
-        const langReply = "Please select your preferred language / Kripya apni bhasha chune:\n1. English\n2. Hindi\n3. Gujarati\n4. Marathi\n5. Hinglish";
+        const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish";
         await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE' });
         await sendToGallabox(customerPhone, langReply, channelID);
         return res.status(200).json({ success: true });
@@ -151,21 +151,23 @@ export default async function handler(req, res) {
       else if (selected === '5' || selected === 'hinglish') chosenLanguage = 'Hinglish';
       
       if (!chosenLanguage) {
-        const errorReply = "❌ Invalid selection. Please reply with 1, 2, 3, 4, or 5.\nGalat chunaav. Kripya 1, 2, 3, 4, ya 5 reply karein.";
+        const errorReply = "❌ Invalid selection. Please reply with 1, 2, 3, 4, or 5.\nगलत चुनाव। कृपया 1, 2, 3, 4, या 5 रिप्लाई करें।";
         await sendToGallabox(customerPhone, errorReply, channelID);
         return res.status(200).json({ success: true });
       }
       
-      let welcomeReply = "Welcome to Numberwale! 🙏\n\nHum aapko best VIP mobile numbers dhundhne mein madad karenge.\n\nKripya apna *Naam* aur *6-digit Pincode* type karke bhejein taaki hum local availability check kar sakein.\n\nExample: _Rahul 131001_";
+      let welcomeReply = "Welcome to Numberwale! 🎉\n\nWe will help you find the best VIP mobile numbers.\n\nPlease type your *Name* and *6-digit Pincode* so we can check local availability.\n\nExample: _Rahul 131001_";
       
       if (chosenLanguage === 'English') {
-        welcomeReply = "Welcome to Numberwale! 🙏\n\nWe will help you find the best VIP mobile numbers.\n\nPlease type your *Name* and *6-digit Pincode* so we can check local availability.\n\nExample: _Rahul 131001_";
+        welcomeReply = "Welcome to Numberwale! 🎉\n\nWe will help you find the best VIP mobile numbers.\n\nPlease type your *Name* and *6-digit Pincode* so we can check local availability.\n\nExample: _Rahul 131001_";
       } else if (chosenLanguage === 'Hindi') {
-        welcomeReply = "Numberwale mein aapka swagat hai! 🙏\n\nHum aapko best VIP mobile numbers dhundhne mein madad karenge.\n\nKripya apna *Naam* aur *6-digit Pincode* type karke bhejein taaki hum local availability check kar sakein.\n\nExample: _Rahul 131001_";
+        welcomeReply = "नंबरवाले में आपका स्वागत है! 🎉\n\nहम आपको बेस्ट VIP मोबाइल नंबर ढूंढने में मदद करेंगे।\n\nकृपया अपना *नाम* और *6-अंकों का पिनकोड* लिखकर भेजें ताकि हम लोकल उपलब्धता चेक कर सकें।\n\nउदाहरण: _Rahul 131001_";
       } else if (chosenLanguage === 'Gujarati') {
-        welcomeReply = "Numberwale ma tamaru swagat che! 🙏\n\nAme tamne best VIP mobile numbers shodhmva ma madad karishu.\n\nKrupa kari tamaru *Naam* ane *6-digit Pincode* type kari moklo jethi ame local availability check kari shakiye.\n\nExample: _Rahul 131001_";
+        welcomeReply = "નંબરવાલેમાં તમારું સ્વાગત છે! 🎉\n\nઅમે તમને શ્રેષ્ઠ VIP મોબાઈલ નંબર શોધવામાં મદદ કરીશું.\n\nકૃપા કરીને તમારું *નામ* અને *6-આંકડાનો પિનકોડ* લખીને મોકલો જેથી અમે લોકલ ઉપલબ્ધતા ચેક કરી શકીએ.\n\nઉદાહરણ: _Rahul 131001_";
       } else if (chosenLanguage === 'Marathi') {
-        welcomeReply = "Numberwale madhye tumche swagat aahe! 🙏\n\nAamhi tumhala best VIP mobile numbers shodhnyat madat karu.\n\nKrupaya tumche *Naav* aani *6-digit Pincode* type karun pathva jeणेkarun aamhi local availability check karu shaku.\n\nExample: _Rahul 131001_";
+        welcomeReply = "नंबरवाले मध्ये आपले स्वागत आहे! 🎉\n\nआम्ही तुम्हाला सर्वोत्तम VIP मोबाईल नंबर शोधण्यात मदत करू.\n\nकृपया तुमचे *नाव* आणि *६-अंकी पिनकोड* टाईप करून पाठवा जेणेकरून आम्ही लोकल उपलब्धता तपासू शकू.\n\nउदाहरण: _Rahul 131001_";
+      } else if (chosenLanguage === 'Hinglish') {
+        welcomeReply = "Welcome to Numberwale! 🎉\n\nHum aapko best VIP mobile numbers dhundhne mein madad karenge.\n\nKripya apna *Naam* aur *6-digit Pincode* type karke bhejein taaki hum local availability check kar sakein.\n\nExample: _Rahul 131001_";
       }
       
       await updateCustomerInfo(customerPhone, { botState: 'AWAITING_INFO', language: chosenLanguage });
@@ -286,12 +288,44 @@ export default async function handler(req, res) {
 
     // ── Fresh search or Follow-up search (AI Parsing) ─────────────────────
     } else {
-      // Guard: if user sends a greeting/acknowledgement, don't trigger a search
+      const isWebsiteDefaultMsg = lowerMsg.includes('found your website') || lowerMsg.includes('question about fancy numbers');
+
+      if (isWebsiteDefaultMsg) {
+        // If it's a website default message, always prompt for language to establish a fresh session
+        await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE', language: null });
+        const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish";
+        await sendToGallabox(customerPhone, langReply, channelID);
+        return res.status(200).json({ success: true });
+      }
+
       const greetingRegex = /^(hi|hello|hii|helo|hey|ok|okay|thanks|thank you|shukriya|theek hai|thik hai|👍|🙏|haan|ha|yes|no|nahi|hmm|hm|good|great|nice|👌)$/i;
-      if (greetingRegex.test(lowerMsg.trim()) || lowerMsg.includes('found your website') || lowerMsg.includes('question about fancy numbers')) {
-        const greetMsg = customerContext.activeFilters && Object.keys(customerContext.activeFilters).length > 0
-          ? `😊 Koi baat nahi! Kya aap apni pichli search continue karna chahte hain ya naya search karna hai?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for new search\n👉 Reply *"language"* to change language`
-          : `👋 Hello! Main aapki kaise madad kar sakta hun?\n\nExample: _req 786 numbers under 20000_\n\n👉 Reply *"language"* to change language`;
+      if (greetingRegex.test(lowerMsg.trim())) {
+        const lang = customerContext.language || 'English';
+        const hasFilters = customerContext.activeFilters && Object.keys(customerContext.activeFilters).length > 0;
+        let greetMsg = '';
+
+        if (lang === 'Hindi') {
+          greetMsg = hasFilters 
+            ? `😊 कोई बात नहीं! क्या आप अपनी पिछली खोज जारी रखना चाहते हैं या नई खोज करना चाहते हैं?\n\n👉 अगले पेज के लिए *"more"* रिप्लाई करें\n👉 नई खोज के लिए *"reset"* रिप्लाई करें\n👉 भाषा बदलने के लिए *"language"* रिप्लाई करें`
+            : `👋 नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nउदाहरण: _req 786 numbers under 20000_\n\n👉 भाषा बदलने के लिए *"language"* रिप्लाई करें`;
+        } else if (lang === 'Gujarati') {
+          greetMsg = hasFilters 
+            ? `😊 કોઈ વાંધો નહિ! શું તમે તમારી અગાઉની શોધ ચાલુ રાખવા માંગો છો કે નવી શોધ કરવા માંગો છો?\n\n👉 આગળના પેજ માટે *"more"* રિપ્લાય કરો\n👉 નવી શોધ માટે *"reset"* રિપ્લાય કરો\n👉 ભાષા બદલવા માટે *"language"* રિપ્લાય કરો`
+            : `👋 નમસ્તે! હું તમારી કેવી રીતે મદદ કરી શકું?\n\nઉદાહરણ: _req 786 numbers under 20000_\n\n👉 ભાષા બદલવા માટે *"language"* રિપ્લાય કરો`;
+        } else if (lang === 'Marathi') {
+          greetMsg = hasFilters 
+            ? `😊 काही हरकत नाही! तुम्हाला तुमची मागील शोध चालू ठेवायची आहे की नवीन शोध करायची आहे?\n\n👉 पुढच्या पेजसाठी *"more"* रिप्लाय करा\n👉 नवीन शोधसाठी *"reset"* रिप्लाय करा\n👉 भाषा बदलण्यासाठी *"language"* रिप्लाय करा`
+            : `👋 नमस्कार! मी तुमची कशी मदत करू शकतो?\n\nउदाहरण: _req 786 numbers under 20000_\n\n👉 भाषा बदलण्यासाठी *"language"* रिप्लाय करा`;
+        } else if (lang === 'Hinglish') {
+          greetMsg = hasFilters 
+            ? `😊 Koi baat nahi! Kya aap apni pichli search continue karna chahte hain ya naya search karna hai?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for new search\n👉 Reply *"language"* to change language`
+            : `👋 Hello! Main aapki kaise madad kar sakta hun?\n\nExample: _req 786 numbers under 20000_\n\n👉 Reply *"language"* to change language`;
+        } else {
+          greetMsg = hasFilters 
+            ? `😊 No problem! Would you like to continue your previous search or start a new one?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for new search\n👉 Reply *"language"* to change language`
+            : `👋 Hello! How can I help you today?\n\nExample: _req 786 numbers under 20000_\n\n👉 Reply *"language"* to change language`;
+        }
+
         await sendToGallabox(customerPhone, greetMsg, channelID);
         return res.status(200).json({ success: true });
       }
