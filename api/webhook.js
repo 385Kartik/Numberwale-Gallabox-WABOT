@@ -65,6 +65,7 @@ export default async function handler(req, res) {
         console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
         await updateCustomerInfo(customerPhone, { botState: 'ACTIVE' });
         
+        const customerContext = await getCustomerContext(customerPhone);
         const lang = customerContext.language || 'English';
         let resumeMsg = "👋 Hi! Main AI assistant wapas aa gaya hun.\n\nAapko kaise VIP mobile numbers chahiye?";
         
@@ -424,9 +425,8 @@ export default async function handler(req, res) {
         // Only carry category forward if AI returned at least ONE other filter
         // (prevents stale category being re-triggered by unrelated messages)
         const aiReturnedSomething = jsonQuery && Object.keys(jsonQuery).length > 0;
-        if (aiReturnedSomething && customerContext.activeFilters?.category && !jsonQuery.category) {
-          jsonQuery.category = customerContext.activeFilters.category;
-        }
+        // REMOVED hardcoded category carry-over that was causing "need 7654" to fail when a category was active.
+        // The LLM handles merging/discarding now.
 
         if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
           const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya pura likhein. 💡\nExample: _req numbers ending with 555_";
@@ -447,12 +447,34 @@ export default async function handler(req, res) {
 
     // ── Format reply ──────────────────────────────────────────────────────
     if (!result.products || result.products.length === 0) {
+      const lang = customerContext.language || 'English';
+      const prettyCriteria = JSON.stringify(jsonQuery);
+      
+      let emptyMsg = '';
+      let noMoreMsg = '';
+      
+      if (lang === 'English') {
+        emptyMsg = `Oops! No numbers available matching your criteria (${prettyCriteria}) right now. 😔\n\nPlease try another pattern (e.g., _req 9999_).`;
+        noMoreMsg = `That's all the numbers we have! Please try a new search. 😊`;
+      } else if (lang === 'Hindi') {
+        emptyMsg = `माफ़ कीजिये! आपके क्राइटेरिया (${prettyCriteria}) से मैच करते हुए नंबर्स अभी उपलब्ध नहीं हैं। 😔\n\nकृपया कोई दूसरा पैटर्न ट्राई करें (जैसे, _req 9999_)।`;
+        noMoreMsg = `यहीं तक थे नंबर्स! कृपया कोई नई सर्च करें। 😊`;
+      } else if (lang === 'Gujarati') {
+        emptyMsg = `માફ કરશો! તમારા માપદંડ (${prettyCriteria}) સાથે મેળ ખાતા નંબર્સ હાલમાં ઉપલબ્ધ નથી. 😔\n\nકૃપા કરીને અન્ય પેટર્ન અજમાવો (દા.ત., _req 9999_).`;
+        noMoreMsg = `અહીં સુધી જ નંબર્સ હતા! કૃપા કરીને નવી શોધ કરો. 😊`;
+      } else if (lang === 'Marathi') {
+        emptyMsg = `क्षमस्व! तुमच्या निकषांशी (${prettyCriteria}) जुळणारे क्रमांक सध्या उपलब्ध नाहीत. 😔\n\nकृपया दुसरा पॅटर्न वापरून पहा (उदा., _req 9999_).`;
+        noMoreMsg = `इतकेच क्रमांक उपलब्ध आहेत! कृपया नवीन शोध घ्या. 😊`;
+      } else {
+        // Hinglish
+        emptyMsg = `Oops! Aapke criteria (${prettyCriteria}) se match karte hue numbers abhi available nahi hain. 😔\n\nKoi dusra pattern try karein (e.g., _req 9999_).`;
+        noMoreMsg = `Yahi tak the numbers! Koi aur search karo. 😊`;
+      }
+
       if (page > 1) {
-        const replyText = "Yahi tak the numbers! Koi aur search karo. 😊";
-        await sendToGallabox(customerPhone, replyText, channelID);
+        await sendToGallabox(customerPhone, noMoreMsg, channelID);
         return res.status(200).json({ success: true });
       } else {
-        const emptyMsg = `Oops! Aapke criteria (${JSON.stringify(jsonQuery)}) se match karte hue numbers abhi available nahi hain. 😔\n\nKoi dusra pattern try karein (e.g., _req 9999_).`;
         await sendToGallabox(customerPhone, emptyMsg, channelID);
         return res.status(200).json({ success: true });
       }
