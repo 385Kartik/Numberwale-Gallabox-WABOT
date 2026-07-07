@@ -103,12 +103,15 @@ export async function parseUserMessage(query, activeFilters = {}) {
 
   // 🧠 0. Rule Engine (Zero-Cost Bypass) 🧠
   const { extracted, confident } = extractFiltersFromQuery(userMsg);
+  const hasActiveFilters = activeFilters && Object.keys(activeFilters).length > 0;
   
-  if (confident) {
+  // Only bypass LLM if there are NO active filters.
+  // If there are active filters, we rely on the LLM to intelligently decide 
+  // whether to merge (refinement) or discard (new search).
+  if (confident && !hasActiveFilters) {
     console.log(`[AI] ⚡ Skipped LLM — Rules confident:`, extracted);
     return {
-      // Merge previous context with the newly extracted rules
-      result: { ...activeFilters, ...extracted },
+      result: extracted,
       model: "rules-engine",
       tokensUsed: 0
     };
@@ -153,6 +156,48 @@ export async function parseUserMessage(query, activeFilters = {}) {
     }
   }
 
-  // ── 2. Fallback: Throw error if Groq fails (NO OPENAI) ─────────────────
-  throw new Error("All Groq models failed. OpenAI fallback disabled to prevent costs.");
+  // ── 2. Fallback: OpenAI (gpt-4o-mini) ──
+  if (openaiKey) {
+    try {
+      console.log(`[AI] All Groq models failed. Falling back to OpenAI (gpt-4o-mini)...`);
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMsg }
+          ],
+          temperature: 0,
+          max_tokens: 200,
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OpenAI Error: ${response.status} - ${errText}`);
+      }
+
+      const data = await response.json();
+      const text = data.choices[0]?.message?.content;
+      
+      if (text) {
+        console.log(`[AI] ✅ Parsed with gpt-4o-mini | tokens: ${data.usage?.total_tokens ?? '?'}`);
+        return {
+          result: JSON.parse(text),
+          model: "gpt-4o-mini",
+          tokensUsed: data.usage?.total_tokens ?? 0,
+        };
+      }
+    } catch (err) {
+      console.error(`[AI] OpenAI fallback failed: ${err.message}`);
+    }
+  }
+
+  throw new Error("All AI models (Groq & OpenAI) failed.");
 }
