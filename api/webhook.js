@@ -145,9 +145,9 @@ export default async function handler(req, res) {
       const selected = userMessage.trim().toLowerCase();
       let chosenLanguage = null;
       if (selected === '1' || selected === 'english') chosenLanguage = 'English';
-      else if (selected === '2' || selected === 'hindi') chosenLanguage = 'Hindi';
-      else if (selected === '3' || selected === 'gujarati') chosenLanguage = 'Gujarati';
-      else if (selected === '4' || selected === 'marathi') chosenLanguage = 'Marathi';
+      else if (selected === '2' || selected === 'hindi' || selected === 'हिंदी') chosenLanguage = 'Hindi';
+      else if (selected === '3' || selected === 'gujarati' || selected === 'ગુજરાતી') chosenLanguage = 'Gujarati';
+      else if (selected === '4' || selected === 'marathi' || selected === 'मराठी') chosenLanguage = 'Marathi';
       else if (selected === '5' || selected === 'hinglish') chosenLanguage = 'Hinglish';
       
       if (!chosenLanguage) {
@@ -191,15 +191,55 @@ export default async function handler(req, res) {
           name: extractedName 
         });
 
-        const instructions = `Awesome, ${extractedName}! Aapka Pincode ${extractedPin} save ho gaya hai. 🎉\n\nAap kaise VIP number dhoondh rahe hain? Aap mujhe bata sakte hain:\n\n` +
+        const lang = customerContext.language || 'English';
+        let instructions = `Awesome, ${extractedName}! Aapka Pincode ${extractedPin} save ho gaya hai. 🎉\n\nAap kaise VIP number dhoondh rahe hain? Aap mujhe bata sakte hain:\n\n` +
           `🔹 _"Need mirror numbers under 5000"_\n` +
           `🔹 _"9999 ending without 4 and 8"_\n` +
           `🔹 _"Sum 5 numbers"_\n\n` +
           `Type kijiye aur hum numbers fetch karenge!`;
+
+        if (lang === 'English') {
+          instructions = `Awesome, ${extractedName}! Your Pincode ${extractedPin} has been saved. 🎉\n\nWhat kind of VIP number are you looking for? You can tell me:\n\n` +
+            `🔹 _"Need mirror numbers under 5000"_\n` +
+            `🔹 _"9999 ending without 4 and 8"_\n` +
+            `🔹 _"Sum 5 numbers"_\n\n` +
+            `Just type your query and we will fetch the numbers!`;
+        } else if (lang === 'Hindi') {
+          instructions = `बढ़िया, ${extractedName}! आपका पिनकोड ${extractedPin} सेव हो गया है। 🎉\n\nआप कैसा VIP नंबर ढूंढ रहे हैं? आप मुझे बता सकते हैं:\n\n` +
+            `🔹 _"Need mirror numbers under 5000"_\n` +
+            `🔹 _"9999 ending without 4 and 8"_\n` +
+            `🔹 _"Sum 5 numbers"_\n\n` +
+            `टाइप कीजिए और हम आपके लिए नंबर्स खोजेंगे!`;
+        } else if (lang === 'Gujarati') {
+          instructions = `સરસ, ${extractedName}! તમારો પિનકોડ ${extractedPin} સેવ થઈ ગયો છે. 🎉\n\nતમે કેવો VIP નંબર શોધી રહ્યા છો? તમે મને કહી શકો છો:\n\n` +
+            `🔹 _"Need mirror numbers under 5000"_\n` +
+            `🔹 _"9999 ending without 4 and 8"_\n` +
+            `🔹 _"Sum 5 numbers"_\n\n` +
+            `ટાઈપ કરો અને અમે તમારા માટે નંબર્સ શોધીશું!`;
+        } else if (lang === 'Marathi') {
+          instructions = `उत्तम, ${extractedName}! तुमचा पिनकोड ${extractedPin} सेव्ह झाला आहे. 🎉\n\nतुम्ही कसा VIP नंबर शोधत आहात? तुम्ही मला सांगू शकता:\n\n` +
+            `🔹 _"Need mirror numbers under 5000"_\n` +
+            `🔹 _"9999 ending without 4 and 8"_\n` +
+            `🔹 _"Sum 5 numbers"_\n\n` +
+            `टाईप करा आणि आम्ही तुमच्यासाठी नंबर शोधू!`;
+        }
+
         await sendToGallabox(customerPhone, instructions, channelID);
         return res.status(200).json({ success: true });
       } else {
-        const errReply = "❌ Invalid format.\n\nKripya apna *Naam* aur *6-digit Pincode* ek sath likh kar bhejein.\nExample: _Rahul 131001_";
+        const lang = customerContext.language || 'English';
+        let errReply = "❌ Invalid format.\n\nKripya apna *Naam* aur *6-digit Pincode* ek sath likh kar bhejein.\nExample: _Rahul 131001_";
+
+        if (lang === 'English') {
+          errReply = "❌ Invalid format.\n\nPlease type your *Name* and *6-digit Pincode* together.\nExample: _Rahul 131001_";
+        } else if (lang === 'Hindi') {
+          errReply = "❌ गलत फॉर्मेट।\n\nकृपया अपना *नाम* और *6-अंकों का पिनकोड* एक साथ लिखकर भेजें।\nउदाहरण: _Rahul 131001_";
+        } else if (lang === 'Gujarati') {
+          errReply = "❌ ખોટું ફોર્મેટ.\n\nકૃપા કરીને તમારું *નામ* અને *6-આંકડાનો પિનકોડ* એકસાથે લખીને મોકલો.\nઉદાહરણ: _Rahul 131001_";
+        } else if (lang === 'Marathi') {
+          errReply = "❌ चुकीचे स्वरूप.\n\nकृपया तुमचे *नाव* आणि *६-अंकी पिनकोड* एकत्र लिहून पाठवा.\nउदाहरण: _Rahul 131001_";
+        }
+
         await sendToGallabox(customerPhone, errReply, channelID);
         return res.status(200).json({ success: true });
       }
@@ -215,7 +255,19 @@ export default async function handler(req, res) {
     if (isShowMoreIntent(userMessage)) {
       const activeFilters = customerContext.activeFilters;
       if (!activeFilters || Object.keys(activeFilters).length === 0) {
-        const replyText = "Pehle koi search karo, phir *'show more'* likho! 😊\nExample: _req 99 two times_";
+        const lang = customerContext.language || 'English';
+        let replyText = "Pehle koi search karo, phir *'show more'* likho! 😊\nExample: _req 99 two times_";
+        
+        if (lang === 'English') {
+           replyText = "Please make a search first, then type *'show more'*! 😊\nExample: _req 99 two times_";
+        } else if (lang === 'Hindi') {
+           replyText = "पहले कोई खोज करें, फिर *'show more'* लिखें! 😊\nउदाहरण: _req 99 two times_";
+        } else if (lang === 'Gujarati') {
+           replyText = "પહેલા કોઈ શોધ કરો, પછી *'show more'* લખો! 😊\nઉદાહરણ: _req 99 two times_";
+        } else if (lang === 'Marathi') {
+           replyText = "आधी काही शोध करा, मग *'show more'* लिहा! 😊\nउदाहरण: _req 99 two times_";
+        }
+        
         console.log('[Webhook] Show more requested but no session found.');
         await sendToGallabox(customerPhone, replyText, channelID);
         return res.status(200).json({ success: true });
