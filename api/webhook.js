@@ -500,20 +500,28 @@ export default async function handler(req, res) {
           }
         }
 
-        // Only carry category forward if AI returned at least ONE other filter
-        // (prevents stale category being re-triggered by unrelated messages)
-        const aiReturnedSomething = jsonQuery && Object.keys(jsonQuery).length > 0;
-        // REMOVED hardcoded category carry-over that was causing "need 7654" to fail when a category was active.
-        // The LLM handles merging/discarding now.
+        // ── JS-level smart merge ─────────────────────────────────────────
+        // If AI returned fewer keys than current activeFilters, user likely
+        // did a partial refinement (e.g., "under 10000" while "7654" filter
+        // was active). MERGE new filters on top of existing so nothing drops.
+        // If AI returned MORE/EQUAL keys, trust it (new search or full merge).
+        const existing = customerContext.activeFilters || {};
+        const existingKeyCount = Object.keys(existing).length;
+        const newKeyCount = Object.keys(jsonQuery || {}).length;
+
+        if (existingKeyCount > 0 && newKeyCount > 0 && newKeyCount < existingKeyCount) {
+          jsonQuery = { ...existing, ...jsonQuery };
+          console.log(`[Webhook] JS-merge applied. Combined filters:`, jsonQuery);
+        }
 
         if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
-          const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya pura likhein. 💡\nExample: _req numbers ending with 555_";
+          const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya pura likhein.\nExample: _req numbers ending with 555_";
           await sendToGallabox(customerPhone, errReply, channelID);
           return res.status(200).json({ success: true });
         }
       } catch (parseErr) {
         console.error('[Webhook] NLP Parse Error:', parseErr);
-        const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein. 🙏\nExample: _req 99 three times under 5000_";
+        const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein.\nExample: _req 99 three times under 5000_";
         await sendToGallabox(customerPhone, errReply, channelID);
         return res.status(200).json({ success: true });
       }
