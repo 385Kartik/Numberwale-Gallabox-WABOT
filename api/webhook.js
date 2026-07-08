@@ -105,6 +105,13 @@ export default async function handler(req, res) {
     }
 
     if (isOutbound) {
+      // Prevent the Bot's OWN outbound messages from being counted as a human agent reply
+      const isSentByVercelBot = userMessage && userMessage.endsWith('\u200B');
+      if (isSentByVercelBot) {
+        console.log(`[Webhook] Ignoring outbound message sent by Vercel Bot itself.`);
+        return res.status(200).json({ success: true, reason: 'vercel_bot_echo' });
+      }
+
       // Only act on #bot on command; everything else silently drop
       if (userMessage && userMessage.trim().toLowerCase() === '#bot on') {
         console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
