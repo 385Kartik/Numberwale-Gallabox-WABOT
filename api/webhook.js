@@ -158,8 +158,15 @@ export default async function handler(req, res) {
     let currentState = customerContext.botState;
 
     if (currentState === 'PAUSED') {
-      console.log(`[Webhook] Bot is PAUSED for ${customerPhone}. Skipping — agent is handling.`);
-      return res.status(200).json({ success: true, reason: 'bot_paused' });
+      const isMoreOrBuy = lowerMsg === 'more' || lowerMsg.startsWith('buy');
+      
+      // If agent has already replied, bot MUST stay completely silent
+      if (!isMoreOrBuy || customerContext.agentReplied) {
+        console.log(`[Webhook] Bot is PAUSED for ${customerPhone} (Agent replied: ${!!customerContext.agentReplied}). Skipping.`);
+        return res.status(200).json({ success: true, reason: 'bot_paused' });
+      } else {
+        console.log(`[Webhook] Customer used '${lowerMsg}' while PAUSED (Agent not replied yet). Allowing request.`);
+      }
     }
 
     // ── Global Commands ───────────────────────────────────────────────────
