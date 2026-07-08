@@ -46,6 +46,51 @@ export default async function handler(req, res) {
 
     const channelID = body?.channelId;
 
+    // ── Gallabox Workflow: Agent Timeout Action ──
+    if (req.query.action === 'agentTimeout' && customerPhone) {
+      const customerContext = await getCustomerContext(customerPhone);
+      if (customerContext.agentReplied) {
+        console.log(`[Webhook] Agent already replied for ${customerPhone}. Skipping timeout fallback message.`);
+        return res.status(200).json({ success: true, reason: 'agent_already_replied' });
+      }
+
+      console.log(`[Webhook] Agent timeout triggered for ${customerPhone}. Waking up bot.`);
+      await updateCustomerInfo(customerPhone, { botState: 'ACTIVE' });
+      
+      const lang = customerContext.language || 'English';
+      const activeFilters = customerContext.activeFilters || {};
+      const hasSearch = Object.keys(activeFilters).length > 0;
+      
+      // Build a short summary of what customer was searching
+      const searchSummary = hasSearch ? JSON.stringify(activeFilters) : null;
+
+      let timeoutMsg = '';
+      if (lang === 'English') {
+        timeoutMsg = hasSearch
+          ? `All our agents are currently busy. 😔\n\nBased on your search (_${searchSummary}_), do you want to:\n1️⃣ *Buy* one of the numbers shown earlier\n2️⃣ *More* – see more similar numbers\n\nType *buy <number>* or *more* to continue. Our agent will connect soon! 🙏`
+          : `All our agents are currently busy. 😔 Do you want to buy a VIP number? Type your preference and I'll help you! 💁`;
+      } else if (lang === 'Hindi') {
+        timeoutMsg = hasSearch
+          ? `हमारे सभी एजेंट अभी व्यस्त हैं। 😔\n\nआपकी खोज (_${searchSummary}_) के आधार पर, क्या आप:\n1️⃣ पहले दिखाए गए नंबरों में से *खरीदना* चाहते हैं?\n2️⃣ *और नंबर* देखना चाहते हैं?\n\n*buy <number>* या *more* टाइप करें। हमारा एजेंट जल्द जुड़ेगा! 🙏`
+          : `हमारे सभी एजेंट अभी व्यस्त हैं। 😔 आप कोई VIP नंबर खरीदना चाहते हैं? अपनी पसंद लिखें, मैं मदद करूँगा! 💁`;
+      } else if (lang === 'Gujarati') {
+        timeoutMsg = hasSearch
+          ? `અમારા તમામ એજન્ટ અત્યારે વ્યસ્ત છે। 😔\n\nતમારી શોધ (_${searchSummary}_) ના આધારે, શું તમે:\n1️⃣ પહેલા બતાવેલ નંબરોમાંથી *ખરીદવા* માંગો છો?\n2️⃣ *વધુ નંબર* જોવા માંગો છો?\n\n*buy <number>* અથવા *more* ટાઇપ કરો. અમારો એજન્ટ ટૂંક સમયમાં જોડાશે! 🙏`
+          : `અમારા તમામ એજન્ટ અત્યારે વ્યસ્ત છે। 😔 શું તમે VIP નંબર ખરીદવા માંગો છો? તમારી પસંદ લખો! 💁`;
+      } else if (lang === 'Marathi') {
+        timeoutMsg = hasSearch
+          ? `आमचे सर्व एजंट सध्या व्यस्त आहेत। 😔\n\nतुमच्या शोधाच्या (_${searchSummary}_) आधारावर, तुम्हाला:\n1️⃣ आधी दाखवलेल्या नंबरांपैकी *खरेदी* करायची आहे का?\n2️⃣ *आणखी नंबर* पहायचे आहेत का?\n\n*buy <number>* किंवा *more* टाइप करा. आमचा एजंट लवकरच जोडेल! 🙏`
+          : `आमचे सर्व एजंट सध्या व्यस्त आहेत। 😔 तुम्हाला VIP नंबर खरेदी करायचा आहे का? तुमची पसंती लिहा! 💁`;
+      } else {
+        timeoutMsg = hasSearch
+          ? `Hamare sabhi agents abhi busy hain. 😔\n\nAapki search (_${searchSummary}_) ke hisaab se:\n1️⃣ Pehle dikhaaye numbers mein se *kharidna* chahte ho?\n2️⃣ *Aur numbers* dekhna chahte ho?\n\n*buy <number>* ya *more* type karo. Hamara agent jald aayega! 🙏`
+          : `Hamare sabhi agents abhi busy hain. 😔 Kya aap koi VIP number kharidna chahte hain? Apni preference likho! 💁`;
+      }
+      
+      await sendToGallabox(customerPhone, timeoutMsg, channelID);
+      return res.status(200).json({ success: true, reason: 'agent_timeout_handled' });
+    }
+
     // ── Detect outbound / status events FIRST (before any text checks) ──
     // sender !== contactId means it was sent BY an agent, not the customer
     const isOutbound = body?.direction === 'OUTBOUND' ||
@@ -63,7 +108,7 @@ export default async function handler(req, res) {
       // Only act on #bot on command; everything else silently drop
       if (userMessage && userMessage.trim().toLowerCase() === '#bot on') {
         console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
-        await updateCustomerInfo(customerPhone, { botState: 'ACTIVE' });
+        await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
         
         const customerContext = await getCustomerContext(customerPhone);
         const lang = customerContext.language || 'English';
@@ -82,8 +127,11 @@ export default async function handler(req, res) {
         await sendToGallabox(customerPhone, resumeMsg, channelID);
         return res.status(200).json({ success: true });
       }
-      console.log('[Webhook] Outbound/echo message received. Ignoring.');
-      return res.status(200).json({ success: true, reason: 'outbound' });
+
+      // Any other outbound message from employee is considered an agent response
+      console.log(`[Webhook] Outbound message received from agent for ${customerPhone}. Setting agentReplied = true.`);
+      await updateCustomerInfo(customerPhone, { agentReplied: true });
+      return res.status(200).json({ success: true, reason: 'outbound_tracked' });
     }
 
     if (!userMessage) {
@@ -120,25 +168,41 @@ export default async function handler(req, res) {
     const languageRegex = /^(language|change language|bhasha|bhasa|english|hindi|gujarati|marathi|hinglish|1|2|3|4|5|हिंदी|ગુજરાતી|मराठी|ભાષા|भाषा)\b/i;
 
     if (agentRegex.test(lowerMsg)) {
-      await updateCustomerInfo(customerPhone, { botState: 'PAUSED' });
-      // Call Gallabox API to add REQUIRE_AGENT tag to contact
+      await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: false });
+      // 1. Tag in Gallabox → triggers 3-min Workflow timer
       await addGallaboxTag(customerPhone, "REQUIRE_AGENT", channelID);
 
+      // 2. Notify Admin Panel in background → triggers round-robin assignment
+      const ADMIN_API = process.env.ADMIN_API_URL || 'https://api.numberwale.com';
+      const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || '';
+      fetch(`${ADMIN_API}/api/v1/gallabox-bot/request-agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
+        body: JSON.stringify({
+          phone: customerPhone,
+          name: customerContext.name || '',
+          language: customerContext.language || 'English',
+          activeFilters: customerContext.activeFilters || {},
+          conversationId: body?.conversationId || ''
+        })
+      }).then(r => console.log(`[Webhook] Admin notified for agent request: ${r.status}`))
+        .catch(e => console.error(`[Webhook] Admin notification failed:`, e.message));
+
       const lang = customerContext.language || 'English';
-      let errReply = "Aapki conversation hamare human agent ko transfer ki ja rahi hai. Kripya thoda intezaar karein. 👨‍💻";
+      let errReply = "Aapki request hamare agent ko bhej di gayi hai. 2-3 minute mein connect honge. 👨‍💻";
       
       if (lang === 'English') {
-        errReply = "Your conversation is being transferred to our human agent. Please wait a moment. 👨‍💻";
+        errReply = "Your request has been sent to our agent. They'll connect within 2-3 minutes. 👨‍💻\n\nIn the meantime, feel free to type *more* to see more numbers!";
       } else if (lang === 'Hindi') {
-        errReply = "आपकी बातचीत हमारे ह्यूमन एजेंट को ट्रांसफर की जा रही है। कृपया थोड़ी प्रतीक्षा करें। 👨‍💻";
+        errReply = "आपकी request हमारे agent को भेज दी गई है। वो 2-3 मिनट में connect होंगे। 👨‍💻\n\nतब तक *more* टाइप करके और नंबर देख सकते हैं!";
       } else if (lang === 'Gujarati') {
-        errReply = "તમારી વાતચીત અમારા એજન્ટને ટ્રાન્સફર કરવામાં આવી રહી છે. કૃપા કરીને થોડી રાહ જુઓ. 👨‍💻";
+        errReply = "તમારી request અમારા agent ને મોકલી દેવામાં આવી છે. 2-3 મિનિટમાં connect થશે. 👨‍💻\n\nત્યાં સુધી *more* ટાઇપ કરી વધુ નંબર જુઓ!";
       } else if (lang === 'Marathi') {
-        errReply = "तुमचा संवाद आमच्या प्रतिनिधीकडे वर्ग केला जात आहे. कृपया थोडा वेळ प्रतीक्षा करा. 👨‍💻";
+        errReply = "तुमची request आमच्या agent ला पाठवली आहे. 2-3 मिनिटांत connect होतील. 👨‍💻\n\nत्याआधी *more* टाइप करून आणखी नंबर पाहू शकता!";
       }
 
       await sendToGallabox(customerPhone, errReply, channelID);
-        return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true });
     }
 
     if (resetRegex.test(lowerMsg) && currentState === 'ACTIVE') {
