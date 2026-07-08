@@ -500,19 +500,9 @@ export default async function handler(req, res) {
           }
         }
 
-        // ── JS-level smart merge ─────────────────────────────────────────
-        // If AI returned fewer keys than current activeFilters, user likely
-        // did a partial refinement (e.g., "under 10000" while "7654" filter
-        // was active). MERGE new filters on top of existing so nothing drops.
-        // If AI returned MORE/EQUAL keys, trust it (new search or full merge).
-        const existing = customerContext.activeFilters || {};
-        const existingKeyCount = Object.keys(existing).length;
-        const newKeyCount = Object.keys(jsonQuery || {}).length;
-
-        if (existingKeyCount > 0 && newKeyCount > 0 && newKeyCount < existingKeyCount) {
-          jsonQuery = { ...existing, ...jsonQuery };
-          console.log(`[Webhook] JS-merge applied. Combined filters:`, jsonQuery);
-        }
+        // LLM handles merge/new-search decision via the system prompt.
+        // Refinement → LLM returns full merged JSON.
+        // New search  → LLM returns only new filters.
 
         if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
           const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya pura likhein.\nExample: _req numbers ending with 555_";

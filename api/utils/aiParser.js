@@ -61,11 +61,29 @@ CRITICAL RULES:
 function buildPrompt(activeFilters) {
   let prompt = BASE_SYSTEM_PROMPT;
   if (activeFilters && Object.keys(activeFilters).length > 0) {
-    prompt += `\n\nCURRENT FILTERS STATE: ${JSON.stringify(activeFilters)}
-CRITICAL INSTRUCTION:
-- If user refines the search (e.g., "under 10k", "must contain 9"), output a JSON that KEEPS the current filters and adds the new ones.
-- If user starts a new search (e.g., "mirror numbers", "req 555"), DISCARD the current state and return only the new JSON.
-You MUST output the final complete merged JSON.`;
+    prompt += `
+
+CURRENT ACTIVE FILTERS: ${JSON.stringify(activeFilters)}
+
+You are a STATEFUL parser. The user already has filters active (shown above).
+You MUST decide: is the new message a REFINEMENT or a NEW SEARCH?
+
+DECISION RULES:
+1. REFINEMENT — user is ADDING/CHANGING one constraint on the same search:
+   Signs: "under X", "above X", "must have", "avoid", "with", "starting", "ending", "budget"
+   Action: Output the FULL merged JSON = current filters + new constraint.
+   Example: current={endsWith:"7654"}, user says "under 10000" → output {endsWith:"7654",maxPrice:10000}
+   Example: current={endsWith:"7654",maxPrice:10000}, user says "must have 9" → output {endsWith:"7654",maxPrice:10000,mustContain:"9"}
+
+2. NEW SEARCH — user wants completely different numbers:
+   Signs: they name a new category, new starting/ending digits that conflict with current, or use words like "want", "need", "show me X", "req X", "get me X" with a different pattern.
+   Action: DISCARD all current filters. Output ONLY the new JSON.
+   Example: current={endsWith:"7654"}, user says "786 numbers" → output {category:"786-numbers"}
+   Example: current={maxPrice:5000}, user says "mirror numbers" → output {category:"mirror-numbers"}
+
+3. UNCLEAR — if you genuinely cannot tell, treat as REFINEMENT (safer).
+
+Output ONLY the final complete JSON. No explanation.`;
   }
   return prompt;
 }
