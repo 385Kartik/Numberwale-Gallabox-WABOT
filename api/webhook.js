@@ -1,8 +1,9 @@
 import { parseUserMessage } from './utils/aiParser.js';
 import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
 import { isShowMoreIntent, isBotPaused, pauseBot } from './utils/sessionStore.js';
-import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters, storeBotMessageId, isBotMessageId } from './utils/analytics.js';
+import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters, storeBotMessageId, isBotMessageId, saveConversationId, touchInteraction, stopDrip } from './utils/analytics.js';
 import { generateUPIQRCodeUrl, createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
+import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/gallabox.js';
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
 function extractBuyNumber(text) {
@@ -50,18 +51,23 @@ export default async function handler(req, res) {
     if (req.query.action === 'agentTimeout' && customerPhone) {
       const customerContext = await getCustomerContext(customerPhone);
       if (customerContext.agentReplied) {
-        console.log(`[Webhook] Agent already replied for ${customerPhone}. Skipping timeout fallback message.`);
+        console.log(`[Webhook] Agent already replied for ${customerPhone}. Skipping timeout fallback.`);
         return res.status(200).json({ success: true, reason: 'agent_already_replied' });
       }
 
-      console.log(`[Webhook] Agent timeout triggered for ${customerPhone}. Waking up bot.`);
-      await updateCustomerInfo(customerPhone, { botState: 'ACTIVE' });
-      
+      console.log(`[Webhook] Agent timeout for ${customerPhone}. Reactivating bot + unassigning agent.`);
+
+      // 1. Unassign agent from Gallabox conversation
+      if (customerContext.conversationId) {
+        await unassignConversation(customerContext.conversationId);
+      }
+
+      // 2. Reset state: bot active, agentReplied false
+      await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
+
       const lang = customerContext.language || 'English';
       const activeFilters = customerContext.activeFilters || {};
       const hasSearch = Object.keys(activeFilters).length > 0;
-      
-      // Build a short summary of what customer was searching
       const searchSummary = hasSearch ? JSON.stringify(activeFilters) : null;
 
       let timeoutMsg = '';
@@ -71,22 +77,22 @@ export default async function handler(req, res) {
           : `All our agents are currently busy. 😔 Do you want to buy a VIP number? Type your preference and I'll help you! 💁`;
       } else if (lang === 'Hindi') {
         timeoutMsg = hasSearch
-          ? `हमारे सभी एजेंट अभी व्यस्त हैं। 😔\n\nआपकी खोज (_${searchSummary}_) के आधार पर, क्या आप:\n1️⃣ पहले दिखाए गए नंबरों में से *खरीदना* चाहते हैं?\n2️⃣ *और नंबर* देखना चाहते हैं?\n\n*buy <number>* या *more* टाइप करें। हमारा एजेंट जल्द जुड़ेगा! 🙏`
+          ? `हमारे सभी एजेंट अभी व्यस्त हैं। 😔\n\nआपकी खोज (_${searchSummary}_) के आधार पर, क्या आप:\n1️⃣ पहले दिखाए गए नंबरों में से *खरीदना* चाहते हैं?\n2️⃣ *और नंबर* देखना चाहते हैं?\n\n*buy <number>* या *more* टाइप करें। 🙏`
           : `हमारे सभी एजेंट अभी व्यस्त हैं। 😔 आप कोई VIP नंबर खरीदना चाहते हैं? अपनी पसंद लिखें, मैं मदद करूँगा! 💁`;
       } else if (lang === 'Gujarati') {
         timeoutMsg = hasSearch
-          ? `અમારા તમામ એજન્ટ અત્યારે વ્યસ્ત છે। 😔\n\nતમારી શોધ (_${searchSummary}_) ના આધારે, શું તમે:\n1️⃣ પહેલા બતાવેલ નંબરોમાંથી *ખરીદવા* માંગો છો?\n2️⃣ *વધુ નંબર* જોવા માંગો છો?\n\n*buy <number>* અથવા *more* ટાઇપ કરો. અમારો એજન્ટ ટૂંક સમયમાં જોડાશે! 🙏`
+          ? `અમારા તમામ એજન્ટ અત્યારે વ્યસ્ત છે। 😔\n\nતમારી શોધ (_${searchSummary}_) ના આધારે, શું તમે:\n1️⃣ પહેલા બતાવેલ નંબરોમાંથી *ખરીદવા* માંગો છો?\n2️⃣ *વધુ નંબર* જોવા માંગો છો?\n\n*buy <number>* અથવા *more* ટાઇપ કરો। 🙏`
           : `અમારા તમામ એજન્ટ અત્યારે વ્યસ્ત છે। 😔 શું તમે VIP નંબર ખરીદવા માંગો છો? તમારી પસંદ લખો! 💁`;
       } else if (lang === 'Marathi') {
         timeoutMsg = hasSearch
-          ? `आमचे सर्व एजंट सध्या व्यस्त आहेत। 😔\n\nतुमच्या शोधाच्या (_${searchSummary}_) आधारावर, तुम्हाला:\n1️⃣ आधी दाखवलेल्या नंबरांपैकी *खरेदी* करायची आहे का?\n2️⃣ *आणखी नंबर* पहायचे आहेत का?\n\n*buy <number>* किंवा *more* टाइप करा. आमचा एजंट लवकरच जोडेल! 🙏`
-          : `आमचे सर्व एजंट सध्या व्यस्त आहेत। 😔 तुम्हाला VIP नंबर खरेदी करायचा आहे का? तुमची पसंती लिहा! 💁`;
+          ? `आमचे सर्व एजंट सध्या व्यस्त आहेत। 😔\n\nतुमच्या शोधाच्या (_${searchSummary}_) आधारावर, तुम्हाला:\n1️⃣ आधी दाखवलेल्या नंबरांपैकी *खरेदी* करायची आहे का?\n2️⃣ *आणखी नंबर* पहायचे आहेत का?\n\n*buy <number>* किंवा *more* टाइप करा। 🙏`
+          : `आमचे सर्व एजंट सध्या व्यस्त आहेत। 😔 तुम्हाला VIP नंबर खरेदी करायची आहे का? तुमची पसंती लिहा! 💁`;
       } else {
         timeoutMsg = hasSearch
-          ? `Hamare sabhi agents abhi busy hain. 😔\n\nAapki search (_${searchSummary}_) ke hisaab se:\n1️⃣ Pehle dikhaaye numbers mein se *kharidna* chahte ho?\n2️⃣ *Aur numbers* dekhna chahte ho?\n\n*buy <number>* ya *more* type karo. Hamara agent jald aayega! 🙏`
+          ? `Hamare sabhi agents abhi busy hain. 😔\n\nAapki search (_${searchSummary}_) ke hisaab se:\n1️⃣ Pehle dikhaaye numbers mein se *kharidna* chahte ho?\n2️⃣ *Aur numbers* dekhna chahte ho?\n\n*buy <number>* ya *more* type karo. 🙏`
           : `Hamare sabhi agents abhi busy hain. 😔 Kya aap koi VIP number kharidna chahte hain? Apni preference likho! 💁`;
       }
-      
+
       await sendToGallabox(customerPhone, timeoutMsg, channelID);
       return res.status(200).json({ success: true, reason: 'agent_timeout_handled' });
     }
@@ -163,6 +169,9 @@ export default async function handler(req, res) {
 
     console.log(`[Webhook] From ${customerPhone || 'Unknown'}: "${userMessage}"`);
 
+    // Track last interaction time (used by drip cron to skip active users)
+    if (customerPhone) touchInteraction(customerPhone).catch(() => {});
+
     const lowerMsg = userMessage.toLowerCase().trim();
 
     // Fetch state from MongoDB early
@@ -189,8 +198,14 @@ export default async function handler(req, res) {
 
     if (agentRegex.test(lowerMsg)) {
       await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: false });
+
+      // Save conversationId so agentTimeout can unassign later
+      if (body?.conversationId) {
+        saveConversationId(customerPhone, body.conversationId).catch(() => {});
+      }
+
       // 1. Tag in Gallabox → triggers 3-min Workflow timer
-      await addGallaboxTag(customerPhone, "REQUIRE_AGENT", channelID);
+      await addGallaboxTag(customerPhone, "REQUIRE_AGENT");
 
       // 2. Notify Admin Panel in background → triggers round-robin assignment
       const ADMIN_API = process.env.ADMIN_API_URL || 'https://api.numberwale.com';
@@ -447,6 +462,9 @@ export default async function handler(req, res) {
 
         await sendToGallabox(customerPhone, caption, channelID);
 
+        // User is buying → stop cart drip campaign
+        stopDrip(customerPhone).catch(() => {});
+
         console.log(`[Webhook] Buy reply sent for ${buyNumber}`);
       } catch (buyErr) {
         console.error('[Webhook] Buy intent error:', buyErr.message);
@@ -613,98 +631,4 @@ export default async function handler(req, res) {
   }
 }
 
-// ── Helper Function ─────────────────────────────────────────────────────────
-async function sendToGallabox(phone, text, channelId) {
-  const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
-  const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-  
-  if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelId && phone) {
-    try {
-      const { default: axios } = await import('axios');
-      const { randomUUID } = await import('crypto');
-      
-      // Generate our own localMessageId so we can detect the echo webhook later
-      const botLocalMsgId = randomUUID();
-      
-      // Store in DB non-blocking — echo always arrives AFTER the HTTP response to Gallabox,
-      // so the ID will already be in DB by the time the echo webhook hits us.
-      storeBotMessageId(phone, botLocalMsgId).catch(e =>
-        console.error('[Webhook] storeBotMessageId failed:', e.message)
-      );
-
-      let retries = 3;
-      while (retries > 0) {
-        try {
-          await axios.post(
-            'https://server.gallabox.com/devapi/messages/whatsapp',
-            {
-              channelId: channelId,
-              localMessageId: botLocalMsgId,  // Pass our UUID so Gallabox echoes it back
-              channelType: "whatsapp",
-              recipient: { name: phone, phone: phone },
-              whatsapp: { type: "text", text: { body: text } }
-            },
-            {
-              headers: {
-                'apiKey': GALLABOX_API_KEY,
-                'apiSecret': GALLABOX_API_SECRET,
-                'Content-Type': 'application/json'
-              },
-              timeout: 5000
-            }
-          );
-          console.log(`[Webhook] ✉️  Reply sent to ${phone} via Gallabox (msgId: ${botLocalMsgId})`);
-          break;
-        } catch (err) {
-          retries--;
-          if (retries === 0) throw err;
-          console.log(`[Webhook] ⚠️ Gallabox send failed, retrying... (${retries} attempts left)`);
-          await new Promise(res => setTimeout(res, 500));
-        }
-      }
-    } catch (sendErr) {
-      console.error('[Webhook] ❌ Failed to send via Gallabox:', sendErr.response?.data || sendErr.message);
-    }
-  } else {
-    console.log('[Webhook] ⚠️ Gallabox credentials missing — skipping outbound send.');
-  }
-}
-
-// ── Tag Helper Function ─────────────────────────────────────────────────────
-async function addGallaboxTag(phone, tagName, channelId) {
-  const GALLABOX_API_KEY    = process.env.GALLABOX_API_KEY;
-  const GALLABOX_API_SECRET = process.env.GALLABOX_API_SECRET;
-  const ACCOUNT_ID          = process.env.GALLABOX_ACCOUNT_ID; // Need account ID for tagging
-
-  if (!GALLABOX_API_KEY || !GALLABOX_API_SECRET) {
-    console.log('[Webhook] ⚠️ Missing Gallabox API keys for tagging.');
-    return;
-  }
-
-  try {
-    const { default: axios } = await import('axios');
-    
-    // Many WhatsApp CRMs allow updating tags via their Contacts API.
-    // For Gallabox specifically, we assume a standard PUT / contacts route.
-    // Replace the URL with exact Gallabox endpoint if known.
-    // Example using generic contact tag update:
-    await axios.post(
-      `https://server.gallabox.com/devapi/contacts/tags`, 
-      {
-        phone: phone,
-        tags: [tagName]
-      },
-      {
-        headers: {
-          'apiKey': GALLABOX_API_KEY,
-          'apiSecret': GALLABOX_API_SECRET,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    console.log(`[Webhook] 🏷️ Tag '${tagName}' added to ${phone} in Gallabox.`);
-  } catch (err) {
-    console.error('[Webhook] ❌ Failed to add Gallabox tag:', err.response?.data || err.message);
-    // Silent fail so we don't break the user experience
-  }
-}
+// sendToGallabox and addGallaboxTag are now in api/utils/gallabox.js
