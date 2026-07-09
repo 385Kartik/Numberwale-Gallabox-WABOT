@@ -1,7 +1,7 @@
 import { parseUserMessage } from './utils/aiParser.js';
 import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
 import { isShowMoreIntent, isBotPaused, pauseBot } from './utils/sessionStore.js';
-import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters } from './utils/analytics.js';
+import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters, storeBotMessageId, isBotMessageId } from './utils/analytics.js';
 import { generateUPIQRCodeUrl, createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
@@ -105,14 +105,16 @@ export default async function handler(req, res) {
     }
 
     if (isOutbound) {
-      // Prevent the Bot's OWN outbound messages from being counted as a human agent reply
-      const isSentByVercelBot = userMessage && userMessage.endsWith('\u200B');
-      if (isSentByVercelBot) {
-        console.log(`[Webhook] Ignoring outbound message sent by Vercel Bot itself.`);
-        return res.status(200).json({ success: true, reason: 'vercel_bot_echo' });
+      // ── Detect if this echo is from the Vercel Bot itself ─────────────────
+      const incomingLocalMsgId = body?.localMessageId;
+      const isBotEcho = await isBotMessageId(customerPhone, incomingLocalMsgId);
+
+      if (isBotEcho) {
+        console.log(`[Webhook] Ignoring bot echo: ${incomingLocalMsgId}`);
+        return res.status(200).json({ success: true, reason: 'bot_echo_ignored' });
       }
 
-      // Only act on #bot on command; everything else silently drop
+      // ── #bot on command from agent ─────────────────────────────────────────
       if (userMessage && userMessage.trim().toLowerCase() === '#bot on') {
         console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
         await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
@@ -135,10 +137,14 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true });
       }
 
-      // Any other outbound message from employee is considered an agent response
-      console.log(`[Webhook] Outbound message received from agent for ${customerPhone}. Setting agentReplied = true.`);
-      await updateCustomerInfo(customerPhone, { agentReplied: true });
-      return res.status(200).json({ success: true, reason: 'outbound_tracked' });
+      // ── Real human agent message ───────────────────────────────────────────
+      // Only mark agentReplied when bot is PAUSED (agent was requested)
+      const ctxForAgent = await getCustomerContext(customerPhone);
+      if (ctxForAgent.botState === 'PAUSED') {
+        console.log(`[Webhook] Real agent message received for ${customerPhone}. Setting agentReplied = true.`);
+        await updateCustomerInfo(customerPhone, { agentReplied: true });
+      }
+      return res.status(200).json({ success: true, reason: 'outbound_agent_message' });
     }
 
     if (!userMessage) {
@@ -615,6 +621,14 @@ async function sendToGallabox(phone, text, channelId) {
   if (GALLABOX_API_KEY && GALLABOX_API_SECRET && channelId && phone) {
     try {
       const { default: axios } = await import('axios');
+      const { randomUUID } = await import('crypto');
+      
+      // Generate our own localMessageId so we can detect the echo webhook later
+      const botLocalMsgId = randomUUID();
+      
+      // Store it in DB BEFORE sending (so echo can be matched even if it arrives fast)
+      await storeBotMessageId(phone, botLocalMsgId);
+
       let retries = 3;
       while (retries > 0) {
         try {
@@ -622,6 +636,7 @@ async function sendToGallabox(phone, text, channelId) {
             'https://server.gallabox.com/devapi/messages/whatsapp',
             {
               channelId: channelId,
+              localMessageId: botLocalMsgId,  // Pass our UUID so Gallabox echoes it back
               channelType: "whatsapp",
               recipient: { name: phone, phone: phone },
               whatsapp: { type: "text", text: { body: text } }
@@ -632,16 +647,16 @@ async function sendToGallabox(phone, text, channelId) {
                 'apiSecret': GALLABOX_API_SECRET,
                 'Content-Type': 'application/json'
               },
-              timeout: 5000 // 5 seconds timeout for sending message
+              timeout: 5000
             }
           );
-          console.log(`[Webhook] ✉️  Reply sent to ${phone} via Gallabox`);
-          break; // Success, break the retry loop
+          console.log(`[Webhook] ✉️  Reply sent to ${phone} via Gallabox (msgId: ${botLocalMsgId})`);
+          break;
         } catch (err) {
           retries--;
           if (retries === 0) throw err;
           console.log(`[Webhook] ⚠️ Gallabox send failed, retrying... (${retries} attempts left)`);
-          await new Promise(res => setTimeout(res, 500)); // wait 500ms before retry
+          await new Promise(res => setTimeout(res, 500));
         }
       }
     } catch (sendErr) {

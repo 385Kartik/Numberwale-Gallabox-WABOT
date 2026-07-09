@@ -44,7 +44,8 @@ const CustomerBotProfileSchema = new mongoose.Schema({
   pinCode: { type: String },
   name: { type: String },
   language: { type: String, default: null },
-  agentReplied: { type: Boolean, default: false }
+  agentReplied: { type: Boolean, default: false },
+  pendingBotMessages: [{ type: String }]  // localMessageIds of messages sent by the bot (to filter echoes)
 }, { timestamps: true });
 
 // Use existing models to avoid OverwriteModelError on hot reloads
@@ -99,6 +100,42 @@ export async function updateCustomerInfo(phone, updates) {
     );
   } catch (err) {
     console.error('[Analytics] updateCustomerInfo error:', err.message);
+  }
+}
+
+/**
+ * Store a localMessageId sent by the Vercel bot (to detect echo webhooks from Gallabox).
+ */
+export async function storeBotMessageId(phone, messageId) {
+  try {
+    await connectDB();
+    await CustomerProfile.updateOne(
+      { phone },
+      { $addToSet: { pendingBotMessages: messageId } },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.error('[Analytics] storeBotMessageId error:', err.message);
+  }
+}
+
+/**
+ * Check if a given localMessageId was sent by the Vercel bot.
+ * If found, removes it from the list (consume once).
+ */
+export async function isBotMessageId(phone, messageId) {
+  if (!phone || !messageId) return false;
+  try {
+    await connectDB();
+    const result = await CustomerProfile.findOneAndUpdate(
+      { phone, pendingBotMessages: messageId },
+      { $pull: { pendingBotMessages: messageId } },
+      { returnDocument: 'before' }
+    );
+    return !!result; // true if found and removed
+  } catch (err) {
+    console.error('[Analytics] isBotMessageId error:', err.message);
+    return false;
   }
 }
 
