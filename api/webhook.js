@@ -505,13 +505,33 @@ export default async function handler(req, res) {
         // New search  → LLM returns only new filters.
 
         if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
-          const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya pura likhein.\nExample: _req numbers ending with 555_";
+          const lang = customerContext.language || 'English';
+          let errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya pura likhein.\nExample: _req numbers ending with 555_";
+          if (lang === 'English') {
+            errReply = "Sorry, I couldn't understand your request. Please be more specific. 💡\nExample: _req numbers ending with 555_";
+          } else if (lang === 'Hindi') {
+            errReply = "माफ़ करें, आपकी query समझ नहीं आई। कृपया ज़्यादा detail में लिखें। 💡\nउदाहरण: _req numbers ending with 555_";
+          } else if (lang === 'Gujarati') {
+            errReply = "માફ કરો, તમારી query સમજાઈ નહિ. કૃપા કરી વધુ વિગત સાથે લખો. 💡\nઉદાહરણ: _req numbers ending with 555_";
+          } else if (lang === 'Marathi') {
+            errReply = "माफ करा, तुमची query समजली नाही. कृपया अधिक तपशीलात लिहा. 💡\nउदाहरण: _req numbers ending with 555_";
+          }
           await sendToGallabox(customerPhone, errReply, channelID);
           return res.status(200).json({ success: true });
         }
       } catch (parseErr) {
         console.error('[Webhook] NLP Parse Error:', parseErr);
-        const errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein.\nExample: _req 99 three times under 5000_";
+        const lang = customerContext.language || 'English';
+        let errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein.\nExample: _req 99 three times under 5000_";
+        if (lang === 'English') {
+          errReply = "Sorry, something went wrong while understanding your request. Please try again. 🙏\nExample: _req 99 three times under 5000_";
+        } else if (lang === 'Hindi') {
+          errReply = "माफ़ करें, आपकी query समझने में कुछ गड़बड़ हुई। कृपया दोबारा try करें। 🙏\nउदाहरण: _req 99 three times under 5000_";
+        } else if (lang === 'Gujarati') {
+          errReply = "માફ કરો, તમારી query સમજવામાં કંઈક ખૂટ્ઠ્ઠ્ઠ. કૃપા ફરી try કરો. 🙏\nઉદાહરણ: _req 99 three times under 5000_";
+        } else if (lang === 'Marathi') {
+          errReply = "माफ करा, तुमची query समजण्यात काहीतरी चूक झाली. कृपया पुन्हा try करा. 🙏\nउदाहरण: _req 99 three times under 5000_";
+        }
         await sendToGallabox(customerPhone, errReply, channelID);
         return res.status(200).json({ success: true });
       }
