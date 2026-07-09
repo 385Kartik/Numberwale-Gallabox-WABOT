@@ -119,7 +119,7 @@ export default async function handler(req, res) {
         
         const customerContext = await getCustomerContext(customerPhone);
         const lang = customerContext.language || 'English';
-        let resumeMsg = "👋 Hi! Main AI assistant wapas aa gaya hun.\n\nAapko kaise VIP mobile numbers chahiye?";
+        let resumeMsg = "👋 Hi! I am the AI assistant, back online.\n\nWhat kind of VIP mobile numbers are you looking for?";
         
         if (lang === 'English') {
           resumeMsg = "👋 Hi! I am the AI assistant, back online.\n\nWhat kind of VIP mobile numbers are you looking for?";
@@ -203,7 +203,7 @@ export default async function handler(req, res) {
         .catch(e => console.error(`[Webhook] Admin notification failed:`, e.message));
 
       const lang = customerContext.language || 'English';
-      let errReply = "Aapki request hamare agent ko bhej di gayi hai. 2-3 minute mein connect honge. 👨‍💻";
+      let errReply = "Your request has been sent to our agent. They'll connect within 2-3 minutes. 👨‍💻\n\nIn the meantime, feel free to type *more* to see more numbers!";
       
       if (lang === 'English') {
         errReply = "Your request has been sent to our agent. They'll connect within 2-3 minutes. 👨‍💻\n\nIn the meantime, feel free to type *more* to see more numbers!";
@@ -340,7 +340,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true });
       } else {
         const lang = customerContext.language || 'English';
-        let errReply = "❌ Invalid format.\n\nKripya apna *Naam* aur *6-digit Pincode* ek sath likh kar bhejein.\nExample: _Rahul 131001_";
+        let errReply = "❌ Invalid format.\n\nPlease type your *Name* and *6-digit Pincode* together.\nExample: _Rahul 131001_";
 
         if (lang === 'English') {
           errReply = "❌ Invalid format.\n\nPlease type your *Name* and *6-digit Pincode* together.\nExample: _Rahul 131001_";
@@ -368,7 +368,7 @@ export default async function handler(req, res) {
       const activeFilters = customerContext.activeFilters;
       if (!activeFilters || Object.keys(activeFilters).length === 0) {
         const lang = customerContext.language || 'English';
-        let replyText = "Pehle koi search karo, phir *'show more'* likho! 😊\nExample: _req 99 two times_";
+        let replyText = "Please make a search first, then type *'show more'*! 😊\nExample: _req 99 two times_";
         
         if (lang === 'English') {
            replyText = "Please make a search first, then type *'show more'*! 😊\nExample: _req 99 two times_";
@@ -506,7 +506,7 @@ export default async function handler(req, res) {
 
         if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
           const lang = customerContext.language || 'English';
-          let errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya pura likhein.\nExample: _req numbers ending with 555_";
+          let errReply = "Sorry, I couldn't understand your request. Please be more specific. 💡\nExample: _req numbers ending with 555_";
           if (lang === 'English') {
             errReply = "Sorry, I couldn't understand your request. Please be more specific. 💡\nExample: _req numbers ending with 555_";
           } else if (lang === 'Hindi') {
@@ -522,7 +522,7 @@ export default async function handler(req, res) {
       } catch (parseErr) {
         console.error('[Webhook] NLP Parse Error:', parseErr);
         const lang = customerContext.language || 'English';
-        let errReply = "Maafi chahta hun, aapki query samajh nahi aayi. Kripya dobara try karein.\nExample: _req 99 three times under 5000_";
+        let errReply = "Sorry, something went wrong while understanding your request. Please try again. 🙏\nExample: _req 99 three times under 5000_";
         if (lang === 'English') {
           errReply = "Sorry, something went wrong while understanding your request. Please try again. 🙏\nExample: _req 99 three times under 5000_";
         } else if (lang === 'Hindi') {
