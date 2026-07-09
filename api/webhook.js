@@ -626,8 +626,11 @@ async function sendToGallabox(phone, text, channelId) {
       // Generate our own localMessageId so we can detect the echo webhook later
       const botLocalMsgId = randomUUID();
       
-      // Store it in DB BEFORE sending (so echo can be matched even if it arrives fast)
-      await storeBotMessageId(phone, botLocalMsgId);
+      // Store in DB non-blocking — echo always arrives AFTER the HTTP response to Gallabox,
+      // so the ID will already be in DB by the time the echo webhook hits us.
+      storeBotMessageId(phone, botLocalMsgId).catch(e =>
+        console.error('[Webhook] storeBotMessageId failed:', e.message)
+      );
 
       let retries = 3;
       while (retries > 0) {
