@@ -13,11 +13,6 @@ import { URL } from 'url';
 // Import our API handlers
 import webhookHandler from './api/webhook.js';
 import analyticsHandler from './api/analytics.js';
-import cartWebhookHandler from './api/cart-webhook.js';
-
-// Start cron jobs (drip campaign etc.)
-import { startDripCron } from './api/cron/dripCron.js';
-startDripCron();
 
 const PORT = 3001;
 
@@ -79,11 +74,9 @@ const server = http.createServer((nodeReq, nodeRes) => {
         await webhookHandler(req, res);
       } else if (path === '/api/analytics') {
         await analyticsHandler(req, res);
-      } else if (path === '/api/cart-webhook') {
-        await cartWebhookHandler(req, res);
       } else {
         nodeRes.writeHead(404, { 'Content-Type': 'application/json' });
-        nodeRes.end(JSON.stringify({ error: 'Not found', availableRoutes: ['/api/webhook', '/api/analytics', '/api/cart-webhook'] }));
+        nodeRes.end(JSON.stringify({ error: 'Not found', availableRoutes: ['/api/webhook', '/api/analytics'] }));
       }
     } catch (err) {
       console.error('Handler error:', err);
