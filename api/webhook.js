@@ -429,8 +429,8 @@ export default async function handler(req, res) {
         const gstAmount = Math.round(subtotal * (gstPercentage / 100));
         const totalAmount = subtotal + gstAmount;
 
-        // Temporarily hardcoded to localhost as requested by user
-        const FRONTEND_URL = 'http://localhost:5174';
+        // Changed to use environment variable or production URL
+        const FRONTEND_URL = process.env.FRONTEND_URL || 'https://numberwale.com';
         const checkoutLink = `${FRONTEND_URL}/cart-add/${buyNumber}`;
 
         let priceBreakdown = ``;
