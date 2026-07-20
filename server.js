@@ -51,7 +51,7 @@ app.listen(PORT, () => {
 ╚════════════════════════════════════════════╝
   `);
   console.log('Environment configuration status:', {
-    OPENAI_API_KEY: process.env.OPENAI_API_KEY ? '✅ Configured' : '❌ Missing',
+    OPENAI_API_KEY: process.env.OPENAI ? '✅ Configured' : '❌ Missing',
     GROQ_API_KEY: process.env.GROQ_API_KEY ? '✅ Configured' : '❌ Missing',
     MONGODB_URI: process.env.MONGODB_URI ? '✅ Configured' : '❌ Missing',
     GALLABOX_API_KEY: process.env.GALLABOX_API_KEY ? '✅ Configured' : '❌ Missing',
