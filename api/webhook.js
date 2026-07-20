@@ -429,9 +429,8 @@ export default async function handler(req, res) {
         const gstAmount = Math.round(subtotal * (gstPercentage / 100));
         const totalAmount = subtotal + gstAmount;
 
-        // Changed to use environment variable or production URL
-        const FRONTEND_URL = process.env.FRONTEND_URL || 'https://numberwale.com';
-        const checkoutLink = `${FRONTEND_URL}/cart-add/${buyNumber}`;
+        // Hardcoded to always redirect to main website
+        const checkoutLink = `https://numberwale.com/cart-add/${buyNumber}`;
 
         let priceBreakdown = ``;
         const effDiscount = product.myDiscount !== 0 && product.myDiscount ? product.myDiscount : product.vendorDiscount;
