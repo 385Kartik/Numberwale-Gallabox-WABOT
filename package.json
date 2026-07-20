@@ -16,7 +16,6 @@
     "groq-sdk": "^1.2.1",
     "mongoose": "^9.7.0",
     "node-cron": "^4.6.0",
-    "qrcode": "^1.5.4",
     "razorpay": "^2.9.6"
   },
   "devDependencies": {

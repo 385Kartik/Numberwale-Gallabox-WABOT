@@ -6,8 +6,6 @@ import cors from 'cors';
 import webhookHandler from './api/webhook.js';
 import analyticsHandler from './api/analytics.js';
 import botControlHandler from './api/admin/bot-control.js';
-import qrHandler from './api/qr.png.js';
-
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -29,7 +27,6 @@ app.get('/', (req, res) => {
 app.post('/api/webhook', webhookHandler);
 app.get('/api/analytics', analyticsHandler);
 app.post('/api/admin/bot-control', botControlHandler);
-app.get('/api/qr.png', qrHandler);
 
 // 404 Handler
 app.use((req, res) => {
@@ -51,7 +48,6 @@ app.listen(PORT, () => {
 ║  Webhook:   POST /api/webhook              ║
 ║  Analytics: GET /api/analytics             ║
 ║  Control:   POST /api/admin/bot-control    ║
-║  QR Gen:    GET /api/qr.png                ║
 ╚════════════════════════════════════════════╝
   `);
   console.log('Environment configuration status:', {

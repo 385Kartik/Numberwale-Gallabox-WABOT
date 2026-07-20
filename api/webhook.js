@@ -2,7 +2,7 @@ import { parseUserMessage } from './utils/aiParser.js';
 import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
 import { isShowMoreIntent, isBotPaused, pauseBot } from './utils/sessionStore.js';
 import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters, storeBotMessageId, isBotMessageId, saveConversationId, touchInteraction, stopDrip } from './utils/analytics.js';
-import { generateUPIQRCodeUrl, createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
+import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/gallabox.js';
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
@@ -457,8 +457,7 @@ export default async function handler(req, res) {
           `📱 Number: *${buyNumber}*\n\n` +
           priceBreakdown +
           `🔒 *Click the link below to pay securely (Real-time Inventory Check):*\n` +
-          `${checkoutLink}\n\n` +
-          `_You can pay via UPI QR or Razorpay on the checkout page._`;
+          `${checkoutLink}`;
 
         await sendToGallabox(customerPhone, caption, channelID);
 
