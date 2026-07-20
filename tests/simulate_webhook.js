@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
-import { parseUserMessage } from './api/utils/aiParser.js';
+import { parseUserMessage } from '../api/utils/aiParser.js';
 
 async function test() {
   const activeFilters = { category: "counting-numbers" };

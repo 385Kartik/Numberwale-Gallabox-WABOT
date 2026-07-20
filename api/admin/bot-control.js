@@ -1,4 +1,4 @@
-import { pauseBot, resumeBot, isBotPaused } from './utils/sessionStore.js';
+import { pauseBot, resumeBot, isBotPaused } from '../utils/sessionStore.js';
 
 /**
  * Admin endpoint to pause/resume bot for a specific customer phone.

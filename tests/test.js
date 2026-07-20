@@ -1,4 +1,4 @@
-import handler from './api/webhook.js';
+import handler from '../api/webhook.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
