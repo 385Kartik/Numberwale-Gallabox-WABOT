@@ -210,6 +210,8 @@ export default async function handler(req, res) {
       await addGallaboxTag(customerPhone, "REQUIRE_AGENT");
 
       // 2. Notify Admin Panel in background → triggers round-robin assignment
+      const ADMIN_API = process.env.ADMIN_API_URL || 'https://api.numberwale.com';
+      const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || '';
       fetch(`${ADMIN_API}/api/v1/gallabox-bot/request-agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
@@ -306,6 +308,24 @@ export default async function handler(req, res) {
 
     // ── State Machine: Onboarding ─────────────────────────────────────────
     if (currentState === 'NEW') {
+      // 1. Check if chat is already assigned in CRM
+      try {
+        const ADMIN_API = process.env.ADMIN_API_URL || 'https://api.numberwale.com';
+        const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || '';
+        const checkRes = await fetch(`${ADMIN_API}/api/v1/gallabox-bot/check-assigned?phone=${customerPhone}`, {
+            headers: { 'x-bot-secret': ADMIN_SECRET }
+        });
+        const checkData = await checkRes.json();
+        
+        if (checkData?.isAssigned) {
+            console.log(`[Webhook] Chat ${customerPhone} is ALREADY assigned to ${checkData.assignedTo}. Pausing bot silently.`);
+            await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: false });
+            return res.status(200).json({ success: true, reason: 'already_assigned' });
+        }
+      } catch (err) {
+        console.error(`[Webhook] Error checking if lead is assigned:`, err.message);
+      }
+
       if (!customerContext.language) {
         const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish";
         await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE' });
