@@ -287,7 +287,7 @@ export default async function handler(req, res) {
 
     if (resetRegex.test(lowerMsg) && currentState === 'ACTIVE') {
       await resetActiveFilters(customerPhone);
-      const errReply = "✅ Aapka pichla search reset kar diya gaya hai.\n\nAap naya number kaisa chahte hain? (e.g., 'need mirror numbers under 5000')";
+      const errReply = "✅ Aapka pichla search reset kar diya gaya hai.\n\nAap naya number kaisa chahte hain? (e.g., 'need mirror numbers')";
       await sendToGallabox(customerPhone, errReply, channelID);
         return res.status(200).json({ success: true });
     }
@@ -391,33 +391,33 @@ export default async function handler(req, res) {
 
         const lang = customerContext.language || 'English';
         let instructions = `Awesome, ${extractedName}! Aapka Pincode ${extractedPin} save ho gaya hai. 🎉\n\nAap kaise VIP number dhoondh rahe hain? Aap mujhe bata sakte hain:\n\n` +
-          `🔹 _"Need mirror numbers under 5000"_\n` +
-          `🔹 _"9999 ending without 4 and 8"_\n` +
-          `🔹 _"Sum 5 numbers"_\n\n` +
+          `🔹 _"Need mirror numbers"_\n` +
+          `🔹 _"9999 ending without 2, 4, 8"_\n` +
+          `🔹 _"Sum total 5 numbers"_\n\n` +
           `Type kijiye aur hum numbers fetch karenge!`;
 
         if (lang === 'English') {
           instructions = `Awesome, ${extractedName}! Your Pincode ${extractedPin} has been saved. 🎉\n\nWhat kind of VIP number are you looking for? You can tell me:\n\n` +
-            `🔹 _"Need mirror numbers under 5000"_\n` +
-            `🔹 _"9999 ending without 4 and 8"_\n` +
+            `🔹 _"Need mirror numbers"_\n` +
+            `🔹 _"9999 ending without 2, 4, 8"_\n` +
             `🔹 _"Sum 5 numbers"_\n\n` +
             `Just type your query and we will fetch the numbers!`;
         } else if (lang === 'Hindi') {
           instructions = `बढ़िया, ${extractedName}! आपका पिनकोड ${extractedPin} सेव हो गया है। 🎉\n\nआप कैसा VIP नंबर ढूंढ रहे हैं? आप मुझे बता सकते हैं:\n\n` +
-            `🔹 _"Need mirror numbers under 5000"_\n` +
-            `🔹 _"9999 ending without 4 and 8"_\n` +
+            `🔹 _"Need mirror numbers"_\n` +
+            `🔹 _"9999 ending without 2, 4, 8"_\n` +
             `🔹 _"Sum 5 numbers"_\n\n` +
             `टाइप कीजिए और हम आपके लिए नंबर्स खोजेंगे!`;
         } else if (lang === 'Gujarati') {
           instructions = `સરસ, ${extractedName}! તમારો પિનકોડ ${extractedPin} સેવ થઈ ગયો છે. 🎉\n\nતમે કેવો VIP નંબર શોધી રહ્યા છો? તમે મને કહી શકો છો:\n\n` +
-            `🔹 _"Need mirror numbers under 5000"_\n` +
-            `🔹 _"9999 ending without 4 and 8"_\n` +
+            `🔹 _"Need mirror numbers"_\n` +
+            `🔹 _"9999 ending without 2, 4, 8"_\n` +
             `🔹 _"Sum 5 numbers"_\n\n` +
             `ટાઈપ કરો અને અમે તમારા માટે નંબર્સ શોધીશું!`;
         } else if (lang === 'Marathi') {
           instructions = `उत्तम, ${extractedName}! तुमचा पिनकोड ${extractedPin} सेव्ह झाला आहे. 🎉\n\nतुम्ही कसा VIP नंबर शोधत आहात? तुम्ही मला सांगू शकता:\n\n` +
-            `🔹 _"Need mirror numbers under 5000"_\n` +
-            `🔹 _"9999 ending without 4 and 8"_\n` +
+            `🔹 _"Need mirror numbers"_\n` +
+            `🔹 _"9999 ending without 2, 4, 8"_\n` +
             `🔹 _"Sum 5 numbers"_\n\n` +
             `टाईप करा आणि आम्ही तुमच्यासाठी नंबर शोधू!`;
         }
