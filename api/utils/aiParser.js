@@ -50,7 +50,7 @@ Examples:
 11. "mirror numbers under 10000"
     {"category":"mirror-numbers","maxPrice":10000}
 12. "without 2, 4, 8 sum total 5"
-    {"notContain":"2,4,8","scoreSum":5}
+    {"category":"without-248-numbers","scoreSum":5}
 13. "must contain 1 and 9 anywhere but no 0"
     {"mustContain":"1,9","notContain":"0"}
 14. "starts with 98 exactly 10 digits where 3rd is 7"
@@ -61,7 +61,7 @@ CRITICAL RULES:
 2. DO NOT map "222" to digitFreq. Only use digitFreq if user says "2 three times", "three 2s", "77 two times" etc.
 3. Return strictly ONLY JSON. Fuzzy match category names (e.g. 'mirror' → 'mirror-numbers').
 4. For "starting double", "ending mirror" etc., use startsWith/endsWith with keywords: "DOUBLE","TRIPLE","TETRA","PENTA","HEXA","SEPTA","OCTA","COUNTING","DOUBLING","ABC_ABC","ABC_ABC_ABC","AB_AB","AB_AB_AB","AAA_BBB","AB_AB_XY_XY","MIRROR","SEMI_MIRROR".
-5. If user lists multiple digits to avoid (e.g. "without 2,4,8"), map to notContain as comma separated: "2,4,8".
+5. EXPLICIT CATEGORY MAPPING: If a user says "without 2, 4, 8" or "without 248", map it to "category": "without-248-numbers". For any other random avoided digits (e.g., "without 0"), map to "notContain".
 6. If completely unrelated query, return {}.`;
 
 // Build context-aware prompt by injecting previous JSON state
