@@ -30,7 +30,7 @@ Examples:
 1. "i want mirror numbers"
    {"category":"mirror-numbers"}
 2. "99 two times, avoid 2480 and total should be 5"
-   {"digitFreq1Digit":"99","digitFreq1Count":2,"notContain":"2480","scoreSum":5}
+   {"digitFreq1Digit":"99","digitFreq1Count":2,"notContain":"2,4,8,0","scoreSum":5}
 3. "starts with 98 and ends with 00"
    {"startsWith":"98","endsWith":"00"}
 4. "budget 1000 to 5000"
@@ -49,13 +49,20 @@ Examples:
     {"category":"786-numbers"}
 11. "mirror numbers under 10000"
     {"category":"mirror-numbers","maxPrice":10000}
+12. "without 2, 4, 8 sum total 5"
+    {"notContain":"2,4,8","scoreSum":5}
+13. "must contain 1 and 9 anywhere but no 0"
+    {"mustContain":"1,9","notContain":"0"}
+14. "starts with 98 exactly 10 digits where 3rd is 7"
+    {"exactDigitPlacement":"987???????"}
 
 CRITICAL RULES:
 1. A query like "222" or "req 222" means the sequence "222" must appear exactly (continuously). Map to {"anywhere":"222"}.
 2. DO NOT map "222" to digitFreq. Only use digitFreq if user says "2 three times", "three 2s", "77 two times" etc.
 3. Return strictly ONLY JSON. Fuzzy match category names (e.g. 'mirror' → 'mirror-numbers').
 4. For "starting double", "ending mirror" etc., use startsWith/endsWith with keywords: "DOUBLE","TRIPLE","TETRA","PENTA","HEXA","SEPTA","OCTA","COUNTING","DOUBLING","ABC_ABC","ABC_ABC_ABC","AB_AB","AB_AB_AB","AAA_BBB","AB_AB_XY_XY","MIRROR","SEMI_MIRROR".
-5. If completely unrelated query, return {}.`;
+5. If user lists multiple digits to avoid (e.g. "without 2,4,8"), map to notContain as comma separated: "2,4,8".
+6. If completely unrelated query, return {}.`;
 
 // Build context-aware prompt by injecting previous JSON state
 function buildPrompt(activeFilters) {

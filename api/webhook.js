@@ -144,9 +144,11 @@ export default async function handler(req, res) {
       }
 
       // ── Real human agent message ───────────────────────────────────────────
-      // Only mark agentReplied when bot is PAUSED (agent was requested)
       const ctxForAgent = await getCustomerContext(customerPhone);
-      if (ctxForAgent.botState === 'PAUSED') {
+      if (ctxForAgent.botState !== 'PAUSED') {
+        console.log(`[Webhook] Agent message received for ${customerPhone}. Pausing bot and setting agentReplied = true.`);
+        await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: true });
+      } else {
         console.log(`[Webhook] Real agent message received for ${customerPhone}. Setting agentReplied = true.`);
         await updateCustomerInfo(customerPhone, { agentReplied: true });
       }
@@ -208,8 +210,6 @@ export default async function handler(req, res) {
       await addGallaboxTag(customerPhone, "REQUIRE_AGENT");
 
       // 2. Notify Admin Panel in background → triggers round-robin assignment
-      const ADMIN_API = process.env.ADMIN_API_URL || 'https://api.numberwale.com';
-      const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || '';
       fetch(`${ADMIN_API}/api/v1/gallabox-bot/request-agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
@@ -222,6 +222,48 @@ export default async function handler(req, res) {
         })
       }).then(r => console.log(`[Webhook] Admin notified for agent request: ${r.status}`))
         .catch(e => console.error(`[Webhook] Admin notification failed:`, e.message));
+
+      // 3. VPS Timeout Logic: Auto-reply if agent doesn't respond in 3 minutes
+      setTimeout(async () => {
+        try {
+          const ctx = await getCustomerContext(customerPhone);
+          if (!ctx.agentReplied) {
+            console.log(`[Webhook] Agent timeout for ${customerPhone}. Reactivating bot.`);
+            if (ctx.conversationId) await unassignConversation(ctx.conversationId);
+            await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
+            
+            const lang = ctx.language || 'English';
+            const hasSearch = Object.keys(ctx.activeFilters || {}).length > 0;
+            const searchSummary = hasSearch ? JSON.stringify(ctx.activeFilters) : null;
+            let timeoutMsg = '';
+            
+            if (lang === 'English') {
+              timeoutMsg = hasSearch
+                ? `All our agents are currently busy. 😔\n\nBased on your search (_${searchSummary}_), do you want to:\n1️⃣ *Buy* one of the numbers shown earlier\n2️⃣ *More* – see more similar numbers\n\nType *buy <number>* or *more* to continue. Our agent will connect soon! 🙏`
+                : `All our agents are currently busy. 😔 Do you want to buy a VIP number? Type your preference and I'll help you! 💁`;
+            } else if (lang === 'Hindi') {
+              timeoutMsg = hasSearch
+                ? `हमारे सभी एजेंट अभी व्यस्त हैं। 😔\n\nआपकी खोज (_${searchSummary}_) के आधार पर, क्या आप:\n1️⃣ पहले दिखाए गए नंबरों में से *खरीदना* चाहते हैं?\n2️⃣ *और नंबर* देखना चाहते हैं?\n\n*buy <number>* या *more* टाइप करें। 🙏`
+                : `हमारे सभी एजेंट अभी व्यस्त हैं। 😔 आप कोई VIP नंबर खरीदना चाहते हैं? अपनी पसंद लिखें, मैं मदद करूँगा! 💁`;
+            } else if (lang === 'Gujarati') {
+              timeoutMsg = hasSearch
+                ? `અમારા તમામ એજન્ટ અત્યારે વ્યસ્ત છે। 😔\n\nતમારી શોધ (_${searchSummary}_) ના આધારે, શું તમે:\n1️⃣ પહેલા બતાવેલ નંબરોમાંથી *ખરીદવા* માંગો છો?\n2️⃣ *વધુ નંબર* જોવા માંગો છો?\n\n*buy <number>* અથવા *more* ટાઇપ કરો। 🙏`
+                : `અમારા તમામ એજન્ટ અત્યારે વ્યસ્ત છે। 😔 શું તમે VIP નંબર ખરીદવા માંગો છો? તમારી પસંદ લખો! 💁`;
+            } else if (lang === 'Marathi') {
+              timeoutMsg = hasSearch
+                ? `आमचे सर्व एजंट सध्या व्यस्त आहेत। 😔\n\nतुमच्या शोधाच्या (_${searchSummary}_) आधारावर, तुम्हाला:\n1️⃣ आधी दाखवलेल्या नंबरांपैकी *खरेदी* करायची आहे का?\n2️⃣ *आणखी नंबर* पहायचे आहेत का?\n\n*buy <number>* किंवा *more* टाइप करा। 🙏`
+                : `आमचे सर्व एजंट सध्या व्यस्त आहेत। 😔 तुम्हाला VIP नंबर खरेदी करायची आहे का? तुमची पसंती लिहा! 💁`;
+            } else {
+              timeoutMsg = hasSearch
+                ? `Hamare sabhi agents abhi busy hain. 😔\n\nAapki search (_${searchSummary}_) ke hisaab se:\n1️⃣ Pehle dikhaaye numbers mein se *kharidna* chahte ho?\n2️⃣ *Aur numbers* dekhna chahte ho?\n\n*buy <number>* ya *more* type karo. 🙏`
+                : `Hamare sabhi agents abhi busy hain. 😔 Kya aap koi VIP number kharidna chahte hain? Apni preference likho! 💁`;
+            }
+            await sendToGallabox(customerPhone, timeoutMsg, channelID);
+          }
+        } catch (err) {
+          console.error('[Webhook] VPS timeout error:', err.message);
+        }
+      }, 3 * 60 * 1000);
 
       const lang = customerContext.language || 'English';
       let errReply = "Your request has been sent to our agent. They'll connect within 2-3 minutes. 👨‍💻\n\nIn the meantime, feel free to type *more* to see more numbers!";
