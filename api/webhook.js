@@ -218,6 +218,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           phone: customerPhone,
           name: customerContext.name || '',
+          pincode: customerContext.pinCode || '',
           language: customerContext.language || 'English',
           activeFilters: customerContext.activeFilters || {},
           conversationId: body?.conversationId || ''
