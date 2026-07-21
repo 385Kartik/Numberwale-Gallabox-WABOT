@@ -291,22 +291,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true });
     }
 
-    const isWebsiteDefaultMsg = lowerMsg.includes('found your website') || lowerMsg.includes('question about fancy numbers');
-    if (isWebsiteDefaultMsg) {
-      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE', language: null });
-      const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish";
-      await sendToGallabox(customerPhone, langReply, channelID);
-      return res.status(200).json({ success: true });
-    }
-
-    if (currentState !== 'AWAITING_LANGUAGE' && languageRegex.test(lowerMsg)) {
-      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE', language: null });
-      const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish";
-      await sendToGallabox(customerPhone, langReply, channelID);
-      return res.status(200).json({ success: true });
-    }
-
-    // ── State Machine: Onboarding ─────────────────────────────────────────
     if (currentState === 'NEW') {
       // 1. Check if chat is already assigned in CRM
       try {
@@ -325,7 +309,25 @@ export default async function handler(req, res) {
       } catch (err) {
         console.error(`[Webhook] Error checking if lead is assigned:`, err.message);
       }
+    }
 
+    const isWebsiteDefaultMsg = lowerMsg.includes('found your website') || lowerMsg.includes('question about fancy numbers');
+    if (isWebsiteDefaultMsg) {
+      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE', language: null });
+      const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish";
+      await sendToGallabox(customerPhone, langReply, channelID);
+      return res.status(200).json({ success: true });
+    }
+
+    if (currentState !== 'AWAITING_LANGUAGE' && languageRegex.test(lowerMsg)) {
+      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE', language: null });
+      const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish";
+      await sendToGallabox(customerPhone, langReply, channelID);
+      return res.status(200).json({ success: true });
+    }
+
+    // ── State Machine: Onboarding ─────────────────────────────────────────
+    if (currentState === 'NEW') {
       if (!customerContext.language) {
         const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish";
         await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE' });
