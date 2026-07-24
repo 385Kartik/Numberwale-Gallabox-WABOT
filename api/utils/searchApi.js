@@ -253,13 +253,57 @@ export async function fetchNumbers(jsonQuery, page = 1) {
 // ─────────────────────────────────────────────────────────────────────────────
 // FORMAT REPLY — WhatsApp formatted message with classified bold numbers
 // ─────────────────────────────────────────────────────────────────────────────
-export function formatNumbersReply(products, totalCount = 0, currentPage = 1, totalPages = 1) {
+export function formatNumbersReply(products, totalCount = 0, currentPage = 1, totalPages = 1, lang = 'English') {
   if (!products || products.length === 0) {
-    return "Sorry, abhi aapki requirement ke hisaab se koi number available nahi hai. Kuch aur try kariye! 🙏";
+    if (lang === 'English') {
+      return "Sorry, no numbers are available matching your requirements right now. Please try something else! 🙏";
+    } else if (lang === 'Hindi') {
+      return "माफ़ कीजिये, अभी आपकी आवश्यकता के अनुसार कोई नंबर उपलब्ध नहीं है। कृपया कुछ और प्रयास करें! 🙏";
+    } else if (lang === 'Gujarati') {
+      return "માફ કરશો, અત્યારે તમારી જરૂરિયાત મુજબ કોઈ નંબર ઉપલબ્ધ નથી. કૃપા કરીને બીજું કંઈક અજમાવો! 🙏";
+    } else if (lang === 'Marathi') {
+      return "क्षमस्व, सध्या तुमच्या गरजेनुसार कोणताही नंबर उपलब्ध नाही. कृपया दुसरे काहीतरी वापरून पहा! 🙏";
+    } else {
+      // Hinglish
+      return "Sorry, abhi aapki requirement ke hisaab se koi number available nahi hai. Kuch aur try kariye! 🙏";
+    }
   }
 
-  let reply = `✨ *${totalCount} numbers found!* (Page ${currentPage}/${totalPages})\n`;
+  let headerText = `✨ *${totalCount} numbers found!* (Page ${currentPage}/${totalPages})\n`;
+  if (lang === 'Hindi') {
+    headerText = `✨ *${totalCount} नंबर मिले!* (पेज ${currentPage}/${totalPages})\n`;
+  } else if (lang === 'Gujarati') {
+    headerText = `✨ *${totalCount} નંબર મળ્યા!* (પેજ ${currentPage}/${totalPages})\n`;
+  } else if (lang === 'Marathi') {
+    headerText = `✨ *${totalCount} नंबर सापडले!* (पान ${currentPage}/${totalPages})\n`;
+  } else if (lang === 'Hinglish') {
+    headerText = `✨ *${totalCount} numbers mile!* (Page ${currentPage}/${totalPages})\n`;
+  }
+
+  let reply = headerText;
   reply += `━━━━━━━━━━━━━━━━━\n\n`;
+
+  let labelSubtotal = 'Subtotal';
+  let labelGst = '+GST 18%';
+  let labelTotal = 'Total';
+  let labelOff = 'off';
+
+  if (lang === 'Hindi') {
+    labelSubtotal = 'उप-योग (Subtotal)';
+    labelGst = '+जीएसटी / GST 18%';
+    labelTotal = 'कुल (Total)';
+    labelOff = 'छूट';
+  } else if (lang === 'Gujarati') {
+    labelSubtotal = 'પેટા સરવાળો (Subtotal)';
+    labelGst = '+જીએસટી / GST 18%';
+    labelTotal = 'કુલ (Total)';
+    labelOff = 'ડિસ્કાઉન્ટ';
+  } else if (lang === 'Marathi') {
+    labelSubtotal = 'उप-एकूण (Subtotal)';
+    labelGst = '+जीएसटी / GST 18%';
+    labelTotal = 'एकूण (Total)';
+    labelOff = 'सूट';
+  }
 
   products.forEach((p, index) => {
     const number   = p.productMobileNumber || 'N/A';
@@ -285,13 +329,13 @@ export function formatNumbersReply(products, totalCount = 0, currentPage = 1, to
 
       if (effDiscount > 0 && basePrice) {
         const discountAmt = Math.round(basePrice * (effDiscount / 100));
-        reply += `   💰 ~₹${basePrice.toLocaleString('en-IN')}~ ₹${subtotal.toLocaleString('en-IN')} *(${effDiscount}% off)*\n`;
-        reply += `   🏛️ +GST 18%: ₹${gstAmt.toLocaleString('en-IN')}\n`;
-        reply += `   ✅ *Total: ₹${totalAmt.toLocaleString('en-IN')}*\n`;
+        reply += `   💰 ~₹${basePrice.toLocaleString('en-IN')}~ ₹${subtotal.toLocaleString('en-IN')} *(${effDiscount}% ${labelOff})*\n`;
+        reply += `   🏛️ ${labelGst}: ₹${gstAmt.toLocaleString('en-IN')}\n`;
+        reply += `   ✅ *${labelTotal}: ₹${totalAmt.toLocaleString('en-IN')}*\n`;
       } else {
-        reply += `   💰 Subtotal: ₹${subtotal.toLocaleString('en-IN')}\n`;
-        reply += `   🏛️ +GST 18%: ₹${gstAmt.toLocaleString('en-IN')}\n`;
-        reply += `   ✅ *Total: ₹${totalAmt.toLocaleString('en-IN')}*\n`;
+        reply += `   💰 ${labelSubtotal}: ₹${subtotal.toLocaleString('en-IN')}\n`;
+        reply += `   🏛️ ${labelGst}: ₹${gstAmt.toLocaleString('en-IN')}\n`;
+        reply += `   ✅ *${labelTotal}: ₹${totalAmt.toLocaleString('en-IN')}*\n`;
       }
     }
 
@@ -305,13 +349,40 @@ export function formatNumbersReply(products, totalCount = 0, currentPage = 1, to
   });
 
   reply += `┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`;
-  if (currentPage < totalPages) {
-    reply += `👉 Reply *"more"* for next page\n`;
+
+  if (lang === 'Hindi') {
+    if (currentPage < totalPages) reply += `👉 अगले पेज के लिए *"more"* रिप्लाई करें\n`;
+    reply += `👉 नई खोज के लिए *"reset"* रिप्लाई करें\n`;
+    reply += `👉 हमसे बात करने के लिए *"agent"* रिप्लाई करें\n`;
+    reply += `👉 भाषा बदलने के लिए *"language"* रिप्लाई करें\n\n`;
+    reply += `🛒 *खरीदने के लिए रिप्लाई करें:*\n`;
+  } else if (lang === 'Gujarati') {
+    if (currentPage < totalPages) reply += `👉 આગળના પેજ માટે *"more"* રિપ્લાય કરો\n`;
+    reply += `👉 નવી શોધ માટે *"reset"* રિપ્લાય કરો\n`;
+    reply += `👉 અમારી સાથે વાત કરવા માટે *"agent"* રિપ્લાય કરો\n`;
+    reply += `👉 ભાષા બદલવા માટે *"language"* રિપ્લાય કરો\n\n`;
+    reply += `🛒 *ખરીદવા માટે રિપ્લાય કરો:*\n`;
+  } else if (lang === 'Marathi') {
+    if (currentPage < totalPages) reply += `👉 पुढच्या पानासाठी *"more"* रिप्लाय करा\n`;
+    reply += `👉 नवीन शोधासाठी *"reset"* रिप्लाय करा\n`;
+    reply += `👉 आमच्याशी बोलण्यासाठी *"agent"* रिप्लाय करा\n`;
+    reply += `👉 भाषा बदलण्यासाठी *"language"* रिप्लाय करा\n\n`;
+    reply += `🛒 *खरेदी करण्यासाठी रिप्लाय करा:*\n`;
+  } else if (lang === 'Hinglish') {
+    if (currentPage < totalPages) reply += `👉 Agle page ke liye *"more"* reply karein\n`;
+    reply += `👉 Nayi search ke liye *"reset"* reply karein\n`;
+    reply += `👉 Agent se baat karne ke liye *"agent"* reply karein\n`;
+    reply += `👉 Language badalne ke liye *"language"* reply karein\n\n`;
+    reply += `🛒 *Kharidne ke liye reply karo:*\n`;
+  } else {
+    // English
+    if (currentPage < totalPages) reply += `👉 Reply *"more"* for next page\n`;
+    reply += `👉 Reply *"reset"* for new search\n`;
+    reply += `👉 Reply *"agent"* to talk to us\n`;
+    reply += `👉 Reply *"language"* to change language\n\n`;
+    reply += `🛒 *To buy, please reply:*\n`;
   }
-  reply += `👉 Reply *"reset"* for new search\n`;
-  reply += `👉 Reply *"agent"* to talk to us\n`;
-  reply += `👉 Reply *"language"* to change language\n\n`;
-  reply += `🛒 *Kharidne ke liye reply karo:*\n`;
+
   reply += `_"buy ${products[0]?.productMobileNumber}"_`;
 
   return reply;

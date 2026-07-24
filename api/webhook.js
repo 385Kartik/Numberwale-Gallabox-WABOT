@@ -7,9 +7,26 @@ import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/ga
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
 function extractBuyNumber(text) {
-  const m = text.trim().match(/(?:buy|purchase)\s*(?:this)?\s*([\d\s\-]{10,15})/i);
-  if (m) {
-    const cleanNum = m[1].replace(/\D/g, '');
+  const buyKeywords = [
+    'buy', 'purchase', 'kharidna', 'kharidne', 'kharid', 'kharidi', 'lenahai', 'lena', 'le', 'want',
+    'खरीदना', 'खरीदें', 'खरीद', 'बाय', 'लेना', 'ખરીદવા', 'ખરીદો', 'બાય', 'લેવો', 'લેવોછે', 'ખરેદી', 'खरेदी', 'घ्यायचा', 'घ्यायचे'
+  ];
+  
+  const keywordsPattern = buyKeywords.join('|');
+  
+  // Case 1: Keyword before the number
+  const prefixRegex = new RegExp(`(?:${keywordsPattern})\\s*(?:this|it|number)?\\s*([\\d\\s\\-]{10,15})`, 'i');
+  
+  // Case 2: Number before the keyword
+  const suffixRegex = new RegExp(`([\\d\\s\\-]{10,15})\\s*(?:this|it|number)?\\s*(?:${keywordsPattern})`, 'i');
+
+  let match = text.trim().match(prefixRegex);
+  if (!match) {
+    match = text.trim().match(suffixRegex);
+  }
+
+  if (match) {
+    const cleanNum = match[1].replace(/\D/g, '');
     if (cleanNum.length === 10) return cleanNum;
   }
   return null;
@@ -482,8 +499,19 @@ export default async function handler(req, res) {
 
       try {
         const product = await fetchProductByNumber(buyNumber);
+        const lang = customerContext.language || 'English';
+
         if (!product || !product.price) {
-          const errMsg = `❌ *${buyNumber}* nahi mila ya already sold out ho gaya hai.\n\nDobara search karo: _req ${buyNumber.slice(-4)}_`;
+          let errMsg = `❌ *${buyNumber}* nahi mila ya already sold out ho gaya hai.\n\nDobara search karo: _req ${buyNumber.slice(-4)}_`;
+          if (lang === 'English') {
+            errMsg = `❌ *${buyNumber}* was not found or is already sold out.\n\nPlease search again: _req ${buyNumber.slice(-4)}_`;
+          } else if (lang === 'Hindi') {
+            errMsg = `❌ *${buyNumber}* नहीं मिला या पहले ही बिक चुका है।\n\nकृपया दोबारा खोजें: _req ${buyNumber.slice(-4)}_`;
+          } else if (lang === 'Gujarati') {
+            errMsg = `❌ *${buyNumber}* મળ્યો નથી અથવા પહેલેથી જ વેચાઈ ગયો છે.\n\nકૃપા કરીને ફરીથી શોધો: _req ${buyNumber.slice(-4)}_`;
+          } else if (lang === 'Marathi') {
+            errMsg = `❌ *${buyNumber}* आढळला नाही किंवा आधीच विकला गेला आहे.\n\nकृपया पुन्हा शोधा: _req ${buyNumber.slice(-4)}_`;
+          }
           await sendToGallabox(customerPhone, errMsg, channelID);
           return res.status(200).json({ success: true });
         }
@@ -497,31 +525,89 @@ export default async function handler(req, res) {
         // Hardcoded to always redirect to main website
         const checkoutLink = `https://numberwale.com/cart-add/${buyNumber}`;
 
+        let labelBreakdown = 'Price Breakdown';
+        let labelBase = 'Base Price';
+        let labelDiscount = 'Discount';
+        let labelSubtotal = 'Subtotal';
+        let labelGst = 'GST (18%)';
+        let labelTotal = 'Total Amount';
+
+        if (lang === 'Hindi') {
+          labelBreakdown = 'कीमत का विवरण';
+          labelBase = 'मूल कीमत (Base Price)';
+          labelDiscount = 'छूट (Discount)';
+          labelSubtotal = 'उप-योग (Subtotal)';
+          labelGst = 'जीएसटी / GST (18%)';
+          labelTotal = 'कुल राशि (Total Amount)';
+        } else if (lang === 'Gujarati') {
+          labelBreakdown = 'કિંમતનું વિગતવાર પત્રક';
+          labelBase = 'મૂળ કિંમત (Base Price)';
+          labelDiscount = 'ડિસ્કાઉન્ટ (Discount)';
+          labelSubtotal = 'પેટા સરવાળો (Subtotal)';
+          labelGst = 'જીએસટી / GST (18%)';
+          labelTotal = 'કુલ રકમ (Total Amount)';
+        } else if (lang === 'Marathi') {
+          labelBreakdown = 'किंमतीचा तपशील';
+          labelBase = 'मूळ किंमत (Base Price)';
+          labelDiscount = 'सूट (Discount)';
+          labelSubtotal = 'उप-एकूण (Subtotal)';
+          labelGst = 'जीएसटी / GST (18%)';
+          labelTotal = 'एकूण रक्कम (Total Amount)';
+        }
+
         let priceBreakdown = ``;
         const effDiscount = product.myDiscount !== 0 && product.myDiscount ? product.myDiscount : product.vendorDiscount;
         
         if (effDiscount && product.basePrice) {
           const discountAmt = Math.round(product.basePrice * (effDiscount / 100));
-          priceBreakdown += `*Price Breakdown:*\n` +
-            `💰 Base Price: ₹${product.basePrice.toLocaleString('en-IN')}\n` +
-            `🏷️ Discount: ${effDiscount}% (-₹${discountAmt.toLocaleString('en-IN')})\n` +
-            `🧾 Subtotal: ₹${subtotal.toLocaleString('en-IN')}\n` +
-            `🏛️ GST (18%): ₹${gstAmount.toLocaleString('en-IN')}\n` +
+          priceBreakdown += `*${labelBreakdown}:*\n` +
+            `💰 ${labelBase}: ₹${product.basePrice.toLocaleString('en-IN')}\n` +
+            `🏷️ ${labelDiscount}: ${effDiscount}% (-₹${discountAmt.toLocaleString('en-IN')})\n` +
+            `🧾 ${labelSubtotal}: ₹${subtotal.toLocaleString('en-IN')}\n` +
+            `🏛️ ${labelGst}: ₹${gstAmount.toLocaleString('en-IN')}\n` +
             `━━━━━━━━━━━━━━━━━\n` +
-            `✅ *Total Amount: ₹${totalAmount.toLocaleString('en-IN')}*\n\n`;
+            `✅ *${labelTotal}: ₹${totalAmount.toLocaleString('en-IN')}*\n\n`;
         } else {
-          priceBreakdown += `*Price Breakdown:*\n` +
-            `🧾 Subtotal: ₹${subtotal.toLocaleString('en-IN')}\n` +
-            `🏛️ GST (18%): ₹${gstAmount.toLocaleString('en-IN')}\n` +
+          priceBreakdown += `*${labelBreakdown}:*\n` +
+            `🧾 ${labelSubtotal}: ₹${subtotal.toLocaleString('en-IN')}\n` +
+            `🏛️ ${labelGst}: ₹${gstAmount.toLocaleString('en-IN')}\n` +
             `━━━━━━━━━━━━━━━━━\n` +
-            `✅ *Total Amount: ₹${totalAmount.toLocaleString('en-IN')}*\n\n`;
+            `✅ *${labelTotal}: ₹${totalAmount.toLocaleString('en-IN')}*\n\n`;
         }
 
-        const caption = `🛒 *Your Checkout Link is Ready!*\n\n` +
-          `📱 Number: *${buyNumber}*\n\n` +
-          priceBreakdown +
-          `🔒 *Click the link below to pay securely (Real-time Inventory Check):*\n` +
-          `${checkoutLink}`;
+        let caption = '';
+        if (lang === 'Hindi') {
+          caption = `🛒 *आपका चेकआउट लिंक तैयार है!*\n\n` +
+            `📱 नंबर: *${buyNumber}*\n\n` +
+            priceBreakdown +
+            `🔒 *सुरक्षित भुगतान करने के लिए नीचे दिए गए लिंक पर क्लिक करें (रियल-टाइम इन्वेंटरी चेक):*\n` +
+            `${checkoutLink}`;
+        } else if (lang === 'Gujarati') {
+          caption = `🛒 *તમારી ચેકઆઉટ લિંક તૈયાર છે!*\n\n` +
+            `📱 નંબર: *${buyNumber}*\n\n` +
+            priceBreakdown +
+            `🔒 *સુરક્ષિત રીતે ચુકવણી કરવા માટે નીચેની લિંક પર ક્લિક કરો (રીઅલ-તાઇમ ઇન્વેન્ટરી ચેક):*\n` +
+            `${checkoutLink}`;
+        } else if (lang === 'Marathi') {
+          caption = `🛒 *तुमची चेकआउट लिंक तयार आहे!*\n\n` +
+            `📱 नंबर: *${buyNumber}*\n\n` +
+            priceBreakdown +
+            `🔒 *सुरक्षितपणे पेमेंट करण्यासाठी खालील लिंकवर क्लिक करा (रिअल-टाइम इन्व्हेंटरी चेक):*\n` +
+            `${checkoutLink}`;
+        } else if (lang === 'Hinglish') {
+          caption = `🛒 *Aapka Checkout Link Ready hai!*\n\n` +
+            `📱 Number: *${buyNumber}*\n\n` +
+            priceBreakdown +
+            `🔒 *Securely pay karne ke liye neeche diye gaye link par click karein (Real-time Inventory Check):*\n` +
+            `${checkoutLink}`;
+        } else {
+          // English
+          caption = `🛒 *Your Checkout Link is Ready!*\n\n` +
+            `📱 Number: *${buyNumber}*\n\n` +
+            priceBreakdown +
+            `🔒 *Click the link below to pay securely (Real-time Inventory Check):*\n` +
+            `${checkoutLink}`;
+        }
 
         await sendToGallabox(customerPhone, caption, channelID);
 
@@ -531,7 +617,17 @@ export default async function handler(req, res) {
         console.log(`[Webhook] Buy reply sent for ${buyNumber}`);
       } catch (buyErr) {
         console.error('[Webhook] Buy intent error:', buyErr.message);
-        const errMsg = `❌ Payment link generate nahi hua. Thodi der baad try karo.`;
+        const lang = customerContext.language || 'English';
+        let errMsg = `❌ Payment link generate nahi hua. Thodi der baad try karo.`;
+        if (lang === 'English') {
+          errMsg = `❌ Could not generate payment link. Please try again in a while.`;
+        } else if (lang === 'Hindi') {
+          errMsg = `❌ पेमेंट लिंक जनरेट नहीं हो सका। कृपया कुछ समय बाद दोबारा प्रयास करें।`;
+        } else if (lang === 'Gujarati') {
+          errMsg = `❌ પેમેન્ટ લિંક જનરેટ થઈ શકી નથી. કૃપા કરીને થોડીવાર પછી ફરી પ્રયાસ કરો.`;
+        } else if (lang === 'Marathi') {
+          errMsg = `❌ पेमेंट लिंक जनरेट होऊ शकली नाही. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.`;
+        }
         await sendToGallabox(customerPhone, errMsg, channelID);
         return res.status(200).json({ success: true });
       }
@@ -667,7 +763,8 @@ export default async function handler(req, res) {
       result.products, 
       result.totalCount, 
       page, 
-      result.totalPages
+      result.totalPages,
+      customerContext.language || 'English'
     );
 
     await sendToGallabox(customerPhone, replyText, channelID);
