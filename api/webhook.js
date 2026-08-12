@@ -634,7 +634,7 @@ export default async function handler(req, res) {
       console.log(`[Webhook] Calling bot-search on ${ADMIN_API}`);
 
       try {
-        const response = await fetch(`${ADMIN_API}/api/v1/aiSearch/bot-search`, {
+        const response = await fetch(`${ADMIN_API}/api/v1/ai-search/bot-search`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
