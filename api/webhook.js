@@ -1,4 +1,6 @@
-import { isBotPaused, pauseBot } from './utils/sessionStore.js';
+import { parseUserMessage } from './utils/aiParser.js';
+import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
+import { isShowMoreIntent, isBotPaused, pauseBot } from './utils/sessionStore.js';
 import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters, storeBotMessageId, isBotMessageId, saveConversationId, touchInteraction, stopDrip } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/gallabox.js';
@@ -459,10 +461,39 @@ export default async function handler(req, res) {
     }
 
     // If state is ACTIVE, proceed normally
-    let page = (customerContext.lastPage || 1);
+    let jsonQuery;
+    let page = 1;
+    let parsedTokens = 0;
+    let parsedModel = null;
+
+    // ── "Show More" handling ──────────────────────────────────────────────
+    if (isShowMoreIntent(userMessage)) {
+      const activeFilters = customerContext.activeFilters;
+      if (!activeFilters || Object.keys(activeFilters).length === 0) {
+        const lang = customerContext.language || 'English';
+        let replyText = "Please make a search first, then type *'show more'*! 😊\nExample: _req 99 two times_";
+        
+        if (lang === 'English') {
+           replyText = "Please make a search first, then type *'show more'*! 😊\nExample: _req 99 two times_";
+        } else if (lang === 'Hindi') {
+           replyText = "पहले कोई खोज करें, फिर *'show more'* लिखें! 😊\nउदाहरण: _req 99 two times_";
+        } else if (lang === 'Gujarati') {
+           replyText = "પહેલા કોઈ શોધ કરો, પછી *'show more'* લખો! 😊\nઉદાહરણ: _req 99 two times_";
+        } else if (lang === 'Marathi') {
+           replyText = "आधी काही शोध करा, मग *'show more'* लिहा! 😊\nउदाहरण: _req 99 two times_";
+        }
+        
+        console.log('[Webhook] Show more requested but no session found.');
+        await sendToGallabox(customerPhone, replyText, channelID);
+        return res.status(200).json({ success: true });
+      }
+
+      jsonQuery = activeFilters;
+      page = (customerContext.lastPage || 1) + 1;
+      console.log(`[Webhook] Show more: page ${page} for query`, jsonQuery);
 
     // ── "Buy" intent: buy <10-digit-number> ───────────────────────────────
-    if (extractBuyNumber(userMessage)) {
+    } else if (extractBuyNumber(userMessage)) {
       const buyNumber = extractBuyNumber(userMessage);
       console.log(`[Webhook] Buy intent for number: ${buyNumber}`);
 
@@ -485,10 +516,13 @@ export default async function handler(req, res) {
           return res.status(200).json({ success: true });
         }
 
+        // Calculate GST and Total Amount (product.price is the subtotal)
         const subtotal = product.price;
-        const gstPercentage = 18;
+        const gstPercentage = 18; // Fixed 18% GST as per backend
         const gstAmount = Math.round(subtotal * (gstPercentage / 100));
         const totalAmount = subtotal + gstAmount;
+
+        // Hardcoded to always redirect to main website
         const checkoutLink = `https://numberwale.com/cart-add/${buyNumber}`;
 
         let labelBreakdown = 'Price Breakdown';
@@ -567,6 +601,7 @@ export default async function handler(req, res) {
             `🔒 *Securely pay karne ke liye neeche diye gaye link par click karein (Real-time Inventory Check):*\n` +
             `${checkoutLink}`;
         } else {
+          // English
           caption = `🛒 *Your Checkout Link is Ready!*\n\n` +
             `📱 Number: *${buyNumber}*\n\n` +
             priceBreakdown +
@@ -575,9 +610,11 @@ export default async function handler(req, res) {
         }
 
         await sendToGallabox(customerPhone, caption, channelID);
+
+        // User is buying → stop cart drip campaign
         stopDrip(customerPhone).catch(() => {});
+
         console.log(`[Webhook] Buy reply sent for ${buyNumber}`);
-        
       } catch (buyErr) {
         console.error('[Webhook] Buy intent error:', buyErr.message);
         const lang = customerContext.language || 'English';
@@ -592,10 +629,11 @@ export default async function handler(req, res) {
           errMsg = `❌ पेमेंट लिंक जनरेट होऊ शकली नाही. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.`;
         }
         await sendToGallabox(customerPhone, errMsg, channelID);
+        return res.status(200).json({ success: true });
       }
       return res.status(200).json({ success: true });
 
-    // ── Fresh search or Follow-up search (Zero-Latency API) ───────────────
+    // ── Fresh search or Follow-up search (AI Parsing) ─────────────────────
     } else {
       const greetingRegex = /^(hi|hello|hii|helo|hey|ok|okay|thanks|thank you|shukriya|theek hai|thik hai|👍|🙏|haan|ha|yes|no|nahi|hmm|hm|good|great|nice|👌)$/i;
       if (greetingRegex.test(lowerMsg.trim())) {
@@ -629,57 +667,124 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true });
       }
 
-      // CALL BOT-SEARCH ENDPOINT
-      const ADMIN_API = process.env.ADMIN_API_URL || 'https://api.numberwale.com';
-      console.log(`[Webhook] Calling bot-search on ${ADMIN_API}`);
-
       try {
-        const response = await fetch(`${ADMIN_API}/api/v1/ai-search/bot-search`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: userMessage,
-            activeFilters: customerContext.activeFilters || {},
-            page: page,
-            language: customerContext.language || 'English'
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`bot-search returned status: ${response.status}`);
-        }
-
-        const botData = await response.json();
+        const parsed = await parseUserMessage(userMessage, customerContext.activeFilters);
         
-        // If LLM returned text
-        if (botData.text) {
-          await sendToGallabox(customerPhone, botData.text, channelID);
+        jsonQuery = parsed.result;
+        parsedTokens = parsed.tokens || 0;
+        parsedModel = parsed.modelUsed;
+
+        // Remove empty strings / nulls from jsonQuery
+        if (jsonQuery && typeof jsonQuery === 'object') {
+          for (const key in jsonQuery) {
+            if (jsonQuery[key] === "" || jsonQuery[key] === null) {
+              delete jsonQuery[key];
+            }
+          }
         }
 
-        // ── Log optimized interaction and Save DB State ───────────────
-        await logInteraction({
-          phone: customerPhone,
-          name: customerName,
-          userText: userMessage,
-          botText: botData.text || 'Response generated',
-          isFail: botData.intent === 'UNKNOWN',
-          model: 'bot-search-zero-latency',
-          tokensUsed: 0,
-          jsonQuery: botData.filters || {}, // Saves activeFilters
-          page: botData.page || 1 // Saves lastPage
-        }).catch(() => {});
+        // LLM handles merge/new-search decision via the system prompt.
+        // Refinement → LLM returns full merged JSON.
+        // New search  → LLM returns only new filters.
 
-      } catch (err) {
-        console.error('[Webhook] Error calling bot-search API:', err);
+        if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
+          const lang = customerContext.language || 'English';
+          let errReply = "Sorry, I couldn't understand your request. Please be more specific. 💡\nExample: _req numbers ending with 555_";
+          if (lang === 'English') {
+            errReply = "Sorry, I couldn't understand your request. Please be more specific. 💡\nExample: _req numbers ending with 555_";
+          } else if (lang === 'Hindi') {
+            errReply = "माफ़ करें, आपकी query समझ नहीं आई। कृपया ज़्यादा detail में लिखें। 💡\nउदाहरण: _req numbers ending with 555_";
+          } else if (lang === 'Gujarati') {
+            errReply = "માફ કરો, તમારી query સમજાઈ નહિ. કૃપા કરી વધુ વિગત સાથે લખો. 💡\nઉદાહરણ: _req numbers ending with 555_";
+          } else if (lang === 'Marathi') {
+            errReply = "माफ करा, तुमची query समजली नाही. कृपया अधिक तपशीलात लिहा. 💡\nउदाहरण: _req numbers ending with 555_";
+          }
+          await sendToGallabox(customerPhone, errReply, channelID);
+          return res.status(200).json({ success: true });
+        }
+      } catch (parseErr) {
+        console.error('[Webhook] NLP Parse Error:', parseErr);
         const lang = customerContext.language || 'English';
-        let errReply = "Sorry, our servers are currently busy. Please try again in a few minutes. 🙏";
-        if (lang === 'Hindi') errReply = "माफ़ करें, हमारे सर्वर अभी व्यस्त हैं। कृपया कुछ मिनटों बाद पुनः प्रयास करें। 🙏";
-        if (lang === 'Gujarati') errReply = "માફ કરશો, અમારા સર્વર હાલમાં વ્યસ્ત છે. કૃપા કરીને થોડીવાર પછી ફરી પ્રયાસ કરો. 🙏";
-        if (lang === 'Marathi') errReply = "माफ करा, आमचे सर्व्हर सध्या व्यस्त आहेत. कृपया काही मिनिटांनंतर पुन्हा प्रयत्न करा. 🙏";
+        let errReply = "Sorry, something went wrong while understanding your request. Please try again. 🙏\nExample: _req 99 three times under 5000_";
+        if (lang === 'English') {
+          errReply = "Sorry, something went wrong while understanding your request. Please try again. 🙏\nExample: _req 99 three times under 5000_";
+        } else if (lang === 'Hindi') {
+          errReply = "माफ़ करें, आपकी query समझने में कुछ गड़बड़ हुई। कृपया दोबारा try करें। 🙏\nउदाहरण: _req 99 three times under 5000_";
+        } else if (lang === 'Gujarati') {
+          errReply = "માફ કરો, તમારી query સમજવામાં કંઈક ખૂટ્ઠ્ઠ્ઠ. કૃપા ફરી try કરો. 🙏\nઉદાહરણ: _req 99 three times under 5000_";
+        } else if (lang === 'Marathi') {
+          errReply = "माफ करा, तुमची query समजण्यात काहीतरी चूक झाली. कृपया पुन्हा try करा. 🙏\nउदाहरण: _req 99 three times under 5000_";
+        }
         await sendToGallabox(customerPhone, errReply, channelID);
+        return res.status(200).json({ success: true });
       }
-      return res.status(200).json({ success: true });
     }
+
+    // ── Fetch results from external API ───────────────────────────────────
+    const result = await fetchNumbers(jsonQuery, page);
+    console.log(`[Webhook] Fetched ${result.products?.length || 0} products (page ${page}/${result.totalPages})`);
+
+    // ── Format reply ──────────────────────────────────────────────────────
+    if (!result.products || result.products.length === 0) {
+      const lang = customerContext.language || 'English';
+      const prettyCriteria = JSON.stringify(jsonQuery);
+      
+      let emptyMsg = '';
+      let noMoreMsg = '';
+      
+      if (lang === 'English') {
+        emptyMsg = `Oops! No numbers available matching your criteria (${prettyCriteria}) right now. 😔\n\nPlease try another pattern (e.g., _req 9999_).`;
+        noMoreMsg = `That's all the numbers we have! Please try a new search. 😊`;
+      } else if (lang === 'Hindi') {
+        emptyMsg = `माफ़ कीजिये! आपके क्राइटेरिया (${prettyCriteria}) से मैच करते हुए नंबर्स अभी उपलब्ध नहीं हैं। 😔\n\nकृपया कोई दूसरा पैटर्न ट्राई करें (जैसे, _req 9999_)।`;
+        noMoreMsg = `यहीं तक थे नंबर्स! कृपया कोई नई सर्च करें। 😊`;
+      } else if (lang === 'Gujarati') {
+        emptyMsg = `માફ કરશો! તમારા માપદંડ (${prettyCriteria}) સાથે મેળ ખાતા નંબર્સ હાલમાં ઉપલબ્ધ નથી. 😔\n\nકૃપા કરીને અન્ય પેટર્ન અજમાવો (દા.ત., _req 9999_).`;
+        noMoreMsg = `અહીં સુધી જ નંબર્સ હતા! કૃપા કરીને નવી શોધ કરો. 😊`;
+      } else if (lang === 'Marathi') {
+        emptyMsg = `क्षमस्व! तुमच्या निकषांशी (${prettyCriteria}) जुळणारे क्रमांक सध्या उपलब्ध नाहीत. 😔\n\nकृपया दुसरा पॅटर्न वापरून पहा (उदा., _req 9999_).`;
+        noMoreMsg = `इतकेच क्रमांक उपलब्ध आहेत! कृपया नवीन शोध घ्या. 😊`;
+      } else {
+        // Hinglish
+        emptyMsg = `Oops! Aapke criteria (${prettyCriteria}) se match karte hue numbers abhi available nahi hain. 😔\n\nKoi dusra pattern try karein (e.g., _req 9999_).`;
+        noMoreMsg = `Yahi tak the numbers! Koi aur search karo. 😊`;
+      }
+
+      if (page > 1) {
+        await sendToGallabox(customerPhone, noMoreMsg, channelID);
+        return res.status(200).json({ success: true });
+      } else {
+        await sendToGallabox(customerPhone, emptyMsg, channelID);
+        return res.status(200).json({ success: true });
+      }
+    }
+
+    const replyText = formatNumbersReply(
+      result.products, 
+      result.totalCount, 
+      page, 
+      result.totalPages,
+      customerContext.language || 'English'
+    );
+
+    await sendToGallabox(customerPhone, replyText, channelID);
+
+    // ── Log optimized interaction and Save DB State ───────────────
+    const optimizedBotText = `✨ ${result.totalCount} numbers found for category '${jsonQuery?.category || 'generic'}' (Page ${result.currentPage}/${result.totalPages})`;
+    await logInteraction({
+      phone: customerPhone,
+      name: customerName,
+      userText: userMessage,
+      botText: optimizedBotText,
+      isFail: false,
+      model: parsedModel,
+      tokensUsed: parsedTokens,
+      jsonQuery: jsonQuery, // Saves activeFilters
+      page: result.currentPage // Saves lastPage
+    }).catch(() => {});
+
+    return res.status(200).json({ success: true });
+
   } catch (error) {
     console.error('[Webhook] Fatal Error:', error);
     return res.status(500).json({ error: 'Internal Server Error', details: error.message });
