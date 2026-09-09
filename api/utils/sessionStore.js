@@ -71,7 +71,7 @@ export function isShowMoreIntent(message) {
   const showMorePatterns = [
     'show more', 'more', 'next', 'aur dikhao', 'aur', 'next page',
     'more numbers', 'aur numbers', 'and more', 'show next',
-    'aage', 'aage dikhao', 'more please', 'and next', '2', 'page 2'
+    'aage', 'aage dikhao', 'more please', 'and next', 'page 2'
   ];
   return showMorePatterns.some(p => lower === p || lower.startsWith(p + ' '));
 }

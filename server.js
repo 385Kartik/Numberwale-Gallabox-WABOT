@@ -51,10 +51,13 @@ app.listen(PORT, () => {
 ╚════════════════════════════════════════════╝
   `);
   console.log('Environment configuration status:', {
-    OPENAI_API_KEY: process.env.OPENAI ? '✅ Configured' : '❌ Missing',
-    GROQ_API_KEY: process.env.GROQ_API_KEY ? '✅ Configured' : '❌ Missing',
     MONGODB_URI: process.env.MONGODB_URI ? '✅ Configured' : '❌ Missing',
     GALLABOX_API_KEY: process.env.GALLABOX_API_KEY ? '✅ Configured' : '❌ Missing',
+    GALLABOX_API_SECRET: process.env.GALLABOX_API_SECRET ? '✅ Configured' : '❌ Missing',
+    GALLABOX_ACCOUNT_ID: process.env.GALLABOX_ACCOUNT_ID ? '✅ Configured' : '❌ Missing',
+    GALLABOX_CHANNEL_ID: process.env.GALLABOX_CHANNEL_ID ? '✅ Configured' : '❌ Missing',
     ADMIN_SECRET: process.env.ADMIN_SECRET ? '✅ Configured' : '❌ Missing',
+    ADMIN_BOT_SECRET: process.env.ADMIN_BOT_SECRET ? '✅ Configured' : '❌ Missing',
+    MAIN_API_URL: process.env.MAIN_API_URL ? `✅ ${process.env.MAIN_API_URL}` : '⚡ Default (https://api.numberwale.com)',
   });
 });

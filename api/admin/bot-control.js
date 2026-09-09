@@ -1,4 +1,5 @@
 import { pauseBot, resumeBot, isBotPaused } from '../utils/sessionStore.js';
+import { updateCustomerInfo } from '../utils/analytics.js';
 
 /**
  * Admin endpoint to pause/resume bot for a specific customer phone.
@@ -28,19 +29,24 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'action must be "pause" or "resume"' });
   }
 
+  const cleanPhone = phone.toString().replace(/\D/g, '');
+
   if (action === 'pause') {
-    pauseBot(phone);
+    pauseBot(cleanPhone);
+    await updateCustomerInfo(cleanPhone, { botState: 'PAUSED', agentReplied: true });
     return res.status(200).json({ 
       success: true, 
-      message: `Bot paused for ${phone}. Agent can now handle freely.` 
+      message: `Bot paused for ${cleanPhone}. Agent can now handle freely.` 
     });
   }
 
   if (action === 'resume') {
-    resumeBot(phone);
+    resumeBot(cleanPhone);
+    await updateCustomerInfo(cleanPhone, { botState: 'ACTIVE', agentReplied: false });
     return res.status(200).json({ 
       success: true, 
-      message: `Bot resumed for ${phone}.` 
+      message: `Bot resumed for ${cleanPhone}.` 
     });
   }
 }
+

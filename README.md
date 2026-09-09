@@ -10,10 +10,18 @@ Create a `.env` file in the root directory with the following variables:
 
 ```env
 PORT=3001
-MONGODB_URI=mongodb+srv://...     # MongoDB Connection string
-GROQ_API_KEY=gsk_...              # Groq Cloud API Key for AI Parser
-GALLABOX_API_KEY=...             # Gallabox API Key
-ADMIN_SECRET=...                  # Secret key protecting the analytics and control routes
+MONGODB_URI=mongodb+srv://...           # MongoDB Connection string
+MAIN_API_URL=https://api.numberwale.com  # Main Backend API URL (for /api/v1/ai-search & /api/v1/products)
+ADMIN_API_URL=https://api.numberwale.com # Main Backend URL (for /api/v1/gallabox-bot/request-agent)
+ADMIN_BOT_SECRET=...                    # Shared secret (x-bot-secret) for CRM lead creation
+ADMIN_SECRET=...                        # Secret protecting bot analytics and bot-control routes
+GALLABOX_API_KEY=...                   # Gallabox API Key
+GALLABOX_API_SECRET=...                # Gallabox API Secret
+GALLABOX_ACCOUNT_ID=...                # Gallabox Account ID
+GALLABOX_CHANNEL_ID=...                # Gallabox WhatsApp Channel ID
+OPENAI_API_KEY=sk-...                  # (Optional) OpenAI Guaranteed Fallback Key (gpt-4o-mini)
+GROQ_API_KEY=gsk_...                   # (Optional) Groq Direct Emergency Fallback Key
+ALLOWED_PHONES=9198XXXXXXXX            # (Optional) Whitelist phone numbers for testing (comma-separated). If set, ONLY these numbers get replies!
 ```
 
 ---

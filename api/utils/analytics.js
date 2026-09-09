@@ -69,6 +69,26 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 }
 
+// ─── In-Memory Fallback Cache (resilience against DB timeouts / local dev) ────
+const memoryStore = new Map();
+
+function getMemoryProfile(phone) {
+  if (!memoryStore.has(phone)) {
+    memoryStore.set(phone, {
+      phone,
+      activeFilters: {},
+      lastPage: 1,
+      botState: 'NEW',
+      name: 'Unknown',
+      pinCode: null,
+      language: null,
+      agentReplied: false,
+      pendingBotMessages: []
+    });
+  }
+  return memoryStore.get(phone);
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -84,7 +104,7 @@ export async function getCustomerContext(phone, name) {
       { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
-    return {
+    const data = {
       activeFilters: profile.activeFilters || {},
       lastPage: profile.lastPage || 1,
       botState: profile.botState || 'NEW',
@@ -93,9 +113,22 @@ export async function getCustomerContext(phone, name) {
       language: profile.language || null,
       agentReplied: profile.agentReplied || false
     };
+    const mem = getMemoryProfile(phone);
+    Object.assign(mem, data);
+    return data;
   } catch (err) {
     console.error('[Analytics] getCustomerContext error:', err.message);
-    return { activeFilters: {}, lastPage: 1, botState: 'NEW', language: null, agentReplied: false };
+    const mem = getMemoryProfile(phone);
+    if (name && (!mem.name || mem.name === 'Unknown')) mem.name = name;
+    return {
+      activeFilters: mem.activeFilters || {},
+      lastPage: mem.lastPage || 1,
+      botState: mem.botState || 'NEW',
+      name: mem.name,
+      pinCode: mem.pinCode,
+      language: mem.language || null,
+      agentReplied: mem.agentReplied || false
+    };
   }
 }
 
@@ -103,6 +136,8 @@ export async function getCustomerContext(phone, name) {
  * Update the customer's onboarding state, name, and pincode
  */
 export async function updateCustomerInfo(phone, updates) {
+  const mem = getMemoryProfile(phone);
+  Object.assign(mem, updates);
   try {
     await connectDB();
     await CustomerProfile.findOneAndUpdate(
@@ -119,6 +154,9 @@ export async function updateCustomerInfo(phone, updates) {
  * Store a localMessageId sent by the Vercel bot (to detect echo webhooks from Gallabox).
  */
 export async function storeBotMessageId(phone, messageId) {
+  const mem = getMemoryProfile(phone);
+  if (!mem.pendingBotMessages) mem.pendingBotMessages = [];
+  mem.pendingBotMessages.push(messageId);
   try {
     await connectDB();
     await CustomerProfile.updateOne(
@@ -137,6 +175,12 @@ export async function storeBotMessageId(phone, messageId) {
  */
 export async function isBotMessageId(phone, messageId) {
   if (!phone || !messageId) return false;
+  const mem = getMemoryProfile(phone);
+  let foundInMem = false;
+  if (mem.pendingBotMessages && mem.pendingBotMessages.includes(messageId)) {
+    mem.pendingBotMessages = mem.pendingBotMessages.filter(id => id !== messageId);
+    foundInMem = true;
+  }
   try {
     await connectDB();
     const result = await CustomerProfile.findOneAndUpdate(
@@ -144,10 +188,10 @@ export async function isBotMessageId(phone, messageId) {
       { $pull: { pendingBotMessages: messageId } },
       { returnDocument: 'before' }
     );
-    return !!result; // true if found and removed
+    return !!result || foundInMem;
   } catch (err) {
     console.error('[Analytics] isBotMessageId error:', err.message);
-    return false;
+    return foundInMem;
   }
 }
 
@@ -155,6 +199,9 @@ export async function isBotMessageId(phone, messageId) {
  * Clear the active filters but keep name, pincode, and state intact
  */
 export async function resetActiveFilters(phone) {
+  const mem = getMemoryProfile(phone);
+  mem.activeFilters = {};
+  mem.lastPage = 1;
   try {
     await connectDB();
     await CustomerProfile.findOneAndUpdate(
