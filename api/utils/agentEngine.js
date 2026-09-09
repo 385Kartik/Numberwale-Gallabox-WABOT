@@ -229,7 +229,7 @@ TONE & RULES:
       return aiResponse;
     }
   } catch (err) {
-    console.warn(`[AgentEngine] LLM FAQ chat failed: ${err.message}. Using high-quality instant template.`);
+    console.log(`[AgentEngine] 🔄 LLM Chat failed (${err.message}) -> FALLBACK ACTIVE: Using instant pre-verified FAQ template.`);
   }
 
   // Instant High-Quality Fallbacks if LLM fails or is slow

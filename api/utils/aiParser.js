@@ -346,17 +346,20 @@ export async function runLocalAgentChat({ systemPrompt, messages, maxTokens = 35
 
       LB.markInflight(slot.id, +1);
 
+      console.log(`[AI-AGENT] 🚀 Attempting LLM Chat via [${slot.id}] (${slot.model})...`);
+      const t0Slot = Date.now();
       try {
         const text = await callSlotForChat(slot, systemPrompt, messages, maxTokens, temperature);
         LB.markSuccess(slot.id);
-        console.info(`✅ [AI-AGENT] Served by: ${slot.id}`);
+        console.log(`[AI-AGENT] ✅ Served by [${slot.id}] in ${Date.now() - t0Slot}ms`);
         return text;
       } catch (err) {
         if (err.isRateLimit) {
           LB.markRateLimit(slot.id);
+          console.error(`[AI-AGENT] ⛔ Rate limit on [${slot.id}] in ${Date.now() - t0Slot}ms -> Trying next model...`);
         } else {
           LB.markError(slot.id);
-          console.warn(`❌ [AI-AGENT] Error on ${slot.id}: ${err.message}`);
+          console.error(`[AI-AGENT] ❌ Error on [${slot.id}] in ${Date.now() - t0Slot}ms: ${err.message} -> Falling back to next model...`);
         }
         continue;
       }
@@ -388,17 +391,20 @@ async function runLocalAISearch(userQuery, activeFilters) {
 
       LB.markInflight(slot.id, +1);
 
+      console.log(`[AI-LB] 🚀 Attempting AI Search Parse via [${slot.id}] (${slot.model})...`);
+      const t0Slot = Date.now();
       try {
         const result = await callSlot(slot, userQuery, activeFilters);
         LB.markSuccess(slot.id);
-        console.info(`✅ [AI-LB] Served by: ${slot.id} | inflight now: ${LB.getState(slot.id).inflight}`);
+        console.log(`[AI-LB] ✅ Served by [${slot.id}] in ${Date.now() - t0Slot}ms`);
         return { result, model: slot.id };
       } catch (err) {
         if (err.isRateLimit) {
           LB.markRateLimit(slot.id);
+          console.error(`[AI-LB] ⛔ Rate limit on [${slot.id}] in ${Date.now() - t0Slot}ms -> Trying next model...`);
         } else {
           LB.markError(slot.id);
-          console.warn(`❌ [AI-LB] Error on ${slot.id}: ${err.message}`);
+          console.error(`[AI-LB] ❌ Error on [${slot.id}] in ${Date.now() - t0Slot}ms: ${err.message} -> Falling back to next model...`);
         }
         continue;
       }
@@ -444,11 +450,11 @@ export async function parseUserMessage(query, activeFilters = {}) {
       tokensUsed: 0,
     };
   } catch (err) {
-    console.error(`[AI] Local AI Search failed: ${err.message}`);
+    console.error(`[AI] ⚠️ ALL LLM Search slots failed: ${err.message}`);
 
     // ── 2. Fallback: Rule Engine (Regex Safety Net) ──
     if (Object.keys(extracted).length > 0) {
-      console.warn(`[RULES] LLMs failed, using partial rule extraction:`, extracted);
+      console.log(`[RULES] 🔄 FALLBACK TRIGGERED: Using regex rule extraction:`, extracted);
       return {
         result: extracted,
         model: "rules-engine-fallback",
@@ -458,7 +464,7 @@ export async function parseUserMessage(query, activeFilters = {}) {
 
     const digitsOnly = userMsg.replace(/\D/g, '');
     if (digitsOnly.length > 0) {
-      console.warn(`[RULES] LLMs failed, falling back to anywhere digits: ${digitsOnly}`);
+      console.log(`[RULES] 🔄 FALLBACK TRIGGERED: Using raw digits safety net: ${digitsOnly}`);
       return {
         result: { anywhere: digitsOnly },
         model: "digits-safety-net",
