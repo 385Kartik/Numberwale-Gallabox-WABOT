@@ -154,8 +154,12 @@ const LB = new LoadBalancer();
 // SLOT DEFINITIONS (Active Production Models)
 // ─────────────────────────────────────────────────────────────────
 const GROQ_TIER1_MODELS = [
+  'llama3-8b-8192',
   'llama-3.1-8b-instant',
-  'llama-3.3-70b-versatile'
+  'llama-3.3-70b-versatile',
+  'llama3-70b-8192',
+  'mixtral-8x7b-32768',
+  'gemma2-9b-it'
 ];
 
 const OPENROUTER_TIER2_CONFIGS = [
@@ -188,18 +192,47 @@ const OPENAI_TIER4_CONFIGS = [
 ];
 
 let SLOTS_BUILT = false;
+let GROQ_DISCOVERY_DONE = false;
 let TIER1_SLOTS = [];
 let TIER2_SLOTS = [];
 let TIER3_SLOTS = [];
 let TIER4_SLOTS = [];
 
-function ensureSlotsBuilt() {
+export async function ensureSlotsBuilt() {
   if (SLOTS_BUILT) return;
-  TIER1_SLOTS = buildGroqSlots(GROQ_TIER1_MODELS);
+
+  let groqModels = [...GROQ_TIER1_MODELS];
+  const primaryGroqKey = process.env.GROQ_API_KEY;
+
+  if (primaryGroqKey && !GROQ_DISCOVERY_DONE) {
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: { Authorization: `Bearer ${primaryGroqKey}` },
+        signal: AbortSignal.timeout(4000)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const available = (data?.data || []).map(m => m.id);
+        console.log(`[AI-LB] 📋 Live Groq models accessible by GROQ_API_KEY (${available.length}):`, available.join(', '));
+        if (available.length > 0) {
+          const usable = available.filter(id => !id.includes("whisper") && !id.includes("guard"));
+          if (usable.length > 0) groqModels = usable;
+        }
+      } else {
+        const errText = await res.text();
+        console.error(`[AI-LB] ❌ Groq /models validation returned HTTP ${res.status}:`, errText);
+      }
+    } catch (e) {
+      console.error(`[AI-LB] ⚠️ Groq live discovery skipped: ${e.message}`);
+    }
+    GROQ_DISCOVERY_DONE = true;
+  }
+
+  TIER1_SLOTS = buildGroqSlots(groqModels);
   TIER2_SLOTS = buildSingleKeySlots(OPENROUTER_TIER2_CONFIGS);
   TIER3_SLOTS = buildSingleKeySlots(OPENROUTER_TIER3_CONFIGS);
   TIER4_SLOTS = buildSingleKeySlots(OPENAI_TIER4_CONFIGS);
-  console.info(`[AI-LB] Local slots built — Tier1:${TIER1_SLOTS.length} Tier2:${TIER2_SLOTS.length} Tier3:${TIER3_SLOTS.length} Tier4(OpenAI):${TIER4_SLOTS.length}`);
+  console.log(`[AI-LB] Local slots built — Tier1(Groq):${TIER1_SLOTS.length} Tier2:${TIER2_SLOTS.length} Tier3:${TIER3_SLOTS.length} Tier4(OpenAI):${TIER4_SLOTS.length}`);
   SLOTS_BUILT = true;
 }
 
@@ -325,7 +358,7 @@ async function callSlotForChat(slot, systemPrompt, messages, maxTokens = 350, te
 }
 
 export async function runLocalAgentChat({ systemPrompt, messages, maxTokens = 350, temperature = 0.5 }) {
-  ensureSlotsBuilt();
+  await ensureSlotsBuilt();
 
   const tiers = [TIER1_SLOTS, TIER2_SLOTS, TIER3_SLOTS, TIER4_SLOTS];
   const tried = [];
@@ -356,7 +389,7 @@ export async function runLocalAgentChat({ systemPrompt, messages, maxTokens = 35
       } catch (err) {
         if (err.isRateLimit) {
           LB.markRateLimit(slot.id);
-          console.error(`[AI-AGENT] ⛔ Rate limit on [${slot.id}] in ${Date.now() - t0Slot}ms -> Trying next model...`);
+          console.error(`[AI-AGENT] ⛔ Rate limit/Quota on [${slot.id}] in ${Date.now() - t0Slot}ms (${err.message}) -> Trying next model...`);
         } else {
           LB.markError(slot.id);
           console.error(`[AI-AGENT] ❌ Error on [${slot.id}] in ${Date.now() - t0Slot}ms: ${err.message} -> Falling back to next model...`);
@@ -370,7 +403,7 @@ export async function runLocalAgentChat({ systemPrompt, messages, maxTokens = 35
 }
 
 async function runLocalAISearch(userQuery, activeFilters) {
-  ensureSlotsBuilt();
+  await ensureSlotsBuilt();
 
   const tiers = [TIER1_SLOTS, TIER2_SLOTS, TIER3_SLOTS, TIER4_SLOTS];
   const tried = [];
@@ -401,7 +434,7 @@ async function runLocalAISearch(userQuery, activeFilters) {
       } catch (err) {
         if (err.isRateLimit) {
           LB.markRateLimit(slot.id);
-          console.error(`[AI-LB] ⛔ Rate limit on [${slot.id}] in ${Date.now() - t0Slot}ms -> Trying next model...`);
+          console.error(`[AI-LB] ⛔ Rate limit/Quota on [${slot.id}] in ${Date.now() - t0Slot}ms (${err.message}) -> Trying next model...`);
         } else {
           LB.markError(slot.id);
           console.error(`[AI-LB] ❌ Error on [${slot.id}] in ${Date.now() - t0Slot}ms: ${err.message} -> Falling back to next model...`);
@@ -472,6 +505,12 @@ export async function parseUserMessage(query, activeFilters = {}) {
       };
     }
 
-    throw new Error("AI search failed: " + err.message);
+    // ── 3. Ultimate Fallback: Default Trending Search (Never crash customer experience) ──
+    console.log(`[RULES] 🔄 ULTIMATE FALLBACK: LLMs unavailable and no digits found. Serving default VIP numbers.`);
+    return {
+      result: {},
+      model: "trending-fallback",
+      tokensUsed: 0
+    };
   }
 }

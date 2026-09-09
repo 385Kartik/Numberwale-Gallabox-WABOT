@@ -6,6 +6,7 @@ import cors from 'cors';
 import webhookHandler from './api/webhook.js';
 import analyticsHandler from './api/analytics.js';
 import botControlHandler from './api/admin/bot-control.js';
+import { ensureSlotsBuilt } from './api/utils/aiParser.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -63,4 +64,5 @@ app.listen(PORT, () => {
     OPENAI_KEY: (process.env.OPENAI_API_KEY || process.env.OPENAI) ? '✅ Configured (Tier 4 Paid Safety Net)' : 'ℹ️ None (Using Groq/OpenRouter)',
     ALLOWED_PHONES: process.env.ALLOWED_PHONES ? `🔒 Whitelist Active (${process.env.ALLOWED_PHONES})` : '🌐 Open to All Users',
   });
+  ensureSlotsBuilt().catch(() => {});
 });
