@@ -107,11 +107,11 @@ const CATEGORY_PATTERNS = [
   [/\bcounting\b|\bsequential\b|\bsequence\b/i,                      'counting-numbers'],
   [/\bdoubling\b|\bdouble\b(?!\s*\d+\b)/i,                            'doubling-numbers'],
   [/\btriple\b(?!\s*\d+\b)/i,                                         'triple-numbers'],
-  [/\btetra\b(?!\s*\d+\b)/i,                                          'tetra-numbers'],
-  [/\bpenta\b(?!\s*\d+\b)/i,                                          'penta-numbers'],
-  [/\bhexa\b(?!\s*\d+\b)/i,                                           'hexa-numbers'],
-  [/\bsepta\b(?!\s*\d+\b)/i,                                          'septa-numbers'],
-  [/\bocta\b(?!\s*\d+\b)/i,                                           'octa-numbers'],
+  [/\btetra\b(?!\s*\d+\b)|\b(?:4|four)[\s-]digits?\b/i,               'tetra-numbers'],
+  [/\bpenta\b(?!\s*\d+\b)|\b(?:5|five)[\s-]digits?\b/i,               'penta-numbers'],
+  [/\bhexa\b(?!\s*\d+\b)|\b(?:6|six)[\s-]digits?\b/i,                 'hexa-numbers'],
+  [/\bsepta\b(?!\s*\d+\b)|\b(?:7|seven)[\s-]digits?\b/i,              'septa-numbers'],
+  [/\bocta\b(?!\s*\d+\b)|\b(?:8|eight)[\s-]digits?\b/i,               'octa-numbers'],
   [/\b108\b/,                                                         '108-numbers'],
   [/\b786\s*(?:number|chahiye|wala|type)?\b/i,                       '786-numbers'],
   [/\bunique\b/i,                                                     'unique-numbers'],
@@ -438,9 +438,9 @@ function extractPrice(q, consumed) {
     }
   }
 
-  // Max: "under 5000", "below 2k", "max 10000", "upto 1 lakh", "5000 se kam"
-  const maxRx = /(?:under|below|max(?:imum)?|upto|up\s*to|se\s*kam|ke\s*neeche|ke\s*andar|tak)\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?(?:\s*(?:k|thousand|hajar|hazar|l|lakh|lac))?)(?!\s*\d*\s*(?:times?|baar|bar))/i;
-  const maxRx2 = /(\d+(?:\.\d+)?(?:\s*(?:k|thousand|hajar|hazar|l|lakh|lac))?)\s*(?:se\s*(?:kam|neeche|under)|ke\s*neeche)/i;
+  // Max: "under 5000", "below 2k", "max 10000", "upto 1 lakh", "5000 se kam", "15000 budget", "budget 15000"
+  const maxRx = /(?:under|below|max(?:imum)?|upto|up\s*to|se\s*kam|ke\s*neeche|ke\s*andar|tak|budget(?:\s*is)?)\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?(?:\s*(?:k|thousand|hajar|hazar|l|lakh|lac))?)(?!\s*\d*\s*(?:times?|baar|bar))/i;
+  const maxRx2 = /(\d+(?:\.\d+)?(?:\s*(?:k|thousand|hajar|hazar|l|lakh|lac))?)\s*(?:se\s*(?:kam|neeche|under)|ke\s*neeche|budget)/i;
   let m = q.match(maxRx) || q.match(maxRx2);
   if (m) {
     const val = parsePriceToken(m[1].trim());
@@ -451,7 +451,7 @@ function extractPrice(q, consumed) {
   const minRx = /(?:above|over|min(?:imum)?|se\s*zyada|se\s*upar|se\s*aage)\s*(?:rs\.?|₹)?\s*(\d+(?:\.\d+)?(?:\s*(?:k|thousand|hajar|hazar|l|lakh|lac))?)/i;
   const minRx2 = /(\d+(?:\.\d+)?(?:\s*(?:k|thousand|hajar|hazar|l|lakh|lac))?)\s*(?:se\s*(?:zyada|upar|aage))/i;
   m = q.match(minRx) || q.match(minRx2);
-  if (m) {
+  if (m && !out.maxPrice) {
     const val = parsePriceToken(m[1].trim());
     if (val) { out.minPrice = val; consumed.push(m[1].trim()); }
   }
