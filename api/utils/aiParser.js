@@ -155,8 +155,6 @@ const LB = new LoadBalancer();
 // ─────────────────────────────────────────────────────────────────
 const GROQ_TIER1_MODELS = [
   'llama3-8b-8192',
-  'llama-3.1-8b-instant',
-  'llama-3.3-70b-versatile',
   'llama3-70b-8192',
   'mixtral-8x7b-32768',
   'gemma2-9b-it'
@@ -164,26 +162,11 @@ const GROQ_TIER1_MODELS = [
 
 const OPENROUTER_TIER2_CONFIGS = [
   { provider: "openrouter", model: "openrouter/free",                            envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "nex-agi/nex-n2-pro:free",                    envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "openai/gpt-oss-120b:free",                   envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "google/gemma-4-31b-it:free",                 envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "poolside/laguna-m.1:free",                   envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "nvidia/nemotron-3-super-120b-a12b:free",     envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
   { provider: "google",     model: "gemini-2.0-flash",                           envKey: "GOOGLE_API_KEY_FLASH", url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" },
 ];
 
 const OPENROUTER_TIER3_CONFIGS = [
-  { provider: "openrouter", model: "openai/gpt-oss-20b:free",                         envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "qwen/qwen3-coder:free",                           envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "nvidia/nemotron-3-nano-30b-a3b:free",             envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "nvidia/nemotron-nano-9b-v2:free",                 envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "google/gemma-4-26b-a4b-it:free",                  envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "qwen/qwen3-next-80b-a3b-instruct:free",           envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "meta-llama/llama-3.3-70b-instruct:free",          envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "nousresearch/hermes-3-llama-3.1-405b:free",       envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "liquid/lfm-2.5-1.2b-thinking:free",               envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
-  { provider: "openrouter", model: "poolside/laguna-xs.2:free",                       envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
+  { provider: "openrouter", model: "google/gemma-4-31b-it:free",                 envKey: "OPENROUTER_API_KEY", url: "https://openrouter.ai/api/v1/chat/completions", extraHeaders: { "HTTP-Referer": "https://numberwale.com", "X-Title": "Numberwale Bot Search" } },
 ];
 
 // Tier 4: Guaranteed Paid Safety Net Fallback (OpenAI gpt-4o-mini)
@@ -208,19 +191,16 @@ export async function ensureSlotsBuilt() {
     try {
       const res = await fetch("https://api.groq.com/openai/v1/models", {
         headers: { Authorization: `Bearer ${primaryGroqKey}` },
-        signal: AbortSignal.timeout(4000)
+        signal: AbortSignal.timeout(2000)
       });
       if (res.ok) {
         const data = await res.json();
         const available = (data?.data || []).map(m => m.id);
-        console.log(`[AI-LB] 📋 Live Groq models accessible by GROQ_API_KEY (${available.length}):`, available.join(', '));
         if (available.length > 0) {
-          const usable = available.filter(id => !id.includes("whisper") && !id.includes("guard"));
+          // Only whitelist known stable models to prevent "does not exist" errors
+          const usable = available.filter(id => id.includes("llama3-8b") || id.includes("llama3-70b") || id.includes("mixtral") || id.includes("gemma"));
           if (usable.length > 0) groqModels = usable;
         }
-      } else {
-        const errText = await res.text();
-        console.error(`[AI-LB] ❌ Groq /models validation returned HTTP ${res.status}:`, errText);
       }
     } catch (e) {
       console.error(`[AI-LB] ⚠️ Groq live discovery skipped: ${e.message}`);
@@ -232,7 +212,7 @@ export async function ensureSlotsBuilt() {
   TIER2_SLOTS = buildSingleKeySlots(OPENROUTER_TIER2_CONFIGS);
   TIER3_SLOTS = buildSingleKeySlots(OPENROUTER_TIER3_CONFIGS);
   TIER4_SLOTS = buildSingleKeySlots(OPENAI_TIER4_CONFIGS);
-  console.log(`[AI-LB] Local slots built — Tier1(Groq):${TIER1_SLOTS.length} Tier2:${TIER2_SLOTS.length} Tier3:${TIER3_SLOTS.length} Tier4(OpenAI):${TIER4_SLOTS.length}`);
+  console.log(`[AI-LB] Local slots built — Tier1:${TIER1_SLOTS.length} Tier2:${TIER2_SLOTS.length} Tier3:${TIER3_SLOTS.length} Tier4:${TIER4_SLOTS.length}`);
   SLOTS_BUILT = true;
 }
 
