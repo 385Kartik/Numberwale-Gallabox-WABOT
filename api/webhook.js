@@ -6,7 +6,8 @@ import {
   generateFaqReply, 
   generateNumerologyReply, 
   formatConversationalSearchResults,
-  generateSalesAgentResponse
+  generateSalesAgentResponse,
+  generateSalesConsultantChat
 } from './utils/agentEngine.js';
 import { isShowMoreIntent, isBotPaused, pauseBot, resumeBot } from './utils/sessionStore.js';
 import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters, storeBotMessageId, isBotMessageId, saveConversationId, touchInteraction, stopDrip } from './utils/analytics.js';
@@ -738,44 +739,52 @@ export default async function handler(req, res) {
       // ── AI Sales Agent: Intent Analysis (Greeting / FAQ / Consultation / Numerology) ──
       const customerIntent = detectCustomerIntent(userMessage);
 
-      // 0. Greeting / Small Talk Intent
-      if (customerIntent.type === 'GREETING') {
+      // 0. Greeting & Consultative Sales Chat Intent
+      if (customerIntent.type === 'GREETING' || customerIntent.type === 'CONSULTATIVE_CHAT') {
         const hasFilters = customerContext.activeFilters && Object.keys(customerContext.activeFilters).length > 0;
-        let greetReply = '';
-        if (hasFilters) {
+        let chatReply = '';
+        if (hasFilters && /^(more|next|reset|clear)$/i.test(userMessage.trim())) {
           const lang = customerContext.language || 'Hinglish';
           if (lang === 'Hindi') {
-            greetReply = `😊 कोई बात नहीं! क्या आप अपनी पिछली खोज जारी रखना चाहते हैं या नई खोज करना चाहते हैं?\n\n👉 अगले पेज के लिए *"more"* रिप्लाई करें\n👉 नई खोज के लिए *"reset"* रिप्लाई करें\n👉 बात करने के लिए *"agent"* रिप्लाई करें`;
+            chatReply = `😊 कोई बात नहीं! क्या आप अपनी पिछली खोज जारी रखना चाहते हैं या नई खोज करना चाहते हैं?\n\n👉 अगले पेज के लिए *"more"* रिप्लाई करें\n👉 नई खोज के लिए *"reset"* रिप्लाई करें\n👉 बात करने के लिए *"agent"* रिप्लाई करें`;
           } else if (lang === 'Gujarati') {
-            greetReply = `😊 કોઈ વાંધો નહિ! શું તમે તમારી અગાઉની શોધ ચાલુ રાખવા માંગો છો કે નવી શોધ કરવા માંગો છો?\n\n👉 આગળના પેજ માટે *"more"* રિપ્લાય કરો\n👉 નવી શોધ માટે *"reset"* રિપ્લાય કરો\n👉 વાત કરવા *"agent"* રિપ્લાય કરો`;
+            chatReply = `😊 કોઈ વાંધો નહિ! શું તમે તમારી અગાઉની શોધ ચાલુ રાખવા માંગો છો કે નવી શોધ કરવા માંગો છો?\n\n👉 આગળના પેજ માટે *"more"* રિપ્લાય કરો\n👉 નવી શોધ માટે *"reset"* રિપ્લાય કરો\n👉 વાત કરવા *"agent"* રિપ્લાય કરો`;
           } else if (lang === 'Marathi') {
-            greetReply = `😊 काही हरकत नाही! तुम्हाला तुमची मागील शोध चालू ठेवायची आहे की नवीन शोध करायची आहे?\n\n👉 पुढच्या पेजसाठी *"more"* रिप्लाय करा\n👉 नवीन शोधसाठी *"reset"* रिप्लाय करा\n👉 बोलण्यासाठी *"agent"* रिप्लाय करा`;
+            chatReply = `😊 काही हरकत नाही! तुम्हाला तुमची मागील शोध चालू ठेवायची आहे की नवीन शोध करायची आहे?\n\n👉 पुढच्या पेजसाठी *"more"* रिप्लाय करा\n👉 नवीन शोधसाठी *"reset"* रिप्लाय करा\n👉 बोलण्यासाठी *"agent"* रिप्लाय करा`;
           } else if (lang === 'English') {
-            greetReply = `😊 No problem! Would you like to continue your previous search or explore new numbers?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for fresh search\n👉 Reply *"agent"* to speak with our manager`;
+            chatReply = `😊 No problem! Would you like to continue your previous search or explore new numbers?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for fresh search\n👉 Reply *"agent"* to speak with our manager`;
           } else {
-            greetReply = `😊 Koi baat nahi! Kya aap apni pichli search continue karna chahte hain ya naya number dekhna hai?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for new search\n👉 Reply *"agent"* to connect with manager`;
+            chatReply = `😊 Koi baat nahi! Kya aap apni pichli search continue karna chahte hain ya naya number dekhna hai?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for new search\n👉 Reply *"agent"* to connect with manager`;
           }
         } else {
-          greetReply = await generateSalesAgentResponse({
+          // Fetch trending live sample numbers to showcase to the user
+          let sampleProducts = [];
+          try {
+            const sampleRes = await fetchNumbers({}, 1);
+            sampleProducts = sampleRes.products?.slice(0, 3) || [];
+          } catch (_) {}
+
+          chatReply = await generateSalesConsultantChat({
             userMessage,
             customerContext,
             history: customerContext.history || [],
-            intent: { type: 'GREETING' }
+            sampleProducts
           });
         }
-        await sendToGallabox(customerPhone, greetReply, channelID);
+
+        await sendToGallabox(customerPhone, chatReply, channelID);
         await logInteraction({
           phone: customerPhone,
           name: customerName,
           userText: userMessage,
-          botText: greetReply,
+          botText: chatReply,
           isFail: false,
-          model: 'agent-greeting',
+          model: 'agent-sales-chat',
           tokensUsed: 0,
           jsonQuery: null,
           page: 1
         }).catch(() => {});
-        return res.status(200).json({ success: true, reason: 'greeting_replied' });
+        return res.status(200).json({ success: true, reason: 'sales_chat_replied' });
       }
 
       // 1. FAQ & Process Questions (Porting, SIM, MNP, Timeline, Pricing, Trust)
@@ -890,35 +899,62 @@ export default async function handler(req, res) {
         // New search  → LLM returns only new filters.
 
         if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
-          const lang = customerContext.language || 'English';
-          let errReply = "Sorry, I couldn't understand your request. Please be more specific. 💡\nExample: _req numbers ending with 555_";
-          if (lang === 'English') {
-            errReply = "Sorry, I couldn't understand your request. Please be more specific. 💡\nExample: _req numbers ending with 555_";
-          } else if (lang === 'Hindi') {
-            errReply = "माफ़ करें, आपकी query समझ नहीं आई। कृपया ज़्यादा detail में लिखें। 💡\nउदाहरण: _req numbers ending with 555_";
-          } else if (lang === 'Gujarati') {
-            errReply = "માફ કરો, તમારી query સમજાઈ નહિ. કૃપા કરી વધુ વિગત સાથે લખો. 💡\nઉદાહરણ: _req numbers ending with 555_";
-          } else if (lang === 'Marathi') {
-            errReply = "माफ करा, तुमची query समजली नाही. कृपया अधिक तपशीलात लिहा. 💡\nउदाहरण: _req numbers ending with 555_";
-          }
-          await sendToGallabox(customerPhone, errReply, channelID);
-          return res.status(200).json({ success: true });
+          console.log(`[Webhook] No specific search filter detected. Engaging via Consultative Sales Chat.`);
+          let sampleProducts = [];
+          try {
+            const sampleRes = await fetchNumbers({}, 1);
+            sampleProducts = sampleRes.products?.slice(0, 3) || [];
+          } catch (_) {}
+
+          const chatReply = await generateSalesConsultantChat({
+            userMessage,
+            customerContext,
+            history: customerContext.history || [],
+            sampleProducts
+          });
+
+          await sendToGallabox(customerPhone, chatReply, channelID);
+          await logInteraction({
+            phone: customerPhone,
+            name: customerName,
+            userText: userMessage,
+            botText: chatReply,
+            isFail: false,
+            model: 'agent-sales-chat',
+            tokensUsed: 0,
+            jsonQuery: null,
+            page: 1
+          }).catch(() => {});
+          return res.status(200).json({ success: true, reason: 'sales_chat_replied' });
         }
       } catch (parseErr) {
-        console.error('[Webhook] NLP Parse Error:', parseErr);
-        const lang = customerContext.language || 'English';
-        let errReply = "Sorry, something went wrong while understanding your request. Please try again. 🙏\nExample: _req 99 three times under 5000_";
-        if (lang === 'English') {
-          errReply = "Sorry, something went wrong while understanding your request. Please try again. 🙏\nExample: _req 99 three times under 5000_";
-        } else if (lang === 'Hindi') {
-          errReply = "माफ़ करें, आपकी query समझने में कुछ गड़बड़ हुई। कृपया दोबारा try करें। 🙏\nउदाहरण: _req 99 three times under 5000_";
-        } else if (lang === 'Gujarati') {
-          errReply = "માફ કરો, તમારી query સમજવામાં કંઈક ખૂટ્ઠ્ઠ્ઠ. કૃપા ફરી try કરો. 🙏\nઉદાહરણ: _req 99 three times under 5000_";
-        } else if (lang === 'Marathi') {
-          errReply = "माफ करा, तुमची query समजण्यात काहीतरी चूक झाली. कृपया पुन्हा try करा. 🙏\nउदाहरण: _req 99 three times under 5000_";
-        }
-        await sendToGallabox(customerPhone, errReply, channelID);
-        return res.status(200).json({ success: true });
+        console.error('[Webhook] NLP Parse Error, engaging via Sales Chat:', parseErr.message);
+        let sampleProducts = [];
+        try {
+          const sampleRes = await fetchNumbers({}, 1);
+          sampleProducts = sampleRes.products?.slice(0, 3) || [];
+        } catch (_) {}
+
+        const chatReply = await generateSalesConsultantChat({
+          userMessage,
+          customerContext,
+          history: customerContext.history || [],
+          sampleProducts
+        });
+
+        await sendToGallabox(customerPhone, chatReply, channelID);
+        await logInteraction({
+          phone: customerPhone,
+          name: customerName,
+          userText: userMessage,
+          botText: chatReply,
+          isFail: false,
+          model: 'agent-sales-chat',
+          tokensUsed: 0,
+          jsonQuery: null,
+          page: 1
+        }).catch(() => {});
+        return res.status(200).json({ success: true, reason: 'sales_chat_replied' });
       }
     }
 

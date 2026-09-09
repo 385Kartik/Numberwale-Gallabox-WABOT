@@ -182,10 +182,14 @@ export function detectCustomerIntent(rawMsg) {
   if (!rawMsg) return { type: 'SEARCH' };
   const text = rawMsg.toLowerCase().trim();
 
-  // 0. Greetings / Small talk
-  const greetingRegex = /^(hi|hello|hii|helo|hey|ok|okay|thanks|thank you|shukriya|theek hai|thik hai|👍|🙏|haan|ha|yes|no|nahi|hmm|hm|good|great|nice|👌|namaste|kem cho|pranam|kaisa hai|kaise ho)\b/i;
-  if (greetingRegex.test(text)) {
-    return { type: 'GREETING' };
+  // 0. Greetings, Affirmations, Exploratory, Conversational Discovery
+  const consultativeChatRegex = /\b(hi|hello|hii|helo|hey|ok|okay|okau|okie|okk|done|sure|theek\s*hai|thik\s*hai|sahi\s*hai|accha|achha|acha|shukriya|thanks|thank\s*you|👍|🙏|👌|haan|ha|yes|yep|batao|bataiye|bolo|bata|suggest|guide|help|samjhao|kaisa\s*number|kaise\s*choose|kya\s*fayda|kya\s*faida|faayda|fayda|kya\s*rate|kya\s*price|kuch\s*accha|kuch\s*badhiya|trending|popular|best\s*number|top\s*number|business\s*ke\s*liye|personal\s*ke\s*liye|calling\s*ke\s*liye|namaste|kem\s*cho|pranam|kaisa\s*hai|kaise\s*ho)\b/i;
+  
+  const hasSearchKeywords = /\b(req|ending|starts?|last|first|contains?|without|digits?|price|budget|sum|total|under|below|above|between)\b/i.test(text) ||
+                            /\b\d{3,10}\b/.test(text);
+
+  if (consultativeChatRegex.test(text) && !hasSearchKeywords) {
+    return { type: 'CONSULTATIVE_CHAT' };
   }
 
   // 1. Numerology Intent
@@ -640,6 +644,146 @@ Keep it punchy (3-4 sentences), charismatic, with polite Indian conversational f
       `👑 Royal repeating patterns (jaise 9999, 786, 0007)\n` +
       `💼 Business branding ya Mirror patterns?\n\n` +
       `Apna favourite digit ya budget batayein, main best options nikal ke deta hun! 😊`;
+  }
+}
+
+/**
+ * Consultative AI Salesperson (ChatGPT-style) that actively pitches and sells VIP numbers
+ */
+export async function generateSalesConsultantChat({
+  userMessage,
+  customerContext = {},
+  history = [],
+  sampleProducts = []
+}) {
+  const lang = customerContext.language || 'Hinglish';
+  const name = customerContext.name && customerContext.name !== 'Unknown' ? customerContext.name : '';
+  const greeting = name ? `${name} ji` : '';
+
+  // Prepare short sample numbers list
+  const sampleList = (sampleProducts || []).slice(0, 3).map((p, idx) => {
+    const raw = p.productMobileNumber || '';
+    const formatted = formatNumberBeauty(raw);
+    const subtotal = p.pricing?.nwFinalPrice || p.price || 0;
+    const gst = Math.round(subtotal * 0.18);
+    const total = subtotal + gst;
+    const cat = p.category?.name || 'VIP Fancy Number';
+    const sum = p.score ?? null;
+    return `${idx + 1}️⃣ *${formatted}* 👑 (${cat})\n   💰 *₹${total.toLocaleString('en-IN')}* (Total with 18% GST & Bill)${sum !== null ? ` | Lucky Sum: ${sum}` : ''}\n   👉 Book: _buy ${raw}_`;
+  }).join('\n\n');
+
+  const systemPrompt = `You are Aman, Senior VIP Mobile Number Consultant at Numberwale (India's premier VIP phone number destination since 2010, 10+ years legacy, 1 Lakh+ happy clients across India).
+You are consulting a customer on WhatsApp.
+
+YOUR SOLE MISSION:
+Talk like an elite, consultative luxury sales consultant (like ChatGPT). Your goal is to make the customer excited about owning a prestigious VIP mobile number and actively SELL numbers from Numberwale!
+
+SALES RULES & BEHAVIOR:
+1. TONE: Warm, charismatic, highly persuasive, and confident. Never sound like a robotic bot or menu machine. Speak in ${lang} (Hinglish/Hindi/English/Gujarati/Marathi). Address the customer politely as "${greeting || 'ji'}".
+2. CONVERSATIONAL AGILITY: Handle conversational phrases naturally (e.g. "Okau", "Okay", "Haan", "Achha", "Batao", "Suggest karo", "Kaise choose karu", "Kya rate chal raha hai"). Never reject or say you didn't understand. Always take charge of the conversation with sales enthusiasm!
+3. THE PITCH (Why VIP numbers matter):
+   - For Business: Instantly builds credibility, 10x recall by clients, makes your brand look established and trustworthy.
+   - For Personal / Status: Makes an unforgettable impression on calls, WhatsApp, and Truecaller.
+   - For Luck & Numerology: Aligns with your birth date / ruling planet to attract prosperity and remove obstacles.
+4. RECOMMEND 3 WINNING CATEGORIES:
+   - 👑 Royal Repeaters (9999, 786, 0007)
+   - 💎 Mirror & Symmetry (9820 9820, 123 123 - easy to memorize)
+   - 🔮 Lucky Numerology Totals (Single-digit sum 5 for Business or 6 for Luxury)
+5. INVENTORY SAMPLES (Showcase these live numbers if available):
+${sampleList || 'We have 45,000+ verified numbers starting from ₹2,500 to exclusive VVIP gems.'}
+6. CLOSING DISCOVERY QUESTIONS:
+   Always end with 1-2 sharp, friendly discovery questions:
+   - "Aap yeh number apne business ke liye soch rahe hain ya personal use ke liye?"
+   - "Aapka koi favourite digit (jaise 7, 9, 8) ya approximate budget range mind mein hai?"
+7. TRAI ASSURANCES: 100% legal MNP process, 24-hr digital UPC code delivery, nearest operator store biometric KYC, 100% Money-Back Guarantee, official 18% GST tax invoice.
+
+Keep the response engaging (3-5 crisp paragraphs), use emojis, bullet points, and WhatsApp formatting (*bold*). Never use markdown code blocks.`;
+
+  try {
+    const chatMessages = [
+      ...history.slice(-4).map(h => ({
+        role: h.role === 'bot' ? 'assistant' : 'user',
+        content: h.text
+      })),
+      { role: 'user', content: userMessage }
+    ];
+
+    const aiText = await runLocalAgentChat({
+      systemPrompt,
+      messages: chatMessages,
+      temperature: 0.65,
+      maxTokens: 450
+    });
+
+    if (aiText && aiText.length > 50) {
+      return aiText;
+    }
+  } catch (err) {
+    console.log(`[AgentEngine] 🔄 LLM sales consultant chat fallback active (${err.message})`);
+  }
+
+  // Pre-crafted instant charismatic sales consultant fallback
+  let sampleBlock = '';
+  if (sampleList && sampleList.length > 0) {
+    sampleBlock = `\n\n👇 *Hamare kuch top trending VIP numbers:*\n\n${sampleList}\n`;
+  }
+
+  if (lang === 'Hindi') {
+    return `नमस्ते ${greeting || 'जी'}! 🌟 VIP मोबाइल नंबर सिर्फ एक नंबर नहीं, बल्कि आपकी 24/7 चलने वाली पहचान और ब्रांड वैल्यू है!\n\n` +
+      `जब आप किसी क्लाइंट या साथी को कॉल करते हैं, तो एक रॉयल VIP नंबर तुरंत विश्वसनीयता और क्लास दर्शाता है। 👑\n\n` +
+      `💡 *नंबर चुनने के 3 सबसे लोकप्रिय तरीके:*\n` +
+      `1️⃣ *रॉयल रिपीटिंग नंबर्स:* 9999, 786, 0007 (तुरंत याद रहने वाले)\n` +
+      `2️⃣ *मिरर व सिमिट्री:* 9820 9820 या 123 123 (बिज़नेस कार्ड्स के लिए बेस्ट)\n` +
+      `3️⃣ *न्यूमरोलॉजी लकी टोटल:* कुल योग 5 (व्यापार वृद्धि) या 6 (वैभव और समृद्धि)\n` +
+      sampleBlock + `\n` +
+      `👉 *मुझे बस 2 बातें बताइए, मैं आपके लिए सबसे बेस्ट नंबर निकालता हूँ:*\n` +
+      `1. आप यह नंबर अपने *बिज़नेस* के लिए देख रहे हैं या *पर्सनल* उपयोग के लिए?\n` +
+      `2. आपका कोई *पसंदीदा अंक* (जैसे 9, 7, 5, 8) या *बजट* क्या है? 😊`;
+  } else if (lang === 'Gujarati') {
+    return `નમસ્તે ${greeting || 'જી'}! 🌟 VIP મોબાઈલ નંબર માત્ર એક નંબર નથી, પણ તમારી બ્રાન્ડ વેલ્યુ અને ઓળખ છે!\n\n` +
+      `જ્યારે તમે કોઈ ક્લાયન્ટને કોલ કરો છો, ત્યારે VIP નંબર તરત જ પ્રીમિયમ સ્ટેટસ ઊભું કરે છે. 👑\n\n` +
+      `💡 *શ્રેષ્ઠ 3 વિકલ્પો:*\n` +
+      `1️⃣ *રોયલ રિપીટિંગ:* 9999, 786, 0007\n` +
+      `2️⃣ *મિરર અને સિમેટ્રી:* 9820 9820 કે 123 123\n` +
+      `3️⃣ *લકી ન્યૂમરોલોજી સમ:* સરવાળો 5 (વેપાર માટે) કે 6 (લક્ઝરી માટે)\n` +
+      sampleBlock + `\n` +
+      `👉 *મને ફક્ત 2 વિગતો જણાવો:*\n` +
+      `1. તમે આ નંબર *બિઝનેસ* માટે શોધી રહ્યા છો કે *પર્સનલ*?\n` +
+      `2. તમારો કોઈ *મનપસંદ આંકડો* કે *બજેટ* શું છે? 😊`;
+  } else if (lang === 'Marathi') {
+    return `नमस्कार ${greeting || 'जी'}! 🌟 VIP मोबाईल नंबर केवळ एक नंबर नसून तुमची प्रतिष्ठा आणि ब्रँड व्हॅल्यू आहे!\n\n` +
+      `जेव्हा तुम्ही एखाद्या क्लायंटला कॉल करता, तेव्हा VIP नंबर लगेचच विश्वास आणि दर्जा दाखवतो. 👑\n\n` +
+      `💡 *नंबर निवडण्यासाठी 3 सर्वोत्तम पर्याय:*\n` +
+      `1️⃣ *रॉयल रिपीटिंग:* 9999, 786, 0007 (लगेच लक्षात राहणारे)\n` +
+      `2️⃣ *मिरर व सममिती:* 9820 9820 किंवा 123 123 (बिझनेससाठी बेस्ट)\n` +
+      `3️⃣ *न्यूमरोलॉजी लकी टोटल:* बेरीज 5 (व्यवसाय वृद्धी) किंवा 6 (समृद्धी)\n` +
+      sampleBlock + `\n` +
+      `👉 *मला फक्त 2 गोष्टी सांगा:*\n` +
+      `1. हा नंबर तुम्ही *व्यवसायासाठी* पाहत आहात की *पर्सनल* वापरासाठी?\n` +
+      `2. तुमचा कोणताही *आवडता अंक* किंवा *बजेट* काय आहे? 😊`;
+  } else if (lang === 'English') {
+    return `Hello ${greeting || 'there'}! 🌟 A VIP mobile number is far more than just 10 digits—it is your 24/7 personal brand and trust accelerator!\n\n` +
+      `Whenever you call a client, investor, or partner, a prestigious VIP number instantly establishes credibility and elite status. 👑\n\n` +
+      `💡 *3 Top Directions to Consider:*\n` +
+      `1️⃣ *Royal Repeaters:* 9999, 786, or 0007 (Unforgettable recall)\n` +
+      `2️⃣ *Mirror & Symmetry:* 9820 9820 or 123 123 (Clean corporate elegance)\n` +
+      `3️⃣ *Lucky Numerology Sum:* Total 5 (Mercury/Business Growth) or 6 (Venus/Wealth)\n` +
+      sampleBlock + `\n` +
+      `👉 *Tell me just 2 things, and I will find your ideal number:*\n` +
+      `1. Are you looking for *Business branding* or *Personal use*?\n` +
+      `2. Do you have any *favorite digits* (e.g. 7, 9, 8) or an approximate *budget*? 😊`;
+  } else {
+    // Hinglish
+    return `Zabardast ${greeting || 'ji'}! 🌟 VIP mobile number sirf ek contact number nahi, balki aapka 24/7 personal aur business brand ambassador hota hai!\n\n` +
+      `Jab aap kisi client ya partner ko call karte hain, toh ek royal VIP number turant trust aur premium impression create karta hai. 👑\n\n` +
+      `💡 *VIP number lene ke 3 sabse popular tareeqe:*\n` +
+      `1️⃣ *Royal Repeating Kings:* Jaise 9999, 786, ya 0007 ending (Sabhi ko turant yaad rehta hai)\n` +
+      `2️⃣ *Mirror & Symmetry:* Jaise 9820 9820 ya 123 123 (Corporate visiting cards ke liye perfect)\n` +
+      `3️⃣ *Astrology / Lucky Total:* Single-digit sum 5 (Business Growth) ya 6 (Luxury & Wealth)\n` +
+      sampleBlock + `\n` +
+      `👉 *Mujhe bas 2 chizein batayein, main aapke liye best VIP number shortlist karta hun:*\n` +
+      `1. Aap yeh number apne *Business* ke liye dekh rahe hain ya *Personal* use ke liye?\n` +
+      `2. Aapka koi *favourite digit* (e.g. 9, 7, 5, 8) ya *budget range* kya soch rahe hain? 😊`;
   }
 }
 
