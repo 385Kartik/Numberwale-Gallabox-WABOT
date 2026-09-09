@@ -340,45 +340,104 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── Language Preference & Onboarding (Non-blocking & Smart) ──
+    // ── Global Language Command (For changing language anytime) ──
     if (languageRegex.test(lowerMsg.trim())) {
+      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE', language: null });
       const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish\n\n_Reply with 1, 2, 3, 4, or 5_";
       await sendToGallabox(customerPhone, langReply, channelID);
       return res.status(200).json({ success: true, reason: 'language_menu_sent' });
     }
 
-    // Single-digit language choice (1 to 5)
-    // Only accept as language selection if user is in initial state, or has no active filters and query is purely 1-5
-    const trimmedMsg = userMessage.trim();
-    const isSingleDigitChoice = ['1', '2', '3', '4', '5'].includes(trimmedMsg);
-    const hasActiveFilters = customerContext.activeFilters && Object.keys(customerContext.activeFilters).length > 0;
+    // ── State Machine: Onboarding (Language -> Name & Pincode -> Active Sales Flow) ──
+    if (currentState === 'NEW') {
+      // Check if user already provided Name and 6-digit Pincode in first message
+      const pinMatch = userMessage.match(/\b\d{6}\b/);
+      const extractedName = userMessage.replace(/\b\d{6}\b/, '').replace(/[^\p{L}\s]/gu, '').replace(/\s+/g, ' ').trim();
 
-    if (isSingleDigitChoice && (!hasActiveFilters && (currentState === 'NEW' || currentState === 'AWAITING_LANGUAGE' || !customerContext.language))) {
-      const langMap = { '1': 'English', '2': 'Hindi', '3': 'Gujarati', '4': 'Marathi', '5': 'Hinglish' };
-      const selectedLang = langMap[trimmedMsg];
-      await updateCustomerInfo(customerPhone, { language: selectedLang, botState: 'ACTIVE' });
-      customerContext.language = selectedLang;
+      if (pinMatch && extractedName.length >= 2) {
+        const extractedPin = pinMatch[0];
+        const detectedLang = detectLanguage(userMessage);
+        await updateCustomerInfo(customerPhone, { 
+          botState: 'ACTIVE', 
+          language: detectedLang,
+          pinCode: extractedPin, 
+          name: extractedName 
+        });
+        customerContext.pinCode = extractedPin;
+        customerContext.name = extractedName;
+        customerContext.language = detectedLang;
+        customerContext.botState = 'ACTIVE';
 
-      let confirmMsg = `✅ Language set to *${selectedLang}*!\n\nAap kaisa VIP number dekhna chahte hain? (e.g. _req 9999_, _mirror numbers_, ya apna budget batayein) 😊`;
-      if (selectedLang === 'English') {
-        confirmMsg = `✅ Language set to *English*!\n\nWhat kind of VIP number are you looking for? (e.g. _req 9999_, _mirror numbers_, or tell me your budget) 😊`;
-      } else if (selectedLang === 'Hindi') {
-        confirmMsg = `✅ भाषा *हिंदी* सेट कर दी गई है!\n\nआप कैसा VIP नंबर ढूंढ रहे हैं? (जैसे _req 9999_, _mirror numbers_, या अपना बजट बताएं) 😊`;
-      } else if (selectedLang === 'Gujarati') {
-        confirmMsg = `✅ ભાષા *ગુજરાતી* સેટ કરવામાં આવી છે!\n\nતમે કેવો VIP નંબર શોધવા માંગો છો? (દા.ત. _req 9999_, _mirror numbers_, અથવા તમારું બજેટ જણાવો) 😊`;
-      } else if (selectedLang === 'Marathi') {
-        confirmMsg = `✅ भाषा *मराठी* सेट करण्यात आली आहे!\n\nतुम्हाला कसा VIP नंबर हवा आहे? (उदा. _req 9999_, _mirror numbers_, किंवा तुमचे बजेट सांगा) 😊`;
+        // Background sync to CRM
+        const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
+        const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
+        fetch(`${ADMIN_API}/api/v1/gallabox-bot/sync-lead`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
+          body: JSON.stringify({
+            phone: customerPhone,
+            name: extractedName,
+            pincode: extractedPin,
+            pinCode: extractedPin,
+            location: extractedPin,
+            language: detectedLang
+          })
+        }).catch(e => console.error(`[Webhook] Failed to sync lead to CRM:`, e.message));
+
+        const welcomeMsg = `Awesome, ${extractedName}! 🎉 Aapka Pincode ${extractedPin} save ho gaya hai.\n\nMain Aman, Numberwale se aapka VIP Number Consultant. Aap kaisa VIP mobile number dekhna chahte hain? (e.g. _req 9999_, _mirror numbers_, ya apna budget batayein) 😊`;
+        await sendToGallabox(customerPhone, welcomeMsg, channelID);
+        return res.status(200).json({ success: true, reason: 'onboarded_direct' });
       }
-      await sendToGallabox(customerPhone, confirmMsg, channelID);
-      return res.status(200).json({ success: true, reason: 'language_set' });
+
+      // If no name + pincode, prompt Language selection
+      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_LANGUAGE' });
+      const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish\n\n_Reply with 1, 2, 3, 4, or 5_";
+      await sendToGallabox(customerPhone, langReply, channelID);
+      return res.status(200).json({ success: true, reason: 'awaiting_language' });
     }
 
-    // Name & 6-digit Pincode Auto-capture (Non-blocking: captures if sent)
-    const pinMatch = userMessage.match(/\b\d{6}\b/);
-    if (pinMatch) {
-      const extractedPin = pinMatch[0];
-      const extractedName = userMessage.replace(/\b\d{6}\b/, '').replace(/[^\p{L}\s]/gu, '').replace(/\s+/g, ' ').trim();
-      if (extractedName.length >= 2) {
+    if (currentState === 'AWAITING_LANGUAGE') {
+      const selected = userMessage.trim().toLowerCase();
+      let chosenLanguage = null;
+      if (selected === '1' || selected === 'english') chosenLanguage = 'English';
+      else if (selected === '2' || selected === 'hindi' || selected === 'हिंदी') chosenLanguage = 'Hindi';
+      else if (selected === '3' || selected === 'gujarati' || selected === 'ગુજરાતી') chosenLanguage = 'Gujarati';
+      else if (selected === '4' || selected === 'marathi' || selected === 'मराठी') chosenLanguage = 'Marathi';
+      else if (selected === '5' || selected === 'hinglish') chosenLanguage = 'Hinglish';
+
+      if (!chosenLanguage) {
+        const errorReply = "❌ Invalid selection. Please reply with 1, 2, 3, 4, or 5.\nगलत चुनाव। कृपया 1, 2, 3, 4, या 5 रिप्लाई करें।";
+        await sendToGallabox(customerPhone, errorReply, channelID);
+        return res.status(200).json({ success: true, reason: 'invalid_language' });
+      }
+
+      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_INFO', language: chosenLanguage });
+      customerContext.language = chosenLanguage;
+      customerContext.botState = 'AWAITING_INFO';
+
+      let welcomeReply = "";
+      if (chosenLanguage === 'English') {
+        welcomeReply = "Welcome to Numberwale! 🎉\n\nI am Aman, your VIP Number Consultant.\n\nTo check the best available VIP numbers and telecom circle availability for your area, please type your *Name* and *6-digit Pincode*.\n\nExample: _Rahul 400001_";
+      } else if (chosenLanguage === 'Hindi') {
+        welcomeReply = "नंबरवाले में आपका स्वागत है! 🎉\n\nमैं अमन, आपका VIP नंबर कंसल्टेंट।\n\nआपके एरिया में बेस्ट VIP मोबाइल नंबर और टेलीकॉम सर्कल उपलब्धता चेक करने के लिए, कृपया अपना *नाम* और *6-अंकों का पिनकोड* लिखकर भेजें।\n\nउदाहरण: _Rahul 400001_";
+      } else if (chosenLanguage === 'Gujarati') {
+        welcomeReply = "નંબરવાલેમાં તમારું સ્વાગત છે! 🎉\n\nહું અમન, તમારો VIP નંબર કન્સલ્ટન્ટ.\n\nતમારા વિસ્તારમાં શ્રેષ્ઠ VIP મોબાઈલ નંબર અને ટેલિકોમ સર્કલ ઉપલબ્ધતા ચકાસવા માટે, કૃપા કરીને તમારું *નામ* અને *6-આંકડાનો પિનકોડ* લખીને મોકલો.\n\nઉદાહરણ: _Rahul 400001_";
+      } else if (chosenLanguage === 'Marathi') {
+        welcomeReply = "नंबरवाले मध्ये आपले स्वागत आहे! 🎉\n\nमी अमन, तुमचा VIP नंबर सल्लागार.\n\nतुमच्या भागात सर्वोत्तम VIP मोबाईल नंबर आणि टेलिकॉम सर्कल उपलब्धता तपासण्यासाठी, कृपया तुमचे *नाव* आणि *६-अंकी पिनकोड* लिहून पाठवा.\n\nउदाहरण: _Rahul 400001_";
+      } else {
+        welcomeReply = "Welcome to Numberwale! 🎉\n\nMain Aman, aapka VIP Number Consultant.\n\nAapke telecom circle me best available VIP numbers aur delivery check karne ke liye, kripya apna *Naam* aur *6-digit Pincode* type karke bhejein.\n\nExample: _Rahul 400001_";
+      }
+
+      await sendToGallabox(customerPhone, welcomeReply, channelID);
+      return res.status(200).json({ success: true, reason: 'awaiting_info' });
+    }
+
+    if (currentState === 'AWAITING_INFO') {
+      const pinMatch = userMessage.match(/\b\d{6}\b/);
+      let extractedName = userMessage.replace(/\b\d{6}\b/, '').replace(/[^\p{L}\s]/gu, '').replace(/\s+/g, ' ').trim();
+
+      if (pinMatch && extractedName.length >= 2) {
+        const extractedPin = pinMatch[0];
         await updateCustomerInfo(customerPhone, { 
           botState: 'ACTIVE', 
           pinCode: extractedPin, 
@@ -386,6 +445,7 @@ export default async function handler(req, res) {
         });
         customerContext.pinCode = extractedPin;
         customerContext.name = extractedName;
+        customerContext.botState = 'ACTIVE';
 
         // Background sync to CRM
         const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
@@ -404,49 +464,68 @@ export default async function handler(req, res) {
         }).catch(e => console.error(`[Webhook] Failed to sync lead to CRM:`, e.message));
 
         const lang = customerContext.language || 'Hinglish';
-        let instructions = `Awesome, ${extractedName}! Aapka Pincode ${extractedPin} save ho gaya hai. 🎉\n\nAap kaisa VIP number dekhna chahte hain? Aap mujhe bata sakte hain:\n\n` +
-          `🔹 _"Need mirror numbers"_\n` +
-          `🔹 _"9999 ending without 2, 4, 8"_\n` +
-          `🔹 _"Sum total 5 numbers"_\n\n` +
+        let instructions = `Awesome, ${extractedName}! 🎉 Aapka Pincode ${extractedPin} save ho gaya hai.\n\nAap kaisa VIP mobile number dekhna chahte hain? Aap mujhe bata sakte hain:\n\n` +
+          `👑 _"9999 ending numbers"_\n` +
+          `👑 _"Mirror / Symmetry numbers"_\n` +
+          `👑 _"Sum total 5 ya 6 lucky number"_\n` +
+          `👑 _"Budget under 25000"_\n\n` +
           `Type kijiye aur main turant numbers nikalta hun! 😊`;
 
         if (lang === 'English') {
-          instructions = `Awesome, ${extractedName}! Your Pincode ${extractedPin} has been saved. 🎉\n\nWhat kind of VIP number are you looking for? You can tell me:\n\n` +
-            `🔹 _"Need mirror numbers"_\n` +
-            `🔹 _"9999 ending without 2, 4, 8"_\n` +
-            `🔹 _"Sum 5 numbers"_\n\n` +
-            `Just type your query and I will fetch the numbers! 😊`;
+          instructions = `Awesome, ${extractedName}! 🎉 Your Pincode ${extractedPin} has been saved.\n\nWhat kind of VIP mobile number are you looking for? You can tell me:\n\n` +
+            `👑 _"9999 ending numbers"_\n` +
+            `👑 _"Mirror / Symmetry numbers"_\n` +
+            `👑 _"Sum total 5 or 6 lucky number"_\n` +
+            `👑 _"Budget under 25000"_\n\n` +
+            `Type your query and I will fetch the numbers! 😊`;
         } else if (lang === 'Hindi') {
-          instructions = `बढ़िया, ${extractedName}! आपका पिनकोड ${extractedPin} सेव हो गया है। 🎉\n\nआप कैसा VIP नंबर ढूंढ रहे हैं? आप मुझे बता सकते हैं:\n\n` +
-            `🔹 _"Need mirror numbers"_\n` +
-            `🔹 _"9999 ending without 2, 4, 8"_\n` +
-            `🔹 _"Sum 5 numbers"_\n\n` +
+          instructions = `बढ़िया, ${extractedName}! 🎉 आपका पिनकोड ${extractedPin} सेव हो गया है।\n\nआप कैसा VIP मोबाइल नंबर ढूंढ रहे हैं? आप मुझे बता सकते हैं:\n\n` +
+            `👑 _"9999 ending numbers"_\n` +
+            `👑 _"Mirror / Symmetry numbers"_\n` +
+            `👑 _"Sum total 5 या 6 lucky number"_\n` +
+            `👑 _"Budget under 25000"_\n\n` +
             `टाइप कीजिए और हम आपके लिए नंबर्स खोजेंगे! 😊`;
         } else if (lang === 'Gujarati') {
-          instructions = `સરસ, ${extractedName}! તમારો પિનકોડ ${extractedPin} સેવ થઈ ગયો છે. 🎉\n\nતમે કેવો VIP નંબર શોધી રહ્યા છો? તમે મને કહી શકો છો:\n\n` +
-            `🔹 _"Need mirror numbers"_\n` +
-            `🔹 _"9999 ending without 2, 4, 8"_\n` +
-            `🔹 _"Sum 5 numbers"_\n\n` +
+          instructions = `સરસ, ${extractedName}! 🎉 તમારો પિનકોડ ${extractedPin} સેવ થઈ ગયો છે.\n\nતમે કેવો VIP મોબાઈલ નંબર શોધી રહ્યા છો? તમે મને કહી શકો છો:\n\n` +
+            `👑 _"9999 ending numbers"_\n` +
+            `👑 _"Mirror / Symmetry numbers"_\n` +
+            `👑 _"Sum total 5 અથવા 6 lucky number"_\n` +
+            `👑 _"Budget under 25000"_\n\n` +
             `ટાઈપ કરો અને અમે તમારા માટે નંબર્સ શોધીશું! 😊`;
         } else if (lang === 'Marathi') {
-          instructions = `उत्तम, ${extractedName}! तुमचा पिनकोड ${extractedPin} सेव्ह झाला आहे. 🎉\n\nतुम्ही कसा VIP नंबर शोधत आहात? तुम्ही मला सांगू शकता:\n\n` +
-            `🔹 _"Need mirror numbers"_\n` +
-            `🔹 _"9999 ending without 2, 4, 8"_\n` +
-            `🔹 _"Sum 5 numbers"_\n\n` +
+          instructions = `उत्तम, ${extractedName}! 🎉 तुमचा पिनकोड ${extractedPin} सेव्ह झाला आहे.\n\nतुम्ही कसा VIP मोबाईल नंबर शोधत आहात? तुम्ही मला सांगू शकता:\n\n` +
+            `👑 _"9999 ending numbers"_\n` +
+            `👑 _"Mirror / Symmetry numbers"_\n` +
+            `👑 _"Sum total 5 किंवा 6 lucky number"_\n` +
+            `👑 _"Budget under 25000"_\n\n` +
             `टाईप करा आणि आम्ही तुमच्यासाठी नंबर शोधू! 😊`;
         }
 
         await sendToGallabox(customerPhone, instructions, channelID);
-        return res.status(200).json({ success: true });
+        return res.status(200).json({ success: true, reason: 'onboarding_complete' });
+      } else {
+        const lang = customerContext.language || 'Hinglish';
+        let errReply = "Aapke telecom circle me best available VIP numbers aur delivery check karne ke liye, kripya apna *Naam* aur *6-digit Pincode* ek sath bhejein. 😊\n\nExample: _Rahul 400001_";
+
+        if (lang === 'English') {
+          errReply = "To check the best available VIP numbers and telecom circle availability, please provide your *Name* and *6-digit Pincode* together. 😊\n\nExample: _Rahul 400001_";
+        } else if (lang === 'Hindi') {
+          errReply = "आपके टेलीकॉम सर्कल में उपलब्ध बेस्ट VIP नंबर और डिलीवरी चेक करने के लिए, कृपया अपना *नाम* और *6-अंकों का पिनकोड* एक साथ लिखकर भेजें। 😊\n\nउदाहरण: _Rahul 400001_";
+        } else if (lang === 'Gujarati') {
+          errReply = "તમારા ટેલિકોમ સર્કલમાં શ્રેષ્ઠ VIP નંબર અને ડિલિવરી ચકાસવા માટે, કૃપા કરીને તમારું *નામ* અને *6-આંકડાનો પિનકોડ* એકસાથે લખીને મોકલો. 😊\n\nઉદાહરણ: _Rahul 400001_";
+        } else if (lang === 'Marathi') {
+          errReply = "तुमच्या टेलिकॉम सर्कलमध्ये उपलब्ध असलेले सर्वोत्तम VIP नंबर आणि डिलिव्हरी तपासण्यासाठी, कृपया तुमचे *नाव* आणि *६-अंकी पिनकोड* एकत्र लिहून पाठवा. 😊\n\nउदाहरण: _Rahul 400001_";
+        }
+
+        await sendToGallabox(customerPhone, errReply, channelID);
+        return res.status(200).json({ success: true, reason: 'invalid_info_format' });
       }
     }
 
-    // Auto-detect language if not set
+    // Ensure language is set for ACTIVE users
     if (!customerContext.language) {
       customerContext.language = detectLanguage(userMessage);
-      updateCustomerInfo(customerPhone, { language: customerContext.language, botState: 'ACTIVE' }).catch(() => {});
-    } else if (currentState !== 'ACTIVE') {
-      updateCustomerInfo(customerPhone, { botState: 'ACTIVE' }).catch(() => {});
+      updateCustomerInfo(customerPhone, { language: customerContext.language }).catch(() => {});
     }
 
     // If state is ACTIVE, proceed normally
