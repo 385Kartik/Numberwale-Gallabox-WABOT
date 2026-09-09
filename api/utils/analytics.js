@@ -83,7 +83,8 @@ function getMemoryProfile(phone) {
       pinCode: null,
       language: null,
       agentReplied: false,
-      pendingBotMessages: []
+      pendingBotMessages: [],
+      history: []
     });
   }
   return memoryStore.get(phone);
@@ -111,7 +112,8 @@ export async function getCustomerContext(phone, name) {
       name: profile.name,
       pinCode: profile.pinCode,
       language: profile.language || null,
-      agentReplied: profile.agentReplied || false
+      agentReplied: profile.agentReplied || false,
+      history: (profile.history || []).slice(-6)
     };
     const mem = getMemoryProfile(phone);
     Object.assign(mem, data);
@@ -127,7 +129,8 @@ export async function getCustomerContext(phone, name) {
       name: mem.name,
       pinCode: mem.pinCode,
       language: mem.language || null,
-      agentReplied: mem.agentReplied || false
+      agentReplied: mem.agentReplied || false,
+      history: (mem.history || []).slice(-6)
     };
   }
 }
@@ -242,6 +245,11 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
       { role: 'bot', text: botText, isFail: false, tokensUsed } // Associate tokens with bot reply
     ];
 
+    const mem = getMemoryProfile(phone);
+    if (!mem.history) mem.history = [];
+    mem.history.push(...historyEntries);
+    if (mem.history.length > 20) mem.history = mem.history.slice(-20);
+
     const incCustomer = isFail ? { failureCount: 1 } : { successCount: 1 };
 
     // Build $set — always update name; also save activeFilters + lastPage on success
@@ -263,6 +271,13 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
 
   } catch (err) {
     console.error('[Analytics] logInteraction failed:', err.message);
+    const mem = getMemoryProfile(phone);
+    if (!mem.history) mem.history = [];
+    mem.history.push(
+      { role: 'user', text: userText, isFail, tokensUsed: 0 },
+      { role: 'bot', text: botText, isFail: false, tokensUsed }
+    );
+    if (mem.history.length > 20) mem.history = mem.history.slice(-20);
   }
 }
 

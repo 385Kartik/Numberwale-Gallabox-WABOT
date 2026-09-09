@@ -147,11 +147,46 @@ export function calculateNumerology(text) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. INTENT DETECTOR
 // ─────────────────────────────────────────────────────────────────────────────
+// 3. INTENT DETECTOR & LANGUAGE DETECTION
+// ─────────────────────────────────────────────────────────────────────────────
+export function detectLanguage(text) {
+  if (!text) return 'Hinglish';
+  // Devanagari script (Hindi or Marathi)
+  if (/[\u0900-\u097F]/.test(text)) {
+    if (/\b(आहे|नाही|कसा|कशी|करा|हवा|हवे|घ्यायचा|घ्यायचे|नमस्कार)\b/.test(text)) {
+      return 'Marathi';
+    }
+    return 'Hindi';
+  }
+  // Gujarati script
+  if (/[\u0A80-\u0AFF]/.test(text)) {
+    return 'Gujarati';
+  }
+  // Roman Gujarati indicators
+  if (/\b(kem cho|maja ma|bhai joye|aapo|karo|chhe)\b/i.test(text)) {
+    return 'Gujarati';
+  }
+  // Roman Marathi indicators
+  if (/\b(kasa ahes|kay karto|pahije|havay|aahe)\b/i.test(text)) {
+    return 'Marathi';
+  }
+  // Explicit Pure English
+  if (/^(hi|hello|hey|can you|i want|please show|do you have|what is|how much)\b/i.test(text) && !/\b(chahiye|batao|karo|hai|hoga|bhai|kaisa|milega|kitna)\b/i.test(text)) {
+    return 'English';
+  }
+  return 'Hinglish';
+}
+
 export function detectCustomerIntent(rawMsg) {
   if (!rawMsg) return { type: 'SEARCH' };
   const text = rawMsg.toLowerCase().trim();
+
+  // 0. Greetings / Small talk
+  const greetingRegex = /^(hi|hello|hii|helo|hey|ok|okay|thanks|thank you|shukriya|theek hai|thik hai|👍|🙏|haan|ha|yes|no|nahi|hmm|hm|good|great|nice|👌|namaste|kem cho|pranam|kaisa hai|kaise ho)\b/i;
+  if (greetingRegex.test(text)) {
+    return { type: 'GREETING' };
+  }
 
   // 1. Numerology Intent
   const numRegex = /\b(numerology|astro|astrology|moolank|mulank|bhagyank|kundali|rashi|lucky\s*number|kismat|date\s*of\s*birth|dob|tarikh|tithi|bday|birthday|janamdin|janam\s*tarikh)\b/i;
@@ -533,40 +568,124 @@ export async function generateNumerologyReply({ numerologyData, customerContext 
 }
 
 /**
- * Format search results conversationally as a helpful sales advisor.
+ * Generate a friendly, charismatic greeting introducing Aman from Numberwale.
  */
-export function formatConversationalSearchResults({ products, totalCount, currentPage, totalPages, lang = 'English', customerName = '', userQuery = '' }) {
+export async function generateConversationalGreeting({ lang = 'Hinglish', name = '', history = [] }) {
+  const greeting = name && name !== 'Unknown' ? `${name} ji` : '';
+
+  const systemPrompt = `You are Aman, Senior VIP Mobile Number Consultant at Numberwale (India's #1 VIP phone number destination since 2010, 10+ years legacy, 1 Lakh+ happy clients across India).
+The customer has greeted you on WhatsApp.
+Respond warmly, respectfully, and enthusiastically in ${lang}.
+Introduce yourself as Aman from Numberwale.
+Ask what kind of prestigious VIP number they have in mind today:
+- Lucky birthdate / numerology match
+- Royal repeating sequences (e.g. 9999, 786, 0007)
+- Corporate/business branding or mirror numbers
+Encourage them to tell you their favorite digits, pattern, or budget.
+Keep it punchy (3-4 sentences), charismatic, with polite Indian conversational flair and emojis.`;
+
+  try {
+    const aiText = await runLocalAgentChat({
+      systemPrompt,
+      messages: [{ role: 'user', content: 'Hi' }],
+      temperature: 0.6,
+      maxTokens: 250
+    });
+    if (aiText && aiText.length > 25) {
+      return aiText;
+    }
+  } catch (e) {
+    console.log(`[AgentEngine] 🔄 Greeting LLM fallback (${e.message})`);
+  }
+
+  // Pre-crafted instant charismatic greeting
+  if (lang === 'Hindi') {
+    return `नमस्ते ${greeting || 'जी'}! 🙏 मैं अमन, नंबरवाले से आपका Senior VIP Number Consultant।\n\n` +
+      `2010 से हमने 1 लाख से अधिक संतुष्ट ग्राहकों को उनके सपनों का VIP मोबाइल नंबर दिलाया है! ✨\n\n` +
+      `आज आप कैसा नंबर ढूंढ रहे हैं?\n` +
+      `🌟 बर्थडे / न्यूमरोलॉजी से मैच करता लकी नंबर\n` +
+      `👑 रॉयल रिपीटिंग नंबर्स (जैसे 9999, 0007, 786)\n` +
+      `💼 बिज़नेस ब्रांडिंग या मिरर पैटर्न्स?\n\n` +
+      `आप अपना पसंदीदा डिजिट या बजट बताइए, मैं बेस्ट ऑप्शंस दिखाता हूँ! 😊`;
+  } else if (lang === 'Gujarati') {
+    return `નમસ્તે ${greeting || 'જી'}! 🙏 હું અમન, નંબરવાલે તરફથી તમારો Senior VIP Number Consultant.\n\n` +
+      `2010 થી અમે 1 લાખથી વધુ ખુશ ગ્રાહકોને શ્રેષ્ઠ VIP નંબર આપ્યા છે! ✨\n\n` +
+      `આજે તમે કેવો નંબર શોધી રહ્યા છો?\n` +
+      `🌟 જન્મતારીખ / ન્યૂમરોલોજી મુજબ લકી નંબર\n` +
+      `👑 રોયલ રિપીટિંગ પેટર્ન (દા.ત. 9999, 786, 0007)\n` +
+      `💼 બિઝનેસ બ્રાન્ડિંગ કે મિરર નંબર?\n\n` +
+      `તમારો મનપસંદ આંકડો કે બજેટ જણાવો, હું બેસ્ટ નંબર્સ બતાવું! 😊`;
+  } else if (lang === 'Marathi') {
+    return `नमस्कार ${greeting || 'जी'}! 🙏 मी अमन, नंबरवाले कडून तुमचा Senior VIP Number Consultant.\n\n` +
+      `2010 पासून आम्ही 1 लाखाहून अधिक समाधानी ग्राहकांना त्यांचे आवडते VIP नंबर दिले आहेत! ✨\n\n` +
+      `आज तुम्ही कसा नंबर शोधत आहात?\n` +
+      `🌟 जन्मतारीख / न्यूमरोलॉजी जुळणारा लकी नंबर\n` +
+      `👑 रॉयल पॅटर्न (उदा. 9999, 786, 0007)\n` +
+      `💼 बिझनेस ब्रँडिंग किंवा मिरर नंबर?\n\n` +
+      `तुमचा आवडता अंक किंवा बजेट सांगा, मी सर्वोत्तम पर्याय शोधून देतो! 😊`;
+  } else if (lang === 'English') {
+    return `Hello ${greeting || 'there'}! 🙏 I'm Aman, your Senior VIP Number Consultant at Numberwale.\n\n` +
+      `Since 2010, we've helped over 100,000+ happy clients secure their ideal VIP & fancy mobile numbers! ✨\n\n` +
+      `What kind of prestigious number are you looking for today?\n` +
+      `🌟 Lucky birthdate / numerology match\n` +
+      `👑 Royal repeating sequence (like 9999, 786, 0007)\n` +
+      `💼 Corporate branding or mirror patterns?\n\n` +
+      `Tell me your favorite digits or budget, and I'll fetch the best options for you! 😊`;
+  } else {
+    // Hinglish
+    return `Namaste ${greeting || 'ji'}! 🙏 Main Aman, Numberwale se aapka Senior VIP Number Consultant.\n\n` +
+      `2010 se humne 1 Lakh+ happy clients ko unka dream VIP mobile number provide kiya hai! ✨\n\n` +
+      `Aaj aap kaisa prestigious number dekhna chahte hain?\n` +
+      `🌟 Lucky Birthdate / Numerology match\n` +
+      `👑 Royal repeating patterns (jaise 9999, 786, 0007)\n` +
+      `💼 Business branding ya Mirror patterns?\n\n` +
+      `Apna favourite digit ya budget batayein, main best options nikal ke deta hun! 😊`;
+  }
+}
+
+/**
+ * Format search results conversationally as a charismatic sales consultant.
+ */
+export function formatConversationalSearchResults({
+  products,
+  totalCount,
+  currentPage,
+  totalPages,
+  lang = 'Hinglish',
+  customerName = '',
+  userQuery = '',
+  numerologyData = null
+}) {
+  const nameSalutation = customerName && customerName !== 'Unknown' ? `${customerName} ji` : '';
+
   if (!products || products.length === 0) {
     if (lang === 'Hindi') {
-      return `माफ़ कीजिये ${customerName ? customerName + ' जी' : ''}! 😔 इस पैटर्न या बजट में अभी कोई नंबर उपलब्ध नहीं है।\n\n💡 आप कोई दूसरा पैटर्न ट्राई कर सकते हैं (जैसे _req 786_, _mirror numbers_, या _ending 9999_)। क्या मैं कुछ और दिखाऊं? 😊`;
+      return `माफ़ कीजिये ${nameSalutation}! 😔 आपकी इस खोज से मेल खाते नंबर्स अभी उपलब्ध नहीं हैं।\n\n💡 आप कोई दूसरा पैटर्न ट्राई कर सकते हैं (जैसे _req 786_, _mirror numbers_, या _ending 9999_)। अपना बजट या पसंदीदा अंक बताइए, मैं बेस्ट ऑप्शंस दिखाता हूँ! 😊`;
     } else if (lang === 'Gujarati') {
-      return `માફ કરશો ${customerName ? customerName + ' જી' : ''}! 😔 આ પેટર્ન અથવા બજેટમાં હાલ કોઈ નંબર ઉપલબ્ધ નથી.\n\n💡 તમે અન્ય પેટર્ન અજમાવી શકો છો (દા.ત. _req 786_ અથવા _mirror numbers_). 😊`;
+      return `માફ કરશો ${nameSalutation}! 😔 તમારી શોધ સાથે મેળ ખાતા નંબર્સ હાલ ઉપલબ્ધ નથી.\n\n💡 તમે અન્ય પેટર્ન અજમાવી શકો છો (દા.ત. _req 786_ અથવા _mirror numbers_). તમારું બજેટ જણાવો! 😊`;
     } else if (lang === 'Marathi') {
-      return `क्षमस्व ${customerName ? customerName + ' जी' : ''}! 😔 या पॅटर्नमध्ये सध्या कोणताही नंबर उपलब्ध नाही.\n\n💡 तुम्ही दुसरा पॅटर्न ट्राय करू शकता (उदा. _req 786_ किंवा _mirror numbers_). 😊`;
-    } else if (lang === 'Hinglish') {
-      return `Oops ${customerName ? customerName + ' ji' : ''}! 😔 Is search se match karte hue numbers abhi available nahi hain.\n\n💡 Koi dusra pattern try karein (jaise _req 786_, _mirror numbers_, ya _ending 9999_). Main aapke liye best options dhundh nikalunga! 😊`;
+      return `क्षमस्व ${nameSalutation}! 😔 या शोधाशी जुळणारे नंबर सध्या उपलब्ध नाहीत.\n\n💡 तुम्ही दुसरा पॅटर्न वापरून पाहू शकता (उदा. _req 786_ किंवा _mirror numbers_). बजेट सांगा, मी मदत करतो! 😊`;
+    } else if (lang === 'English') {
+      return `Oops ${nameSalutation}! 😔 No numbers matching this exact search are currently available.\n\n💡 Try popular patterns like _req 786_, _mirror numbers_, or _ending 9999_. Tell me your budget or preferred digits! 😊`;
     } else {
-      return `Oops ${customerName ? customerName : ''}! 😔 No numbers matching this exact pattern are currently available.\n\n💡 Try exploring patterns like _req 786_, _mirror numbers_, or _ending 9999_. Let me know your preference! 😊`;
+      return `Oops ${nameSalutation}! 😔 Is search se match karte hue numbers abhi available nahi hain.\n\n💡 Aap koi dusra pattern try kar sakte hain (jaise _req 786_, _mirror numbers_, ya _ending 9999_). Apna favourite digit ya budget batayein, main best options nikalta hun! 😊`;
     }
   }
 
-  const nameSalutation = customerName && customerName !== 'Unknown' ? `${customerName} ji` : '';
-
   let header = '';
   if (lang === 'Hindi') {
-    header = `🌟 *शानदार चुनाव ${nameSalutation}!* आपके लिए *${totalCount} VIP नंबर्स* उपलब्ध हैं (पेज ${currentPage}/${totalPages}):\n\n`;
+    header = `🌟 *शानदार चुनाव ${nameSalutation}!* आपके लिए हमारी VIP इन्वेंटरी से *${totalCount} प्रीमियम नंबर्स* मिले हैं (पेज ${currentPage}/${totalPages}):\n\n`;
   } else if (lang === 'Gujarati') {
-    header = `🌟 *શ્રેષ્ઠ પસંદગી ${nameSalutation}!* તમારા માટે *${totalCount} VIP નંબર્સ* મળ્યા છે (પેજ ${currentPage}/${totalPages}):\n\n`;
+    header = `🌟 *શ્રેષ્ઠ પસંદગી ${nameSalutation}!* તમારી પસંદગી મુજબ *${totalCount} પ્રીમિયમ VIP નંબર્સ* મળ્યા છે (પેજ ${currentPage}/${totalPages}):\n\n`;
   } else if (lang === 'Marathi') {
-    header = `🌟 *उत्कृष्ट निवड ${nameSalutation}!* तुमच्यासाठी *${totalCount} VIP नंबर* उपलब्ध आहेत (पान ${currentPage}/${totalPages}):\n\n`;
-  } else if (lang === 'Hinglish') {
-    header = `🌟 *Great choice ${nameSalutation}!* Aapke liye *${totalCount} premium VIP numbers* mile hain (Page ${currentPage}/${totalPages}):\n\n`;
+    header = `🌟 *उत्कृष्ट निवड ${nameSalutation}!* तुमच्यासाठी आमच्या इन्व्हेंटरीमधून *${totalCount} प्रीमियम VIP नंबर* उपलब्ध आहेत (पान ${currentPage}/${totalPages}):\n\n`;
+  } else if (lang === 'English') {
+    header = `🌟 *Great choice ${nameSalutation}!* Here are *${totalCount} hand-picked VIP numbers* for you (Page ${currentPage}/${totalPages}):\n\n`;
   } else {
-    header = `🌟 *Great choice ${nameSalutation}!* Here are *${totalCount} premium VIP numbers* for you (Page ${currentPage}/${totalPages}):\n\n`;
+    header = `🌟 *Great choice ${nameSalutation}!* Maine aapke liye hamari inventory se *${totalCount} premium VIP numbers* nikale hain (Page ${currentPage}/${totalPages}):\n\n`;
   }
 
   let body = header;
-  body += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
   products.forEach((p, idx) => {
     const rawNumber = p.productMobileNumber || 'N/A';
@@ -579,67 +698,179 @@ export function formatConversationalSearchResults({ products, totalCount, curren
     const catName = p.category?.name || 'VIP Fancy Number';
     const sumScore = p.score ?? null;
 
-    body += `${idx + 1}️⃣ *${formattedNum}*\n`;
-    body += `   📁 *Category:* ${catName}\n`;
+    body += `${idx + 1}️⃣ *${formattedNum}* 👑\n`;
+    body += `   📁 *Pattern:* ${catName}\n`;
 
     if (subtotal) {
       const gst = Math.round(subtotal * 0.18);
       const total = subtotal + gst;
 
       if (effDiscount > 0 && basePrice) {
-        body += `   💰 ~₹${basePrice.toLocaleString('en-IN')}~ *₹${subtotal.toLocaleString('en-IN')}* (${effDiscount}% OFF)\n`;
-        body += `   🏛️ +18% GST: ₹${gst.toLocaleString('en-IN')}\n`;
-        body += `   ✅ *Total: ₹${total.toLocaleString('en-IN')}*\n`;
+        body += `   💰 ~₹${basePrice.toLocaleString('en-IN')}~ *₹${total.toLocaleString('en-IN')}* (${effDiscount}% OFF, Incl. 18% GST)\n`;
       } else {
-        body += `   💰 Subtotal: ₹${subtotal.toLocaleString('en-IN')}\n`;
-        body += `   🏛️ +18% GST: ₹${gst.toLocaleString('en-IN')}\n`;
-        body += `   ✅ *Total: ₹${total.toLocaleString('en-IN')}*\n`;
+        body += `   💰 *₹${total.toLocaleString('en-IN')}* (Total with 18% GST & Bill)\n`;
       }
     }
 
     if (sumScore !== null) {
-      body += `   🔮 *Lucky Sum:* ${sumScore}\n`;
+      body += `   🔮 *Lucky Sum (Total):* ${sumScore}\n`;
     }
 
-    body += `   👉 *Buy Link:* _buy ${rawNumber}_\n\n`;
+    body += `   👉 *Book instantly:* _buy ${rawNumber}_\n\n`;
   });
 
-  body += `┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`;
+  body += `━━━━━━━━━━━━━━━━━━━━━\n`;
 
-  // Engaging Closing Action
+  // Engaging Closing Question & Options
   if (lang === 'Hindi') {
-    if (currentPage < totalPages) body += `👉 और नंबर देखने के लिए *"more"* लिखें\n`;
-    body += `👉 नई खोज के लिए *"reset"* लिखें\n`;
-    body += `👉 बात करने के लिए *"agent"* लिखें\n\n`;
-    body += `🛒 *खरीदने के लिए तुरंत रिप्लाई करें:*\n_buy ${products[0]?.productMobileNumber}_\n\n`;
-    body += `Aapko inme se sabse impactful konsa laga? 😊`;
+    body += `👉 *इनमें से आपको कौन सा नंबर सबसे शक्तिशाली और रॉयल लगा?*\n\n` +
+      `🛒 *बुक करने के लिए तुरंत लिखें:*\n_buy ${products[0]?.productMobileNumber}_\n\n` +
+      (currentPage < totalPages ? `🔹 अगले पेज के लिए *"more"* रिप्लाई करें\n` : '') +
+      `🔹 नई खोज के लिए *"reset"* रिप्लाई करें\n` +
+      `🔹 बात करने के लिए *"agent"* रिप्लाई करें 😊`;
   } else if (lang === 'Gujarati') {
-    if (currentPage < totalPages) body += `👉 વધુ નંબર જોવા *"more"* લખો\n`;
-    body += `👉 નવી શોધ માટે *"reset"* લખો\n`;
-    body += `👉 વાત કરવા *"agent"* લખો\n\n`;
-    body += `🛒 *ખરીદવા માટે રિપ્લાય કરો:*\n_buy ${products[0]?.productMobileNumber}_\n\n`;
-    body += `આમાંથી તમને કયો નંબર સૌથી સારો લાગ્યો? 😊`;
+    body += `👉 *આમાંથી તમને કયો નંબર સૌથી સારો અને પાવરફુલ લાગ્યો?*\n\n` +
+      `🛒 *બુક કરવા માટે લખો:*\n_buy ${products[0]?.productMobileNumber}_\n\n` +
+      (currentPage < totalPages ? `🔹 વધુ નંબર માટે *"more"* લખો\n` : '') +
+      `🔹 નવી શોધ માટે *"reset"* લખો\n` +
+      `🔹 વાત કરવા *"agent"* લખો 😊`;
   } else if (lang === 'Marathi') {
-    if (currentPage < totalPages) body += `👉 आणखी नंबर पाहण्यासाठी *"more"* लिहा\n`;
-    body += `👉 नवीन शोधासाठी *"reset"* लिहा\n`;
-    body += `👉 बोलण्यासाठी *"agent"* लिहा\n\n`;
-    body += `🛒 *ખરેદી માટે રિપ્લાય કરો:*\n_buy ${products[0]?.productMobileNumber}_\n\n`;
-    body += `यातला कोणता नंबर तुम्हाला जास्त आवडला? 😊`;
-  } else if (lang === 'Hinglish') {
-    if (currentPage < totalPages) body += `👉 Aur dekhne ke liye *"more"* reply karein\n`;
-    body += `👉 Nayi search ke liye *"reset"* reply karein\n`;
-    body += `👉 Baat karne ke liye *"agent"* reply karein\n\n`;
-    body += `🛒 *Kharidne ke liye simply type:* \n_buy ${products[0]?.productMobileNumber}_\n\n`;
-    body += `Inme se aapko konsa number sabse powerful laga? Bataiye! 😊`;
+    body += `👉 *यातला कोणता नंबर तुम्हाला सर्वात जास्त आवडला?*\n\n` +
+      `🛒 *बुक करण्यासाठी टाईप करा:*\n_buy ${products[0]?.productMobileNumber}_\n\n` +
+      (currentPage < totalPages ? `🔹 पुढील पेजसाठी *"more"* लिहा\n` : '') +
+      `🔹 नवीन शोधासाठी *"reset"* लिहा\n` +
+      `🔹 बोलण्यासाठी *"agent"* लिहा 😊`;
+  } else if (lang === 'English') {
+    body += `👉 *Which of these numbers feels most impactful to you?*\n\n` +
+      `🛒 *To book right away, reply:*\n_buy ${products[0]?.productMobileNumber}_\n\n` +
+      (currentPage < totalPages ? `🔹 Reply *"more"* for next page\n` : '') +
+      `🔹 Reply *"reset"* for a new search\n` +
+      `🔹 Reply *"agent"* to speak with our manager 😊`;
   } else {
-    if (currentPage < totalPages) body += `👉 Reply *"more"* for next page\n`;
-    body += `👉 Reply *"reset"* for fresh search\n`;
-    body += `👉 Reply *"agent"* to speak with our manager\n\n`;
-    body += `🛒 *To purchase, simply reply:*\n_buy ${products[0]?.productMobileNumber}_\n\n`;
-    body += `Which of these numbers feels right for you? Let me know! 😊`;
+    // Hinglish
+    body += `👉 *Aapko inme se konsa number sabse impactful aur royal lag raha hai?*\n\n` +
+      `🛒 *Book karne ke liye simply type karein:*\n_buy ${products[0]?.productMobileNumber}_\n\n` +
+      (currentPage < totalPages ? `🔹 Aur dekhne ke liye *"more"* reply karein\n` : '') +
+      `🔹 Nayi search ke liye *"reset"* reply karein\n` +
+      `🔹 Baat karne ke liye *"agent"* reply karein 😊`;
   }
 
   return body;
+}
+
+/**
+ * Autonomous AI Sales Agent: Consultative Response Generator
+ */
+export async function generateSalesAgentResponse({
+  userMessage,
+  customerContext = {},
+  history = [],
+  intent = { type: 'SEARCH' },
+  numerologyData = null,
+  products = [],
+  totalCount = 0,
+  currentPage = 1,
+  totalPages = 1
+}) {
+  const lang = customerContext.language || 'Hinglish';
+  const name = customerContext.name && customerContext.name !== 'Unknown' ? customerContext.name : '';
+
+  // 1. If intent is GREETING and no products, generate charismatic greeting
+  if (intent.type === 'GREETING' && (!products || products.length === 0)) {
+    return generateConversationalGreeting({ lang, name, history });
+  }
+
+  // 2. If products are present, generate consultative sales presentation of numbers
+  if (products && products.length > 0) {
+    const topProducts = products.slice(0, 4).map((p, idx) => {
+      const rawNumber = p.productMobileNumber || '';
+      const formattedNum = formatNumberBeauty(rawNumber);
+      const subtotal = p.pricing?.nwFinalPrice || p.price || 0;
+      const gst = Math.round(subtotal * 0.18);
+      const total = subtotal + gst;
+      const cat = p.category?.name || 'VIP Fancy Number';
+      const sum = p.score ?? null;
+      return {
+        rank: idx + 1,
+        number: formattedNum,
+        rawNumber,
+        category: cat,
+        priceWithGst: total,
+        sum
+      };
+    });
+
+    const systemPrompt = `You are Aman, Senior VIP Mobile Number Consultant at Numberwale (est. 2010, 10+ years legacy, 1 Lakh+ happy clients across India).
+You are consulting a customer on WhatsApp who wants to buy prestigious VIP mobile numbers.
+
+CUSTOMER:
+- Name: ${name || 'Valued Client'}
+- Language: Strictly respond in ${lang} (Hinglish/Hindi/English/Gujarati/Marathi)
+- User's message: "${userMessage}"
+${numerologyData ? `- Numerology: Driver Number (Mulank) ${numerologyData.mulank}, Ruling Planet: ${numerologyData.planet}` : ''}
+
+INVENTORY SHORT-LIST:
+${JSON.stringify(topProducts, null, 2)}
+Total Available: ${totalCount} numbers (Page ${currentPage}/${totalPages})
+
+SALES DIRECTIVES:
+1. Speak with genuine warmth, charisma, and sales authority in ${lang}. Treat VIP numbers as prestigious personal and business assets.
+2. Present the short-listed numbers clearly:
+   - Number formatted with spaces (e.g. 9820 999 786)
+   - Category / pattern aura (highlight why it's special — e.g. status, executive recall, lucky vibration, business branding)
+   - Total price: ₹Amount (with 18% GST & official invoice included)
+   - Clear buy syntax: "_buy <10-digit-number>_"
+3. ${numerologyData ? 'Explain how these numbers match their birthday vibration/planet, and mention they can get their complete personalized mobile numerology report at https://www.numberwale.com/numerology' : ''}
+4. Conclude with an engaging sales question: "Aapko inme se konsa number sabse royal lag raha hai? Ya budget/pattern mein kuch specific requirement hai?"
+5. Mention they can type "more" for next page, "reset" for new search, or "agent" to connect with a senior manager.
+6. WhatsApp formatting: use emojis, bold headers, line breaks. Avoid code blocks.`;
+
+    try {
+      const chatMessages = [
+        ...history.slice(-4).map(h => ({
+          role: h.role === 'bot' ? 'assistant' : 'user',
+          content: h.text
+        })),
+        { role: 'user', content: userMessage }
+      ];
+
+      const aiText = await runLocalAgentChat({
+        systemPrompt,
+        messages: chatMessages,
+        temperature: 0.6,
+        maxTokens: 500
+      });
+
+      if (aiText && aiText.length > 50) {
+        return aiText;
+      }
+    } catch (err) {
+      console.log(`[AgentEngine] 🔄 LLM sales presentation fallback active (${err.message})`);
+    }
+
+    // High quality fallback
+    return formatConversationalSearchResults({
+      products,
+      totalCount,
+      currentPage,
+      totalPages,
+      lang,
+      customerName: name,
+      userQuery: userMessage,
+      numerologyData
+    });
+  }
+
+  // 3. Fallback for empty search
+  return formatConversationalSearchResults({
+    products: [],
+    totalCount: 0,
+    currentPage: 1,
+    totalPages: 0,
+    lang,
+    customerName: name,
+    userQuery: userMessage
+  });
 }
 
 /**
