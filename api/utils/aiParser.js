@@ -154,10 +154,8 @@ const LB = new LoadBalancer();
 // SLOT DEFINITIONS (Active Production Models)
 // ─────────────────────────────────────────────────────────────────
 const GROQ_TIER1_MODELS = [
-  'openai/gpt-oss-20b',
-  'qwen/qwen3.8-27b',
-  'groq/compound',
-  'openai/gpt-oss-120b'
+  'llama-3.1-8b-instant',
+  'llama-3.3-70b-versatile'
 ];
 
 const OPENROUTER_TIER2_CONFIGS = [
@@ -212,7 +210,7 @@ function isRateLimitError(status) {
   return [429, 503, 529].includes(status);
 }
 
-async function fetchWithTimeout(url, options, timeoutMs = 12_000) {
+async function fetchWithTimeout(url, options, timeoutMs = 4_000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

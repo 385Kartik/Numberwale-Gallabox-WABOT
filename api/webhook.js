@@ -40,6 +40,7 @@ function extractBuyNumber(text) {
 
 // Vercel Serverless Function entry point
 export default async function handler(req, res) {
+  const reqStartTime = Date.now();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
   }
@@ -205,7 +206,9 @@ export default async function handler(req, res) {
 
     // Fetch state from MongoDB early
     const customerName = body?.contact?.name || 'Unknown';
+    const t0Context = Date.now();
     const customerContext = await getCustomerContext(customerPhone, customerName);
+    const tContext = Date.now() - t0Context;
     let currentState = customerContext.botState;
 
     if (currentState === 'PAUSED') {
@@ -317,10 +320,13 @@ export default async function handler(req, res) {
       try {
         const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
         const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
+        const t0Check = Date.now();
         const checkRes = await fetch(`${ADMIN_API}/api/v1/gallabox-bot/check-assigned?phone=${customerPhone}`, {
-            headers: { 'x-bot-secret': ADMIN_SECRET }
+            headers: { 'x-bot-secret': ADMIN_SECRET },
+            signal: AbortSignal.timeout(2000)
         });
         const checkData = await checkRes.json();
+        console.log(`[Webhook] CRM check-assigned took ${Date.now() - t0Check}ms`);
         
         if (checkData?.isAssigned) {
             console.log(`[Webhook] Chat ${customerPhone} is ALREADY assigned to ${checkData.assignedTo}. Pausing bot silently.`);
@@ -484,6 +490,7 @@ export default async function handler(req, res) {
     let page = 1;
     let parsedTokens = 0;
     let parsedModel = null;
+    let tAi = 0;
 
     // ── "Show More" handling ──────────────────────────────────────────────
     if (isShowMoreIntent(userMessage)) {
@@ -691,12 +698,17 @@ export default async function handler(req, res) {
 
       // 1. FAQ & Process Questions (Porting, SIM, MNP, Timeline, Pricing, Trust)
       if (customerIntent.type.startsWith('FAQ_')) {
+        const t0Faq = Date.now();
         const faqReply = await generateFaqReply({
           intentType: customerIntent.type,
           userMessage,
           customerContext
         });
+        const tFaq = Date.now() - t0Faq;
+        const t0Send = Date.now();
         await sendToGallabox(customerPhone, faqReply, channelID);
+        const tSend = Date.now() - t0Send;
+        console.log(`⚡ [PERF] FAQ served in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | AI/FAQ: ${tFaq}ms | Gallabox: ${tSend}ms)`);
         await logInteraction({
           phone: customerPhone,
           name: customerName,
@@ -713,12 +725,16 @@ export default async function handler(req, res) {
 
       // 2. Numerology & Astrology Consultation
       if (customerIntent.type === 'NUMEROLOGY') {
+        const t0Num = Date.now();
         if (!customerIntent.data) {
           const askDobReply = await generateNumerologyReply({
             numerologyData: null,
             customerContext
           });
+          const t0Send = Date.now();
           await sendToGallabox(customerPhone, askDobReply, channelID);
+          const tSend = Date.now() - t0Send;
+          console.log(`⚡ [PERF] Numerology DOB prompt served in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | Gallabox: ${tSend}ms)`);
           return res.status(200).json({ success: true, reason: 'numerology_dob_requested' });
         }
 
@@ -729,7 +745,9 @@ export default async function handler(req, res) {
 
         // Search for numbers matching user's recommended scoreSum (Mulank)
         const luckyScoreSum = customerIntent.data.recommendedScoreSum;
+        const t0Search = Date.now();
         const numResult = await fetchNumbers({ scoreSum: luckyScoreSum }, 1);
+        const tSearch = Date.now() - t0Search;
 
         let finalReply = numAnalysis;
         if (numResult.products && numResult.products.length > 0) {
@@ -745,7 +763,10 @@ export default async function handler(req, res) {
           finalReply = `${numAnalysis}\n\n${numbersDisplay}`;
         }
 
+        const t0Send = Date.now();
         await sendToGallabox(customerPhone, finalReply, channelID);
+        const tSend = Date.now() - t0Send;
+        console.log(`⚡ [PERF] Numerology served in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | Calc: ${Date.now() - t0Num}ms | Search: ${tSearch}ms | Gallabox: ${tSend}ms)`);
         await logInteraction({
           phone: customerPhone,
           name: customerName,
@@ -761,8 +782,11 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, reason: 'numerology_served' });
       }
 
+      tAi = 0;
       try {
+        const t0Ai = Date.now();
         const parsed = await parseUserMessage(userMessage, customerContext.activeFilters);
+        tAi = Date.now() - t0Ai;
         
         jsonQuery = parsed.result;
         parsedTokens = parsed.tokensUsed || parsed.tokens || 0;
@@ -815,8 +839,10 @@ export default async function handler(req, res) {
     }
 
     // ── Fetch results from external API ───────────────────────────────────
+    const t0Search = Date.now();
     const result = await fetchNumbers(jsonQuery, page);
-    console.log(`[Webhook] Fetched ${result.products?.length || 0} products (page ${page}/${result.totalPages})`);
+    const tSearch = Date.now() - t0Search;
+    console.log(`[Webhook] Fetched ${result.products?.length || 0} products in ${tSearch}ms (page ${page}/${result.totalPages})`);
 
     // ── Format reply ──────────────────────────────────────────────────────
     if (!result.products || result.products.length === 0) {
@@ -843,13 +869,15 @@ export default async function handler(req, res) {
         noMoreMsg = `Yahi tak the numbers! Koi aur search karo. 😊`;
       }
 
+      const t0Send = Date.now();
       if (page > 1) {
         await sendToGallabox(customerPhone, noMoreMsg, channelID);
-        return res.status(200).json({ success: true });
       } else {
         await sendToGallabox(customerPhone, emptyMsg, channelID);
-        return res.status(200).json({ success: true });
       }
+      const tSend = Date.now() - t0Send;
+      console.log(`⚡ [PERF] Empty search response served in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | AI [${parsedModel}]: ${tAi}ms | Search: ${tSearch}ms | Gallabox: ${tSend}ms)`);
+      return res.status(200).json({ success: true });
     }
 
     const replyText = formatConversationalSearchResults({
@@ -862,7 +890,10 @@ export default async function handler(req, res) {
       userQuery: userMessage
     });
 
+    const t0Send = Date.now();
     await sendToGallabox(customerPhone, replyText, channelID);
+    const tSend = Date.now() - t0Send;
+    console.log(`⚡ [PERF] Search response served in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | AI [${parsedModel}]: ${tAi}ms | Search: ${tSearch}ms | Gallabox: ${tSend}ms)`);
 
     // ── Log optimized interaction and Save DB State ───────────────
     const optimizedBotText = `✨ ${result.totalCount} numbers found for category '${jsonQuery?.category || 'generic'}' (Page ${result.currentPage}/${result.totalPages})`;

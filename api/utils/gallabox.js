@@ -39,6 +39,7 @@ export async function sendToGallabox(phone, text, channelId) {
   );
 
   let retries = 3;
+  const t0Send = Date.now();
   while (retries > 0) {
     try {
       await axios.post(
@@ -55,7 +56,7 @@ export async function sendToGallabox(phone, text, channelId) {
           timeout: 8000,
         }
       );
-      console.log(`[Gallabox] ✉️  Sent to ${phone} (msgId: ${botLocalMsgId})`);
+      console.log(`[Gallabox] ✉️  Sent to ${phone} in ${Date.now() - t0Send}ms (msgId: ${botLocalMsgId})`);
       return;
     } catch (err) {
       retries--;
