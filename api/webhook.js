@@ -4,6 +4,7 @@ import { isShowMoreIntent, isBotPaused, pauseBot, resumeBot } from './utils/sess
 import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters, storeBotMessageId, isBotMessageId, saveConversationId, touchInteraction, stopDrip } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/gallabox.js';
+import { formatProducts } from './utils/aiAgent.js';
 
 
 
@@ -521,28 +522,63 @@ export default async function handler(req, res) {
     // ── "Show More" handling ──────────────────────────────────────────────
     if (isShowMoreIntent(userMessage)) {
       const activeFilters = customerContext.activeFilters;
+      const lang = customerContext.language || 'English';
+
       if (!activeFilters || Object.keys(activeFilters).length === 0) {
-        const lang = customerContext.language || 'English';
-        let replyText = "Please make a search first, then type *'show more'*! 😊\nExample: _req 99 two times_";
-        
-        if (lang === 'English') {
-           replyText = "Please make a search first, then type *'show more'*! 😊\nExample: _req 99 two times_";
-        } else if (lang === 'Hindi') {
-           replyText = "पहले कोई खोज करें, फिर *'show more'* लिखें! 😊\nउदाहरण: _req 99 two times_";
+        let replyText = "Please make a search first, then type *'more'*! 😊\nExample: _req 99 two times_";
+        if (lang === 'Hindi') {
+          replyText = "पहले कोई खोज करें, फिर *'more'* लिखें! 😊\nउदाहरण: _req 99 two times_";
         } else if (lang === 'Gujarati') {
-           replyText = "પહેલા કોઈ શોધ કરો, પછી *'show more'* લખો! 😊\nઉદાહરણ: _req 99 two times_";
-        } else if (lang === 'Marathi') {
-           replyText = "आधी काही शोध करा, मग *'show more'* लिहा! 😊\nउदाहरण: _req 99 two times_";
+          replyText = "પહેલા કોઈ શોધ કરો, પછી *'more'* લખો! 😊\nઉદાહરણ: _req 99 two times_";
         }
         
-        console.log('[Webhook] Show more requested but no session found.');
+        console.log('[Webhook] Show more requested but no active filters found.');
         await sendToGallabox(customerPhone, replyText, channelID);
-        return res.status(200).json({ success: true });
+        return res.status(200).json({ success: true, reason: 'no_active_filters' });
       }
 
-      jsonQuery = activeFilters;
-      page = (customerContext.lastPage || 1) + 1;
-      console.log(`[Webhook] Show more: page ${page} for query`, jsonQuery);
+      const nextPage = (customerContext.lastPage || 1) + 1;
+      console.log(`[Webhook] Show more: fetching page ${nextPage} for query`, activeFilters);
+
+      try {
+        const result = await fetchNumbers(activeFilters, nextPage);
+
+        if (result.products && result.products.length > 0) {
+          const replyText = formatProducts(
+            result.products,
+            result.totalCount,
+            result.currentPage,
+            result.totalPages,
+            lang
+          );
+          await sendToGallabox(customerPhone, replyText, channelID);
+          await updateCustomerInfo(customerPhone, { lastPage: result.currentPage });
+          await logInteraction({
+            phone: customerPhone,
+            name: customerName,
+            userText: userMessage,
+            botText: `✨ Show more page ${result.currentPage}/${result.totalPages}`,
+            isFail: false,
+            model: 'pagination',
+            tokensUsed: 0,
+            jsonQuery: activeFilters,
+            page: result.currentPage,
+          }).catch(() => {});
+          console.log(`[Webhook] Show more sent: page ${result.currentPage}/${result.totalPages} to ${customerPhone}`);
+          return res.status(200).json({ success: true, reason: 'show_more_sent' });
+        } else {
+          const noMoreMsg = lang === 'English'
+            ? "You've reached the end of the available numbers for this search! 🏁\n\nType *\"reset\"* to search with new requirements, or tell me your budget or preferred pattern! 😊"
+            : "Aap is search ke aakhiri page par pahunch gaye hain! 🏁\n\nNayi search ke liye *\"reset\"* type karein ya batayein aur kaisa number chahiye! 😊";
+          await sendToGallabox(customerPhone, noMoreMsg, channelID);
+          return res.status(200).json({ success: true, reason: 'no_more_results' });
+        }
+      } catch (err) {
+        console.error('[Webhook] Show more error:', err.message);
+        const errMsg = "Could not load more numbers right now. Please try again in a moment! 🙏";
+        await sendToGallabox(customerPhone, errMsg, channelID);
+        return res.status(200).json({ success: true, reason: 'show_more_error' });
+      }
 
     // ── "Buy" intent: buy <10-digit-number> ───────────────────────────────
     } else if (extractBuyNumber(userMessage)) {

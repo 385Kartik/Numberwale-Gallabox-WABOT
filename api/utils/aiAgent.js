@@ -376,7 +376,7 @@ async function callLLM(systemPrompt, messages) {
 // ─────────────────────────────────────────────────────────────────
 // FORMAT PRODUCTS
 // ─────────────────────────────────────────────────────────────────
-function formatProducts(products, totalCount, currentPage, totalPages, lang) {
+export function formatProducts(products, totalCount, currentPage, totalPages, lang) {
   if (!products || products.length === 0) return null;
 
   const numEmoji = ['1\u20E3','2\u20E3','3\u20E3','4\u20E3','5\u20E3','6\u20E3','7\u20E3','8\u20E3','9\u20E3','\uD83D\uDD1F'];
