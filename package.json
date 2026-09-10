@@ -13,7 +13,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
-    "groq-sdk": "^1.2.1",
+    "groq-sdk": "^1.6.0",
     "mongoose": "^9.7.0",
     "node-cron": "^4.6.0",
     "razorpay": "^2.9.6"

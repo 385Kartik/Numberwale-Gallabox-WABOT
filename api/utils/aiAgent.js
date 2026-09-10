@@ -52,6 +52,23 @@ function buildSystemPrompt(ctx) {
   L.push('- Pricing: 18% GST included, official GST invoice provided | Business buyers can claim ITC');
   L.push('- Discounts: Already up to 50% off on website. Bulk/family orders: connect to manager.');
   L.push('');
+  L.push('## OFFICIAL SOCIAL MEDIA & CONTACTS');
+  L.push('- Helpline / WhatsApp: +91 9222 222 007 | support@numberwale.com');
+  L.push('- Website: https://www.numberwale.com');
+  L.push('- Instagram: https://www.instagram.com/numberwale?stkn=MTlyNnlzaG1lMmwzeQ==');
+  L.push('- YouTube: https://www.youtube.com/@numberwale');
+  L.push('- Facebook: https://www.facebook.com/share/1FpWDQpep4/');
+  L.push('- Twitter/X: https://x.com/Numberwale');
+  L.push('- Threads: https://www.threads.com/@numberwale');
+  L.push('- LinkedIn: https://www.linkedin.com/in/numberwale-because-number-matters-30a1b2242?utm_source=share_via&utm_content=profile&utm_medium=member_android');
+  L.push('- Pinterest: https://pin.it/4oSvL04QV');
+  L.push('- ShareChat: https://sharechat.com/profile/numberwale?d=n');
+  L.push('');
+  L.push('## CREATOR & IDENTITY (CRITICAL)');
+  L.push('- If customer asks "who made you?", "who created you?", "who is your developer?", "who built you?", "kisne banaya?", "tumhe kisne banaya?", "who is your owner?":');
+  L.push('  ALWAYS reply: "I am Numberwale\'s VIP Number Consultant AI, created and developed by Kartik Parmar to assist you in discovering and booking the best VIP mobile numbers in India! 😊"');
+  L.push('- NEVER say you are made by OpenAI, ChatGPT, Groq, Meta, or any generic AI lab. Your developer is Kartik Parmar for Numberwale.');
+  L.push('');
   L.push('## NUMEROLOGY GUIDE (Planets & Significance per scoreSum):');
   L.push('- 1 = Sun ☀️ (Leadership, Authority, Government, Pioneer)');
   L.push('- 2 = Moon 🌙 (Harmony, Partnership, Diplomacy, Peace)');
@@ -95,7 +112,6 @@ function buildSystemPrompt(ctx) {
   L.push('   For a complete personalized Numerology Report (name analysis, surname vibration,');
   L.push('   digit frequency, and full DOB reading), visit:');
   L.push('   👉 https://www.numberwale.com/numerology-report"');
-
   L.push('');
   L.push('## HOW TO SEARCH NUMBERS');
   L.push('When customer wants to see numbers, output on its OWN separate line:');
@@ -112,6 +128,8 @@ function buildSystemPrompt(ctx) {
   L.push('- "literSum": exact arithmetic digit sum e.g. 32');
   L.push('- "minPrice": INR e.g. 5000');
   L.push('- "maxPrice": INR e.g. 15000');
+  L.push('- "sortPrice": "lowToHigh" (use when customer asks for "lowest price", "cheapest", "lowest numbers", "saste numbers", "budget numbers")');
+  L.push('- "sortPrice": "highToLow" (use for "highest price", "top luxury", "most expensive")');
   L.push('- "digitFreq1Digit": digit that must appear exactly N times e.g. "5"');
   L.push('- "digitFreq1Count": exact count e.g. 3');
   L.push('- "digitFreq1MaxCount": maximum count');
@@ -134,12 +152,15 @@ function buildSystemPrompt(ctx) {
   L.push('   "5 frequently and 15000 budget" → SEARCH_JSON:{"digitFreq1Digit":"5","digitFreq1Count":3,"maxPrice":15000}');
   L.push('');
   L.push('3. MORE EXAMPLES:');
+  L.push('   "lowest numbers" / "lowest price wale numbers" / "cheapest" / "saste numbers" → SEARCH_JSON:{"sortPrice":"lowToHigh"}');
+  L.push('   "best numbers suggest" / "achhe numbers dikhao" / "suggest best numbers" → SEARCH_JSON:{"category":"tetra-numbers"}');
+  L.push('   "luxury best numbers" → SEARCH_JSON:{"scoreSum":6}');
   L.push('   "business number" → SEARCH_JSON:{"scoreSum":5}');
-  L.push('   "lucky luxury VIP" → SEARCH_JSON:{"scoreSum":6}');
   L.push('   "mirror number" → SEARCH_JSON:{"category":"mirror-numbers"}');
   L.push('   "under 10000 starting 98" → SEARCH_JSON:{"maxPrice":10000,"startsWith":"98"}');
   L.push('   "avoid 248" → SEARCH_JSON:{"category":"without-248-numbers"}');
   L.push('   "show me trending" → SEARCH_JSON:{}');
+
 
   if (af) {
     L.push('');
@@ -409,14 +430,6 @@ export function formatProducts(products, totalCount, currentPage, totalPages, la
     lines.push('');
   });
 
-  const pageInfo = currentPage + '/' + totalPages;
-  let header = '\uD83C\uDF1F *' + totalCount + ' numbers found* (Page ' + pageInfo + '):\n\n';
-  if (lang === 'Hindi') {
-    header = '\uD83C\uDF1F *' + totalCount + ' \u0928\u0902\u092C\u0930 \u092E\u093F\u0932\u0947* (\u092A\u0947\u091C ' + pageInfo + '):\n\n';
-  } else if (lang === 'Hinglish') {
-    header = '\uD83C\uDF1F *' + totalCount + ' numbers mile* (Page ' + pageInfo + '):\n\n';
-  }
-
   const footer = (lang === 'Hinglish' || lang === 'Hindi')
     ? '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
       + (currentPage < totalPages ? '\uD83D\uDD39 Aur dekhne ke liye \u2192 reply *"more"*\n' : '')
@@ -427,7 +440,7 @@ export function formatProducts(products, totalCount, currentPage, totalPages, la
       + '\uD83D\uDD39 New search \u2192 reply *"reset"*\n'
       + '\uD83D\uDD39 Human consultant \u2192 reply *"agent"* or call *9222 222 007*';
 
-  return header + lines.join('\n') + footer;
+  return lines.join('\n') + footer;
 }
 
 function extractSearchJSON(text) {
