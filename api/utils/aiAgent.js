@@ -1,7 +1,12 @@
 'use strict';
 /**
- * aiAgent.js - Unified OpenAI-powered Conversational Agent for Numberwale
- * Replaces all fragmented intent handlers with a single ChatGPT-style agent.
+ * aiAgent.js - Unified Conversational Agent for Numberwale (Groq + OpenAI load-balanced)
+ *
+ * Tier 1: Groq (free, ~500ms) — llama-3.3-70b, llama-3.1-8b, gemma2-9b
+ * Tier 2: OpenAI (paid fallback) — gpt-4o-mini, gpt-3.5-turbo
+ *
+ * Returns: { reply, searchJSON, model, escalate, totalCount, totalPages, currentPage }
+ * When escalate=true: webhook pauses bot + tags contact in Gallabox
  */
 import { fetchNumbers } from './searchApi.js';
 
@@ -14,6 +19,10 @@ const VALID_CATEGORIES = [
   'middle-ab-ab-numbers', 'ending-ab-ab-numbers', 'aaa-bbb-numbers',
   'ab-ab-xy-xy-numbers', '108-numbers', '786-numbers', 'unique-numbers'
 ];
+
+// Quick regex to detect "connect me to human agent" intent BEFORE calling LLM
+// Saves an API call for a simple intent
+const ESCALATION_REGEX = /\b(agent|manager|human|real\s*person|speak\s*to\s*someone|baat\s*karni|call\s*karo|call\s*me|helpline|support\s*team|aadmi\s*chahiye|bande\s*se\s*baat|mujhe\s*call|mujhe\s*connect|senior|supervisor|escalate)\b/i;
 
 function buildSystemPrompt(ctx) {
   const name = ctx && ctx.name && ctx.name !== 'Unknown' ? ctx.name : null;
@@ -29,10 +38,10 @@ function buildSystemPrompt(ctx) {
   L.push('## PERSONA');
   L.push('Warm, enthusiastic, brilliant at sales. ChatGPT-level smart consultant.');
   L.push('You understand spelling mistakes, Hinglish, emotions, incomplete queries.');
-  L.push('NEVER sound robotic. Every reply feels personal and human.');
+  L.push('NEVER sound robotic or template-like. Every reply feels personal and human.');
   L.push('');
   L.push('## LANGUAGE');
-  L.push('Respond in: Hinglish (default), Hindi (if Devanagari), English, Gujarati, or Marathi — based on customer message.');
+  L.push('Respond in: Hinglish (default), Hindi (Devanagari script), English, Gujarati, or Marathi — based on customer message.');
   L.push('Detected preference: ' + lang);
   L.push(name ? 'Customer name: ' + name : 'Customer name: Unknown');
   L.push('');
@@ -40,100 +49,137 @@ function buildSystemPrompt(ctx) {
   L.push('- Founded 2010 | 1 Lakh+ clients | Helpline: +91 9222 222 007 | support@numberwale.com');
   L.push('- Office: Bhayandar East, Thane/Mumbai, Maharashtra 401105');
   L.push('- Process: Pay online -> UPC + GST invoice in 24h -> e-KYC at any Jio/Airtel/Vi/BSNL store with Aadhar -> Active in 3-5 business days');
-  L.push('- Works with: All operators (Jio, Airtel, Vi, BSNL) | 4G/5G | Prepaid or Postpaid | eSIM convertible');
-  L.push('- Payment: UPI / Cards / NetBanking / EMI | NO COD (UPC is digital)');
-  L.push('- 100% Money-Back Guarantee if porting fails | Fresh UPC free if expired within 4 days');
-  L.push('- 18% GST included, official GST invoice provided | Business buyers can claim ITC');
-  L.push('- Discounts: Already up to 50% off on site. Bulk orders: call manager.');
+  L.push('- Works: All operators (Jio, Airtel, Vi, BSNL) | 4G/5G | Prepaid or Postpaid | eSIM convertible');
+  L.push('- Payment: UPI / Cards / NetBanking / Credit Card EMI | NO COD (UPC is digital delivery)');
+  L.push('- Guarantee: 100% Money-Back if porting fails | Fresh UPC free if expired within 4 days');
+  L.push('- Pricing: 18% GST included, official GST invoice provided | Business buyers can claim ITC');
+  L.push('- Discounts: Already up to 50% off on website. Bulk/family orders: connect to manager.');
   L.push('');
   L.push('## NUMEROLOGY GUIDE');
   L.push('scoreSum 1=Sun(Leadership/Govt), 2=Moon(Harmony/PR), 3=Jupiter(Wisdom/Wealth), 4=Rahu(Tech/Innovation),');
-  L.push('5=Mercury(Business/Sales - BEST for commerce), 6=Venus(Luxury/Fame - MOST POPULAR for VIPs),');
+  L.push('5=Mercury(Business/Sales/Trading - MOST AUSPICIOUS for commerce), 6=Venus(Luxury/Fame/VIPs - MOST POPULAR),');
   L.push('7=Ketu(Spiritual/Research), 8=Saturn(Stability/Real Estate), 9=Mars(Energy/Courage/Defense)');
-  L.push('For birthday-based lucky number: reduce birth day to single digit (Mulank) -> recommend that scoreSum.');
-  L.push('Examples: birthday 15 -> 1+5=6 -> scoreSum:6 | birthday 24 -> 2+4=6 -> scoreSum:6 | birthday 8 -> scoreSum:8 | birthday 29 -> 2+9=11->1+1=2 -> scoreSum:2');
+  L.push('For birthday lucky number: reduce birth day to single digit (Mulank) -> recommend that scoreSum.');
+  L.push('Examples: day 15 -> 1+5=6 | day 24 -> 2+4=6 | day 29 -> 2+9=11 -> 1+1=2 | day 8 -> 8');
   L.push('');
   L.push('## HOW TO SEARCH NUMBERS');
-  L.push('When customer wants to see numbers, output this EXACT format on its OWN separate line:');
+  L.push('When customer wants to see numbers, output on its OWN separate line:');
   L.push('SEARCH_JSON:{"field":"value"}');
   L.push('');
-  L.push('Valid search fields (all optional — only include relevant ones):');
+  L.push('Valid fields (all optional, only include relevant ones):');
   L.push('- "category": ONLY one of: ' + VALID_CATEGORIES.join(', '));
-  L.push('- "startsWith": digits e.g. "98"');
-  L.push('- "endsWith": digits e.g. "786"');
-  L.push('- "anywhere": digits anywhere e.g. "786"');
+  L.push('- "startsWith": digit string e.g. "98"');
+  L.push('- "endsWith": digit string e.g. "786"');
+  L.push('- "anywhere": digits that must appear anywhere e.g. "786"');
   L.push('- "mustContain": comma-separated digits e.g. "9,7"');
   L.push('- "notContain": digits to exclude e.g. "4,8"');
   L.push('- "scoreSum": numerology total 1-9');
   L.push('- "literSum": exact arithmetic digit sum e.g. 32');
   L.push('- "minPrice": INR e.g. 5000');
   L.push('- "maxPrice": INR e.g. 15000');
-  L.push('- "digitFreq1Digit": digit that must appear N times e.g. "5"');
+  L.push('- "digitFreq1Digit": digit that must appear exactly N times e.g. "5"');
   L.push('- "digitFreq1Count": exact count e.g. 3');
   L.push('- "digitFreq1MaxCount": maximum count');
   L.push('- "mostContainDigit": digit that should dominate e.g. "9"');
-  L.push('- "mostContainCount": minimum times e.g. 4');
-  L.push('- "exactDigitPlacement": 10-char string using ? for wildcards e.g. "9??????786"');
+  L.push('- "mostContainCount": minimum times it appears e.g. 4');
+  L.push('- "exactDigitPlacement": 10-char pattern using ? wildcards e.g. "9??????786"');
   L.push('');
-  L.push('NATURAL LANGUAGE -> SEARCH JSON MAPPING:');
-  L.push('"9 frequently" / "triple 9" / "9 zyada" / "teen 9" -> SEARCH_JSON:{"digitFreq1Digit":"9","digitFreq1Count":3}');
+  L.push('EXAMPLES:');
+  L.push('"9 frequently" / "triple 9" / "9 zyada" -> SEARCH_JSON:{"digitFreq1Digit":"9","digitFreq1Count":3}');
   L.push('"5 frequently and 15000 budget" -> SEARCH_JSON:{"digitFreq1Digit":"5","digitFreq1Count":3,"maxPrice":15000}');
-  L.push('"business number lucky" -> SEARCH_JSON:{"scoreSum":5}');
-  L.push('"luxury / premium / VIP feel" -> SEARCH_JSON:{"scoreSum":6}');
+  L.push('"business number" -> SEARCH_JSON:{"scoreSum":5}');
+  L.push('"luxury VIP premium" -> SEARCH_JSON:{"scoreSum":6}');
   L.push('"mirror number" -> SEARCH_JSON:{"category":"mirror-numbers"}');
   L.push('"9999 ending" -> SEARCH_JSON:{"endsWith":"9999"}');
   L.push('"786 wala chahiye" -> SEARCH_JSON:{"category":"786-numbers"}');
   L.push('"under 10000 starting 98" -> SEARCH_JSON:{"maxPrice":10000,"startsWith":"98"}');
   L.push('"birthday 15 lucky" -> mulank 6 -> SEARCH_JSON:{"scoreSum":6}');
-  L.push('"avoid 248" / "without 248" -> SEARCH_JSON:{"category":"without-248-numbers"}');
-  L.push('"counting / sequential" -> SEARCH_JSON:{"category":"counting-numbers"}');
-  L.push('"4 zeros together" -> SEARCH_JSON:{"anywhere":"0000"}');
-  L.push('"kuch trending dikhao" / "show me numbers" -> SEARCH_JSON:{}');
+  L.push('"avoid 248" -> SEARCH_JSON:{"category":"without-248-numbers"}');
+  L.push('"kuch trending dikhao" -> SEARCH_JSON:{}');
   if (af) {
     L.push('');
-    L.push('ACTIVE SEARCH FILTERS (customer already has a search going): ' + af);
-    L.push('- REFINEMENT (customer adds budget / digit / pattern to existing search) -> MERGE new constraint WITH active filters');
-    L.push('- NEW SEARCH (completely different pattern or category) -> DISCARD active filters, output only new JSON');
+    L.push('CURRENT ACTIVE SEARCH FILTERS: ' + af);
+    L.push('- REFINEMENT (adding budget/digit/pattern to existing search) -> MERGE with active filters');
+    L.push('- NEW SEARCH (completely different category/pattern) -> DISCARD active, output only new JSON');
   }
   L.push('');
   L.push('## SEARCH PROACTIVELY');
-  L.push('DO NOT ask too many questions before searching. If customer gives ANY preference (digit, budget, pattern, use-case) -> search immediately and show results. Refine together after.');
+  L.push('If customer gives ANY preference (digit, budget, pattern, use-case) -> search immediately, show results, refine after.');
   L.push('');
-  L.push('## GREETING');
+  L.push('## GREETING (First Message)');
   if (isFirst) {
-    L.push('This is the FIRST message. Give a warm Numberwale brand welcome:');
-    L.push('- Greet by name if known, introduce yourself as Aman from Numberwale');
-    L.push('- Mention: since 2010, 1 Lakh+ happy customers, India #1');
+    L.push('FIRST MESSAGE: Give warm Numberwale brand welcome:');
+    L.push('- Greet by name if known');
+    L.push('- Introduce as Aman from Numberwale');
+    L.push('- 1-2 lines: since 2010, 1 Lakh+ happy customers, India #1');
     L.push('- Ask: business or personal? favourite digit or pattern? budget?');
-    L.push('- Also output SEARCH_JSON:{} to show trending numbers below your greeting');
+    L.push('- Output SEARCH_JSON:{} to show trending numbers');
   } else {
     L.push('Continuing conversation — skip Numberwale re-introduction.');
   }
   L.push('');
-  L.push('## HUMAN AGENT ESCALATION');
-  L.push('If customer says "agent" / "manager" / "talk to human" / "real person" / "baat karni hai" / "call karo" etc. -> respond:');
-  L.push('"Please call or WhatsApp our helpline: *+91 9222 222 007* (Mon-Sat 10am-8pm). Our senior manager will assist you personally! \uD83D\uDE0A"');
-  L.push('Do NOT output SEARCH_JSON in escalation responses.');
-  L.push('');
-  L.push('## FORMATTING');
-  L.push('- Use WhatsApp formatting: *bold* for key terms, _italic_ for examples');
-  L.push('- Emojis naturally (not excessively)');
-  L.push('- Warm, concise, human — no walls of text');
-  L.push('- Always end with a question or CTA to keep conversation flowing');
-  L.push('');
   L.push('## STRICT RULES');
-  L.push('- NEVER use a category not in the valid list above (check carefully)');
-  L.push('- NEVER make up prices or claim availability without a real search');
-  L.push('- NEVER mix languages mid-sentence (except natural Hinglish mixing)');
-  L.push('- Output SEARCH_JSON on its own dedicated line, not embedded in text');
-  L.push('- If you do not know something, say so and suggest calling helpline');
+  L.push('- NEVER use a category not in the valid list above');
+  L.push('- NEVER make up prices or availability');
+  L.push('- NEVER mix languages randomly (natural Hinglish is ok)');
+  L.push('- Output SEARCH_JSON on its own dedicated line');
+  L.push('- If unsure about something, say so and suggest calling helpline');
 
   return L.join('\n');
 }
 
+// ─────────────────────────────────────────────────────────────────
+// TIER 1: GROQ (free, fast)
+// ─────────────────────────────────────────────────────────────────
+const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
+
+async function callGroq(systemPrompt, messages) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error('NO_GROQ_KEY');
+
+  // Round-robin across Groq models to distribute load
+  const model = GROQ_MODELS[Math.floor(Math.random() * GROQ_MODELS.length)];
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey,
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: 'system', content: systemPrompt }, ...messages],
+        temperature: 0.4,
+        max_tokens: 900,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const error = new Error((errData && errData.error && errData.error.message) || response.statusText);
+      error.status = response.status;
+      throw error;
+    }
+
+    const data = await response.json();
+    const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+    return { text: text.trim(), model: 'groq/' + model };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TIER 2: OPENAI (paid fallback)
+// ─────────────────────────────────────────────────────────────────
 async function callOpenAI(systemPrompt, messages, model) {
   const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI;
-  if (!apiKey) throw new Error('OPENAI_API_KEY not configured in environment');
+  if (!apiKey) throw new Error('NO_OPENAI_KEY');
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 18000);
@@ -163,12 +209,50 @@ async function callOpenAI(systemPrompt, messages, model) {
 
     const data = await response.json();
     const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
-    return text.trim();
+    return { text: text.trim(), model: model || 'gpt-4o-mini' };
   } finally {
     clearTimeout(timer);
   }
 }
 
+// ─────────────────────────────────────────────────────────────────
+// LOAD-BALANCED CALL: Groq first, OpenAI fallback
+// ─────────────────────────────────────────────────────────────────
+async function callLLM(systemPrompt, messages) {
+  // Try Groq first (free, fast)
+  try {
+    const result = await callGroq(systemPrompt, messages);
+    console.log('[Agent] Groq success:', result.model);
+    return result;
+  } catch (groqErr) {
+    if (groqErr.message === 'NO_GROQ_KEY') {
+      console.log('[Agent] No Groq key, using OpenAI...');
+    } else if (groqErr.status === 429) {
+      console.warn('[Agent] Groq rate limited, falling back to OpenAI...');
+    } else {
+      console.warn('[Agent] Groq failed (' + groqErr.message + '), falling back to OpenAI...');
+    }
+  }
+
+  // Fallback to OpenAI
+  try {
+    const result = await callOpenAI(systemPrompt, messages, 'gpt-4o-mini');
+    console.log('[Agent] OpenAI gpt-4o-mini success');
+    return result;
+  } catch (oaiErr) {
+    if (oaiErr.status === 429) {
+      console.warn('[Agent] gpt-4o-mini rate limited, trying gpt-3.5-turbo...');
+      const result = await callOpenAI(systemPrompt, messages, 'gpt-3.5-turbo');
+      console.log('[Agent] OpenAI gpt-3.5-turbo success');
+      return result;
+    }
+    throw oaiErr;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FORMAT PRODUCTS
+// ─────────────────────────────────────────────────────────────────
 function formatProducts(products, totalCount, currentPage, totalPages, lang) {
   if (!products || products.length === 0) return null;
 
@@ -232,7 +316,7 @@ function extractSearchJSON(text) {
     Object.keys(raw).forEach(function(k) {
       if (raw[k] === null || raw[k] === undefined || raw[k] === '') delete raw[k];
     });
-    return raw; // may be empty object {} = trending search
+    return raw;
   } catch (e) {
     console.error('[Agent] Failed to parse SEARCH_JSON:', match[1], e.message);
     return undefined;
@@ -243,6 +327,9 @@ function stripSearchJSON(text) {
   return text.replace(/SEARCH_JSON:\{[^]*?\}\s*\n?/g, '').trim();
 }
 
+// ─────────────────────────────────────────────────────────────────
+// MAIN EXPORT
+// ─────────────────────────────────────────────────────────────────
 export async function runAgent(opts) {
   const userMessage = opts.userMessage;
   const customerContext = opts.customerContext;
@@ -250,6 +337,24 @@ export async function runAgent(opts) {
   const lang = (customerContext && customerContext.language) || 'Hinglish';
   const history = (customerContext && customerContext.history) || [];
 
+  // Fast-path: detect human agent escalation request without LLM call
+  if (ESCALATION_REGEX.test(userMessage)) {
+    console.log('[Agent] Escalation intent detected for: ' + userMessage);
+    const escalationReply = (lang === 'Hindi')
+      ? '\uD83D\uDC4B \u0905\u092C\u0940 \u0906\u092A\u0915\u094B \u0939\u092E\u093E\u0930\u0947 *Senior Manager* \u0938\u0947 \u0915\u0928\u0947\u0915\u094D\u091F \u0915\u0930 \u0930\u0939\u093E \u0939\u0942\u0901!\n\n\u092A\u094D\u0932\u0940\u091C \u0907\u0938 \u0928\u0902\u092C\u0930 \u092A\u0930 \u0915\u0949\u0932 \u0915\u0930\u0947\u0902 \u092F\u093E WhatsApp \u0915\u0930\u0947\u0902:\n*+91 9222 222 007*\n\n\u0936\u093E\u092E 10 \u092C\u091C\u0947 \u0938\u0947 \u0930\u093E\u0924 8 \u092C\u091C\u0947 \u0924\u0915 \u0909\u092A\u0932\u092C\u094D\u0927 \u0939\u0948\u0902 (Mon-Sat).\n\n\u0906\u092A\u0915\u0947 \u0938\u0947\u0935\u093E \u0915\u0930\u0928\u0947 \u0915\u093E \u092E\u094C\u0915\u093E \u0926\u0947\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u0927\u0928\u094D\u092F\u0935\u093E\u0926! \uD83D\uDE4F'
+      : (lang === 'English')
+      ? '\uD83D\uDC4B Connecting you to our *Senior Manager* right now!\n\nPlease call or WhatsApp:\n*+91 9222 222 007*\n\nAvailable: Mon-Sat, 10am to 8pm.\n\nThank you for choosing Numberwale! Our team will assist you personally. \uD83D\uDE0A'
+      : '\uD83D\uDC4B Aapko abhi *Senior Manager* se connect kar raha hun!\n\nPlease call ya WhatsApp karein:\n*+91 9222 222 007*\n\nAvailable: Mon-Sat 10am se 8pm tak.\n\nNumberwale choose karne ka shukriya! Hamari team aapki personally help karegi. \uD83D\uDE0A';
+
+    return {
+      reply: escalationReply,
+      searchJSON: null,
+      model: 'escalation-fast-path',
+      escalate: true,
+    };
+  }
+
+  // Build conversation history for LLM
   const messages = history.slice(-8).map(function(h) {
     return { role: h.role === 'bot' ? 'assistant' : 'user', content: h.text };
   });
@@ -257,25 +362,21 @@ export async function runAgent(opts) {
 
   const systemPrompt = buildSystemPrompt(customerContext);
 
-  let agentText = '';
-  let usedModel = 'gpt-4o-mini';
-
+  let llmResult;
   try {
-    agentText = await callOpenAI(systemPrompt, messages, 'gpt-4o-mini');
-    usedModel = 'gpt-4o-mini';
+    llmResult = await callLLM(systemPrompt, messages);
   } catch (err) {
-    if (err.status === 429 || err.status === 503) {
-      console.warn('[Agent] gpt-4o-mini rate limited, trying gpt-3.5-turbo...');
-      try {
-        agentText = await callOpenAI(systemPrompt, messages, 'gpt-3.5-turbo');
-        usedModel = 'gpt-3.5-turbo';
-      } catch (err2) {
-        throw err2;
-      }
-    } else {
-      throw err;
-    }
+    console.error('[Agent] All LLM slots failed:', err.message);
+    const fallbackReply = (lang === 'English')
+      ? 'Sorry, I\'m having a brief technical issue. Please try again in a moment or call *+91 9222 222 007*. \uD83D\uDE4F'
+      : (lang === 'Hindi')
+      ? 'Maafi chahta hun, abhi thodi technical problem hai. Thodi der baad try karein ya *9222 222 007* pe call karein. \uD83D\uDE4F'
+      : 'Oops! Abhi thodi technical dikkat hai. Thodi der baad try karo ya *9222 222 007* pe call karo. \uD83D\uDE4F';
+    return { reply: fallbackReply, searchJSON: null, model: 'fallback', escalate: false };
   }
+
+  const agentText = llmResult.text;
+  const usedModel = llmResult.model;
 
   console.log('[Agent] Raw (' + usedModel + '):', agentText.substring(0, 500));
 
@@ -297,21 +398,22 @@ export async function runAgent(opts) {
           reply: conversationalText,
           searchJSON: searchJSON,
           model: usedModel,
+          escalate: false,
           totalCount: result.totalCount,
           totalPages: result.totalPages,
           currentPage: result.currentPage,
         };
       } else {
         const noResults = (lang === 'English')
-          ? '\n\n\uD83D\uDE14 No numbers found for this search right now. Try adjusting budget or pattern!'
-          : '\n\n\uD83D\uDE14 Is search se koi number nahi mila. Budget ya pattern thoda change karo!';
+          ? '\n\n\uD83D\uDE14 No numbers found for this exact search right now. Try adjusting budget or pattern!'
+          : '\n\n\uD83D\uDE14 Is exact search se koi number nahi mila. Budget thoda badhao ya pattern change karo!';
         conversationalText = conversationalText + noResults;
-        return { reply: conversationalText, searchJSON: searchJSON, model: usedModel };
+        return { reply: conversationalText, searchJSON: searchJSON, model: usedModel, escalate: false };
       }
     } catch (searchErr) {
       console.error('[Agent] Search failed:', searchErr.message);
     }
   }
 
-  return { reply: conversationalText, searchJSON: null, model: usedModel };
+  return { reply: conversationalText, searchJSON: null, model: usedModel, escalate: false };
 }

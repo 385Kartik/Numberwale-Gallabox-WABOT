@@ -6,6 +6,7 @@ import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/payment
 import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/gallabox.js';
 
 
+
 // ── Intent Detectors ────────────────────────────────────────────────────────
 function extractBuyNumber(text) {
   const buyKeywords = [
@@ -765,7 +766,27 @@ export default async function handler(req, res) {
       await sendToGallabox(customerPhone, replyText, channelID);
       const tSend = Date.now() - t0Send;
 
-      console.log(`⚡ [PERF] Agent response in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | AI [${agentResult.model}]: ${tAi}ms | Gallabox: ${tSend}ms)`);
+      console.log(`⚡ [PERF] Agent response in ${Date.now() - reqStartTime}ms (AI [${agentResult.model}]: ${tAi}ms | Gallabox: ${tSend}ms)`);
+
+      // ── Escalation: pause bot + tag contact ─────────────────────────────
+      if (agentResult.escalate) {
+        pauseBot(customerPhone);
+        addGallaboxTag(customerPhone, 'Needs Agent').catch(() => {});
+        stopDrip(customerPhone).catch(() => {});
+        console.log(`[Webhook] 🔴 Bot PAUSED for ${customerPhone} — escalated to human agent`);
+        await logInteraction({
+          phone: customerPhone,
+          name: customerName,
+          userText: userMessage,
+          botText: '🔴 ESCALATED to human agent',
+          isFail: false,
+          model: 'escalation',
+          tokensUsed: 0,
+          jsonQuery: null,
+          page: 1,
+        }).catch(() => {});
+        return res.status(200).json({ success: true, reason: 'escalated_to_human' });
+      }
 
       // Log interaction and save active filters
       await logInteraction({
@@ -774,7 +795,7 @@ export default async function handler(req, res) {
         userText: userMessage,
         botText: `✨ Agent reply | model: ${agentResult.model}${searchJSON ? ' | search: ' + JSON.stringify(searchJSON) : ''}`,
         isFail: false,
-        model: agentResult.model || 'gpt-4o-mini',
+        model: agentResult.model || 'groq/llama-3.3-70b-versatile',
         tokensUsed: 0,
         jsonQuery: searchJSON || null,
         page: agentResult.currentPage || page,
