@@ -52,10 +52,16 @@ function buildSystemPrompt(ctx) {
   L.push('- Pricing: 18% GST included, official GST invoice provided | Business buyers can claim ITC');
   L.push('- Discounts: Already up to 50% off on website. Bulk/family orders: connect to manager.');
   L.push('');
-  L.push('## NUMEROLOGY GUIDE');
-  L.push('scoreSum meaning: 1=Sun(Leadership/Govt), 2=Moon(Harmony/PR), 3=Jupiter(Wisdom/Wealth), 4=Rahu(Tech/Innovation),');
-  L.push('5=Mercury(Business/Sales/Trading - BEST for commerce), 6=Venus(Luxury/Fame/VIPs - MOST POPULAR),');
-  L.push('7=Ketu(Spiritual/Research), 8=Saturn(Stability/Real Estate), 9=Mars(Energy/Courage/Defense)');
+  L.push('## NUMEROLOGY GUIDE (Planets & Significance per scoreSum):');
+  L.push('- 1 = Sun ☀️ (Leadership, Authority, Government, Pioneer)');
+  L.push('- 2 = Moon 🌙 (Harmony, Partnership, Diplomacy, Peace)');
+  L.push('- 3 = Jupiter 🪐 (Wisdom, Knowledge, Wealth, Growth & Expansion)');
+  L.push('- 4 = Rahu ⚡ (Technology, Unconventional Innovation, Disruption)');
+  L.push('- 5 = Mercury 💼 (Commerce, Trading, Sales, Fast Communication - BEST for Business)');
+  L.push('- 6 = Venus 💎 (Luxury, Fame, Elegance, Media - MOST POPULAR for VIPs)');
+  L.push('- 7 = Ketu 🧘 (Spiritual, Deep Research, Analysis, Intuition)');
+  L.push('- 8 = Saturn 🏛️ (Hard Work, Stability, Real Estate, Endurance)');
+  L.push('- 9 = Mars 🔥 (High Energy, Courage, Defense, Bold Action)');
   L.push('');
   L.push('## NUMEROLOGY CALCULATION (use this EXACT formula)');
   L.push('');
@@ -63,17 +69,27 @@ function buildSystemPrompt(ctx) {
   L.push('  Reduce the birth day digits to a single digit.');
   L.push('  Example: born on 22nd → 2+2=4 → Birth Number = 4');
   L.push('  Example: born on 15th → 1+5=6 → Birth Number = 6');
+  L.push('  Example: born on 3rd → single digit 3 → Birth Number = 3');
   L.push('');
   L.push('LIFE PATH NUMBER (from full DOB — DD+MM+YYYY all digits):');
   L.push('  Sum ALL digits of the full date, reduce to single digit.');
   L.push('  Example: DOB 22/10/1993 → 2+2+1+0+1+9+9+3=27 → 2+7=9 → Life Path = 9');
+  L.push('  Example: DOB 03/08/2005 → 0+3+0+8+2+0+0+5=18 → 1+8=9 → Life Path = 9');
   L.push('  Example: DOB 15/06/1990 → 1+5+0+6+1+9+9+0=31 → 3+1=4 → Life Path = 4');
   L.push('');
   L.push('WHEN CUSTOMER SHARES DOB:');
-  L.push('1. Calculate BOTH Birth Number AND Life Path Number (show the working clearly step-by-step)');
-  L.push('2. Explain what each number signifies');
-  L.push('3. Output SEARCH_JSON with scoreSum set to the Life Path Number (e.g. SEARCH_JSON:{"scoreSum":9})');
-  L.push('   Tell the customer: "Here are numbers matching your Life Path Number (9). Let me know if you would also like to see options with your Birth Number total (4)!"');
+  L.push('1. Show calculation clearly:');
+  L.push('   *Birth Number (Day):* [Calculation] → *[X]*');
+  L.push('   *Life Path Number (Full DOB):* [Calculation] → *[Y]*');
+  L.push('');
+  L.push('2. Explain what each number signifies using bullet points (⚠️ NEVER USE TABLES OR PIPES):');
+  L.push('   ✨ *What they mean:*');
+  L.push('   • *Number [X] ([Planet]):* [Short meaning]');
+  L.push('   • *Number [Y] ([Planet]):* [Short meaning]');
+  L.push('');
+  L.push('3. Output SEARCH_JSON with scoreSum set to Life Path Number (e.g. SEARCH_JSON:{"scoreSum":9})');
+  L.push('   Add: "Here are numbers matching your Life Path Number ([Y]). Let me know if you would also like to see options with your Birth Number total ([X])!"');
+  L.push('');
   L.push('4. ALWAYS add this note at the end (verbatim):');
   L.push('   "📊 *Note:* These numbers are calculated based on your date of birth.');
   L.push('   For a complete personalized Numerology Report (name analysis, surname vibration,');
@@ -148,11 +164,13 @@ function buildSystemPrompt(ctx) {
   }
   L.push('');
   L.push('## STRICT RULES');
+  L.push('- NEVER use markdown tables (no pipes `|` or `|---|`). WhatsApp does NOT render tables! Always use bullet points with • or emojis instead.');
   L.push('- NEVER use a category not in the valid list above');
   L.push('- NEVER make up prices or availability');
   L.push('- NEVER mix languages randomly (natural Hinglish is ok)');
   L.push('- Output SEARCH_JSON on its own dedicated line');
   L.push('- If unsure about something, say so and suggest calling helpline');
+
 
   return L.join('\n');
 }
@@ -431,6 +449,39 @@ function extractSearchJSON(text) {
   }
 }
 
+function cleanMarkdownTables(text) {
+  if (!text || !text.includes('|')) return text;
+  const lines = text.split('\n');
+  const result = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    // Skip markdown table divider rows like |---|---| or |:---:|
+    if (/^\|?\s*[-:]+[-|\s:]*\|?$/.test(line)) {
+      continue;
+    }
+    // Convert table rows with pipes | Col1 | Col2 |
+    if (line.startsWith('|') && line.endsWith('|')) {
+      const cells = line.split('|').map(c => c.trim()).filter(Boolean);
+      if (cells.length > 0) {
+        const firstLower = cells[0].toLowerCase();
+        // Skip table headers like "Number | Meaning"
+        if (firstLower === 'number' || firstLower === 'item' || firstLower === 'col' || firstLower === 'title' || firstLower === 'parameter') {
+          continue;
+        }
+        if (cells.length >= 2) {
+          result.push(`• *${cells[0]}:* ${cells.slice(1).join(' — ')}`);
+        } else {
+          result.push(`• ${cells[0]}`);
+        }
+        continue;
+      }
+    }
+    result.push(lines[i]);
+  }
+  return result.join('\n');
+}
+
 function stripSearchJSON(text) {
   return text.replace(/SEARCH_JSON:\{[^]*?\}\s*\n?/g, '').trim();
 }
@@ -472,7 +523,7 @@ export async function runAgent(opts) {
   console.log('[Agent] Raw (' + usedModel + '):', agentText.substring(0, 500));
 
   const searchJSON = extractSearchJSON(agentText);
-  let conversationalText = stripSearchJSON(agentText);
+  let conversationalText = cleanMarkdownTables(stripSearchJSON(agentText));
 
   if (searchJSON !== undefined) {
     console.log('[Agent] Searching with:', JSON.stringify(searchJSON));

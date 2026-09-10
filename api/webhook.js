@@ -179,11 +179,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, reason: 'outbound_agent_message' });
     }
 
-    if (!userMessage) {
-      console.log('[Webhook] No message text found. Ignoring.');
-      return res.status(200).json({ success: true, reason: 'no_message' });
-    }
-
     const allowedPhones = process.env.ALLOWED_PHONES;
     if (allowedPhones) {
       const whitelist = allowedPhones.split(',').map(p => p.trim());
@@ -191,6 +186,33 @@ export default async function handler(req, res) {
         console.log(`[Webhook] ${customerPhone} not in whitelist. Skipping silently.`);
         return res.status(200).json({ success: true, reason: 'not_whitelisted' });
       }
+    }
+
+    // ── Handle Photo / Media Uploads ──
+    const incomingType = (body?.whatsapp?.type || body?.message?.type || body?.type || '').toLowerCase();
+    const isImageOrMedia =
+      incomingType === 'image' ||
+      incomingType === 'document' ||
+      incomingType === 'video' ||
+      incomingType === 'audio' ||
+      incomingType === 'sticker' ||
+      !!body?.whatsapp?.image ||
+      !!body?.message?.image ||
+      !!body?.request?.data?.whatsapp?.image ||
+      !!body?.data?.whatsapp?.image ||
+      !!body?.whatsapp?.document;
+
+    if (isImageOrMedia) {
+      console.log(`[Webhook] 📷 Photo/Media received from ${customerPhone}.`);
+      if (customerPhone) touchInteraction(customerPhone).catch(() => {});
+      const photoReply = "Sorry, I can't understand or view photos directly! 📷\n\nCould you please describe what is in this image, or type the number/pattern you are looking for? 😊\n\nAlternatively, you can:\n📞 Contact our helpline: *+91 9222 222 007*\n👤 Or reply with *\"agent\"* to forward your chat to our executives!";
+      await sendToGallabox(customerPhone, photoReply, channelID);
+      return res.status(200).json({ success: true, reason: 'photo_handled' });
+    }
+
+    if (!userMessage) {
+      console.log('[Webhook] No message text found. Ignoring.');
+      return res.status(200).json({ success: true, reason: 'no_message' });
     }
 
     console.log(`[Webhook] From ${customerPhone || 'Unknown'}: "${userMessage}"`);
