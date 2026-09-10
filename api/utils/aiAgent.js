@@ -20,9 +20,7 @@ const VALID_CATEGORIES = [
   'ab-ab-xy-xy-numbers', '108-numbers', '786-numbers', 'unique-numbers'
 ];
 
-// Quick regex to detect "connect me to human agent" intent BEFORE calling LLM
-// Saves an API call for a simple intent
-const ESCALATION_REGEX = /\b(agent|manager|human|real\s*person|speak\s*to\s*someone|baat\s*karni|call\s*karo|call\s*me|helpline|support\s*team|aadmi\s*chahiye|bande\s*se\s*baat|mujhe\s*call|mujhe\s*connect|senior|supervisor|escalate)\b/i;
+
 
 function buildSystemPrompt(ctx) {
   const name = ctx && ctx.name && ctx.name !== 'Unknown' ? ctx.name : null;
@@ -131,7 +129,13 @@ function buildSystemPrompt(ctx) {
 // ─────────────────────────────────────────────────────────────────
 // TIER 1: GROQ (free, fast)
 // ─────────────────────────────────────────────────────────────────
-const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
+// Current Groq models (updated Sep 2026 — check console.groq.com/docs/models for latest)
+// Primary picks: fast text-chat models on GroqCloud free tier
+const GROQ_MODELS = [
+  'meta-llama/llama-4-scout-17b-16e-instruct', // Llama 4 Scout — fast, good quality
+  'meta-llama/llama-4-maverick-17b-128e-instruct', // Llama 4 Maverick — better quality
+  'compound-beta-mini',                          // Groq Compound Beta Mini — lightweight
+];
 
 async function callGroq(systemPrompt, messages) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -337,28 +341,13 @@ export async function runAgent(opts) {
   const lang = (customerContext && customerContext.language) || 'Hinglish';
   const history = (customerContext && customerContext.history) || [];
 
-  // Fast-path: detect human agent escalation request without LLM call
-  if (ESCALATION_REGEX.test(userMessage)) {
-    console.log('[Agent] Escalation intent detected for: ' + userMessage);
-    const escalationReply = (lang === 'Hindi')
-      ? '\uD83D\uDC4B \u0905\u092C\u0940 \u0906\u092A\u0915\u094B \u0939\u092E\u093E\u0930\u0947 *Senior Manager* \u0938\u0947 \u0915\u0928\u0947\u0915\u094D\u091F \u0915\u0930 \u0930\u0939\u093E \u0939\u0942\u0901!\n\n\u092A\u094D\u0932\u0940\u091C \u0907\u0938 \u0928\u0902\u092C\u0930 \u092A\u0930 \u0915\u0949\u0932 \u0915\u0930\u0947\u0902 \u092F\u093E WhatsApp \u0915\u0930\u0947\u0902:\n*+91 9222 222 007*\n\n\u0936\u093E\u092E 10 \u092C\u091C\u0947 \u0938\u0947 \u0930\u093E\u0924 8 \u092C\u091C\u0947 \u0924\u0915 \u0909\u092A\u0932\u092C\u094D\u0927 \u0939\u0948\u0902 (Mon-Sat).\n\n\u0906\u092A\u0915\u0947 \u0938\u0947\u0935\u093E \u0915\u0930\u0928\u0947 \u0915\u093E \u092E\u094C\u0915\u093E \u0926\u0947\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u0927\u0928\u094D\u092F\u0935\u093E\u0926! \uD83D\uDE4F'
-      : (lang === 'English')
-      ? '\uD83D\uDC4B Connecting you to our *Senior Manager* right now!\n\nPlease call or WhatsApp:\n*+91 9222 222 007*\n\nAvailable: Mon-Sat, 10am to 8pm.\n\nThank you for choosing Numberwale! Our team will assist you personally. \uD83D\uDE0A'
-      : '\uD83D\uDC4B Aapko abhi *Senior Manager* se connect kar raha hun!\n\nPlease call ya WhatsApp karein:\n*+91 9222 222 007*\n\nAvailable: Mon-Sat 10am se 8pm tak.\n\nNumberwale choose karne ka shukriya! Hamari team aapki personally help karegi. \uD83D\uDE0A';
-
-    return {
-      reply: escalationReply,
-      searchJSON: null,
-      model: 'escalation-fast-path',
-      escalate: true,
-    };
-  }
 
   // Build conversation history for LLM
   const messages = history.slice(-8).map(function(h) {
     return { role: h.role === 'bot' ? 'assistant' : 'user', content: h.text };
   });
   messages.push({ role: 'user', content: userMessage });
+
 
   const systemPrompt = buildSystemPrompt(customerContext);
 
