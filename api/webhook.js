@@ -35,6 +35,42 @@ function extractBuyNumber(text) {
   return null;
 }
 
+// ── 30-Minute Agent Inactivity Timer ─────────────────────────────────────────
+const agentInactivityTimers = new Map();
+
+function scheduleAgentInactivityTimer(customerPhone, channelID) {
+  if (agentInactivityTimers.has(customerPhone)) {
+    clearTimeout(agentInactivityTimers.get(customerPhone));
+  }
+
+  const timer = setTimeout(async () => {
+    try {
+      const ctx = await getCustomerContext(customerPhone);
+      if (ctx.botState === 'PAUSED' && ctx.agentReplied && ctx.lastAgentReplyAt) {
+        const timeSince = Date.now() - new Date(ctx.lastAgentReplyAt).getTime();
+        if (timeSince >= 29 * 60 * 1000) {
+          console.log(`[Timer] ⏰ 30-min agent inactivity reached for ${customerPhone}. Reactivating bot (keeping assigned in Gallabox).`);
+          resumeBot(customerPhone);
+          await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
+
+          const lang = ctx.language || 'English';
+          const greet = (lang === 'English')
+            ? "👋 Hello! I'm Aman from Numberwale, back online to assist you while our team is occupied. 😊 How can I help you find your dream VIP number?"
+            : "👋 Namaste! Main Aman, Numberwale se, wapas online aa gaya hun aapki help ke liye! 😊 Aap kaisa VIP mobile number dekhna chahte hain?";
+
+          await sendToGallabox(customerPhone, greet, channelID);
+        }
+      }
+    } catch (err) {
+      console.error('[Timer] Agent inactivity timer error:', err.message);
+    } finally {
+      agentInactivityTimers.delete(customerPhone);
+    }
+  }, 30 * 60 * 1000);
+
+  agentInactivityTimers.set(customerPhone, timer);
+}
+
 // Vercel Serverless Function entry point
 export default async function handler(req, res) {
   const reqStartTime = Date.now();
@@ -170,13 +206,15 @@ export default async function handler(req, res) {
       // 4. Real human executive manual message (anything other than template, echo, #bot on)
       const ctxForAgent = await getCustomerContext(customerPhone);
       pauseBot(customerPhone);
+      const agentNow = new Date();
       if (ctxForAgent.botState !== 'PAUSED') {
         console.log(`[Webhook] Real agent manual message received for ${customerPhone}. Pausing bot.`);
-        await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: true });
+        await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: true, lastAgentReplyAt: agentNow });
       } else {
         console.log(`[Webhook] Real agent manual message received for ${customerPhone}. Setting agentReplied = true.`);
-        await updateCustomerInfo(customerPhone, { agentReplied: true });
+        await updateCustomerInfo(customerPhone, { agentReplied: true, lastAgentReplyAt: agentNow });
       }
+      scheduleAgentInactivityTimer(customerPhone, channelID);
       return res.status(200).json({ success: true, reason: 'outbound_agent_message' });
     }
 
@@ -231,14 +269,36 @@ export default async function handler(req, res) {
     let currentState = customerContext.botState;
 
     if (currentState === 'PAUSED') {
-      const isMoreOrBuy = lowerMsg === 'more' || lowerMsg.startsWith('buy');
-      
-      // If agent has already replied, bot MUST stay completely silent
-      if (!isMoreOrBuy || customerContext.agentReplied) {
-        console.log(`[Webhook] Bot is PAUSED for ${customerPhone} (Agent replied: ${!!customerContext.agentReplied}). Skipping.`);
-        return res.status(200).json({ success: true, reason: 'bot_paused' });
-      } else {
-        console.log(`[Webhook] Customer used '${lowerMsg}' while PAUSED (Agent not replied yet). Allowing request.`);
+      // 30-Minute Inactivity Check: If executive replied >30 mins ago, automatically reactivate bot
+      if (customerContext.agentReplied && customerContext.lastAgentReplyAt) {
+        const timeSinceAgent = Date.now() - new Date(customerContext.lastAgentReplyAt).getTime();
+        const THIRTY_MINUTES = 30 * 60 * 1000;
+        if (timeSinceAgent >= THIRTY_MINUTES) {
+          console.log(`[Webhook] Agent inactive for >30 mins (${Math.round(timeSinceAgent / 60000)}m) for ${customerPhone}. Reactivating bot (keeping assigned in Gallabox).`);
+          resumeBot(customerPhone);
+          await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
+          currentState = 'ACTIVE';
+          customerContext.botState = 'ACTIVE';
+          customerContext.agentReplied = false;
+
+          const lang = customerContext.language || 'English';
+          const resumeGreet = (lang === 'English')
+            ? "👋 Hello! I'm Aman from Numberwale, back online to assist you while our team is occupied. 😊 How can I help you find your dream VIP number?"
+            : "👋 Namaste! Main Aman, Numberwale se, wapas online aa gaya hun aapki help ke liye! 😊 Aap kaisa VIP mobile number dekhna chahte hain?";
+          await sendToGallabox(customerPhone, resumeGreet, channelID);
+        }
+      }
+
+      if (currentState === 'PAUSED') {
+        const isMoreOrBuy = lowerMsg === 'more' || lowerMsg.startsWith('buy');
+        
+        // If agent has already replied, bot MUST stay completely silent
+        if (!isMoreOrBuy || customerContext.agentReplied) {
+          console.log(`[Webhook] Bot is PAUSED for ${customerPhone} (Agent replied: ${!!customerContext.agentReplied}). Skipping.`);
+          return res.status(200).json({ success: true, reason: 'bot_paused' });
+        } else {
+          console.log(`[Webhook] Customer used '${lowerMsg}' while PAUSED (Agent not replied yet). Allowing request.`);
+        }
       }
     }
 

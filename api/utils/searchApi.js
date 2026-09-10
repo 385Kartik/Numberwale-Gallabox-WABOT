@@ -231,6 +231,8 @@ export async function fetchNumbers(jsonQuery, page = 1) {
     const finalQuery = { search: searchParams, page, limit: PAGE_SIZE };
     if (jsonQuery.category) finalQuery.category = jsonQuery.category;
     if (priceRangeStr) finalQuery.priceRange = priceRangeStr;
+    if (jsonQuery.sortPrice) finalQuery.sortPrice = jsonQuery.sortPrice;
+    if (jsonQuery.sortBy) finalQuery.sortBy = jsonQuery.sortBy;
 
     console.log(`[Search] Querying ${API_URL}/api/v1/products/get-products with:`, finalQuery);
 
