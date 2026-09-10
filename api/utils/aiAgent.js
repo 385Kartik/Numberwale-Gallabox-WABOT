@@ -21,7 +21,7 @@ const VALID_CATEGORIES = [
 
 function buildSystemPrompt(ctx) {
   const name = ctx && ctx.name && ctx.name !== 'Unknown' ? ctx.name : null;
-  const lang = (ctx && ctx.language) || 'Hinglish';
+  const lang = (ctx && ctx.language) || 'English';
   const isFirst = !ctx || !ctx.history || ctx.history.length === 0;
   const af = ctx && ctx.activeFilters && Object.keys(ctx.activeFilters).length > 0
     ? JSON.stringify(ctx.activeFilters) : null;
@@ -36,9 +36,11 @@ function buildSystemPrompt(ctx) {
   L.push('NEVER sound robotic or template-like. Every reply feels personal and human.');
   L.push('');
   L.push('## LANGUAGE');
-  L.push('Respond in: Hinglish (default), Hindi (Devanagari script), English, Gujarati, or Marathi — based on customer message.');
+  L.push('Default language: English. Also support Gujarati if customer writes in Gujarati.');
+  L.push('If customer writes in Hindi/Hinglish, you may respond in Hinglish naturally.');
   L.push('Detected preference: ' + lang);
   L.push(name ? 'Customer name: ' + name : 'Customer name: Unknown');
+
   L.push('');
   L.push('## NUMBERWALE FACTS (use strictly, never guess)');
   L.push('- Founded 2010 | 1 Lakh+ clients | Helpline: +91 9222 222 007 | support@numberwale.com');
@@ -51,11 +53,33 @@ function buildSystemPrompt(ctx) {
   L.push('- Discounts: Already up to 50% off on website. Bulk/family orders: connect to manager.');
   L.push('');
   L.push('## NUMEROLOGY GUIDE');
-  L.push('scoreSum 1=Sun(Leadership/Govt), 2=Moon(Harmony/PR), 3=Jupiter(Wisdom/Wealth), 4=Rahu(Tech/Innovation),');
-  L.push('5=Mercury(Business/Sales/Trading - MOST AUSPICIOUS for commerce), 6=Venus(Luxury/Fame/VIPs - MOST POPULAR),');
+  L.push('scoreSum meaning: 1=Sun(Leadership/Govt), 2=Moon(Harmony/PR), 3=Jupiter(Wisdom/Wealth), 4=Rahu(Tech/Innovation),');
+  L.push('5=Mercury(Business/Sales/Trading - BEST for commerce), 6=Venus(Luxury/Fame/VIPs - MOST POPULAR),');
   L.push('7=Ketu(Spiritual/Research), 8=Saturn(Stability/Real Estate), 9=Mars(Energy/Courage/Defense)');
-  L.push('For birthday lucky number: reduce birth day to single digit (Mulank) -> recommend that scoreSum.');
-  L.push('Examples: day 15 -> 1+5=6 | day 24 -> 2+4=6 | day 29 -> 2+9=11 -> 1+1=2 | day 8 -> 8');
+  L.push('');
+  L.push('## NUMEROLOGY CALCULATION (use this EXACT formula)');
+  L.push('');
+  L.push('BIRTH NUMBER (from birth DAY only):');
+  L.push('  Reduce the birth day digits to a single digit.');
+  L.push('  Example: born on 22nd → 2+2=4 → Birth Number = 4');
+  L.push('  Example: born on 15th → 1+5=6 → Birth Number = 6');
+  L.push('');
+  L.push('LIFE PATH NUMBER (from full DOB — DD+MM+YYYY all digits):');
+  L.push('  Sum ALL digits of the full date, reduce to single digit.');
+  L.push('  Example: DOB 22/10/1993 → 2+2+1+0+1+9+9+3=27 → 2+7=9 → Life Path = 9');
+  L.push('  Example: DOB 15/06/1990 → 1+5+0+6+1+9+9+0=31 → 3+1=4 → Life Path = 4');
+  L.push('');
+  L.push('WHEN CUSTOMER SHARES DOB:');
+  L.push('1. Calculate BOTH Birth Number AND Life Path Number (show the working clearly step-by-step)');
+  L.push('2. Explain what each number signifies');
+  L.push('3. Output SEARCH_JSON with scoreSum set to the Life Path Number (e.g. SEARCH_JSON:{"scoreSum":9})');
+  L.push('   Tell the customer: "Here are numbers matching your Life Path Number (9). Let me know if you would also like to see options with your Birth Number total (4)!"');
+  L.push('4. ALWAYS add this note at the end (verbatim):');
+  L.push('   "📊 *Note:* These numbers are calculated based on your date of birth.');
+  L.push('   For a complete personalized Numerology Report (name analysis, surname vibration,');
+  L.push('   digit frequency, and full DOB reading), visit:');
+  L.push('   👉 https://www.numberwale.com/numerology-report"');
+
   L.push('');
   L.push('## HOW TO SEARCH NUMBERS');
   L.push('When customer wants to see numbers, output on its OWN separate line:');
@@ -79,18 +103,28 @@ function buildSystemPrompt(ctx) {
   L.push('- "mostContainCount": minimum times it appears e.g. 4');
   L.push('- "exactDigitPlacement": 10-char pattern using ? wildcards e.g. "9??????786"');
   L.push('');
-  L.push('EXAMPLES:');
-  L.push('"9 frequently" / "triple 9" / "9 zyada" -> SEARCH_JSON:{"digitFreq1Digit":"9","digitFreq1Count":3}');
-  L.push('"5 frequently and 15000 budget" -> SEARCH_JSON:{"digitFreq1Digit":"5","digitFreq1Count":3,"maxPrice":15000}');
-  L.push('"business number" -> SEARCH_JSON:{"scoreSum":5}');
-  L.push('"luxury VIP premium" -> SEARCH_JSON:{"scoreSum":6}');
-  L.push('"mirror number" -> SEARCH_JSON:{"category":"mirror-numbers"}');
-  L.push('"9999 ending" -> SEARCH_JSON:{"endsWith":"9999"}');
-  L.push('"786 wala chahiye" -> SEARCH_JSON:{"category":"786-numbers"}');
-  L.push('"under 10000 starting 98" -> SEARCH_JSON:{"maxPrice":10000,"startsWith":"98"}');
-  L.push('"birthday 15 lucky" -> mulank 6 -> SEARCH_JSON:{"scoreSum":6}');
-  L.push('"avoid 248" -> SEARCH_JSON:{"category":"without-248-numbers"}');
-  L.push('"kuch trending dikhao" -> SEARCH_JSON:{}');
+  L.push('CRITICAL DISTINCTION — READ CAREFULLY:');
+  L.push('');
+  L.push('1. CONSECUTIVE SEQUENCE (digits together in a row) → use "anywhere" or "endsWith" or "startsWith"');
+  L.push('   "555 wala number" / "number with 555" / "mujhe 555 chahiye" → SEARCH_JSON:{"anywhere":"555"}');
+  L.push('   "9999 ending" / "9999 se khatam ho" → SEARCH_JSON:{"endsWith":"9999"}');
+  L.push('   "786 wala" → SEARCH_JSON:{"anywhere":"786"}');
+  L.push('   "786 category" → SEARCH_JSON:{"category":"786-numbers"}');
+  L.push('   "99 starting" → SEARCH_JSON:{"startsWith":"99"}');
+  L.push('');
+  L.push('2. DIGIT FREQUENCY (how many times a digit appears, NOT necessarily consecutive) → use "digitFreq1"');
+  L.push('   "5 teen baar aaye" / "5 comes 3 times" / "five three times" → SEARCH_JSON:{"digitFreq1Digit":"5","digitFreq1Count":3}');
+  L.push('   "9 frequently" / "triple 9" / "9 zyada ho" (no specific count) → SEARCH_JSON:{"digitFreq1Digit":"9","digitFreq1Count":3}');
+  L.push('   "5 frequently and 15000 budget" → SEARCH_JSON:{"digitFreq1Digit":"5","digitFreq1Count":3,"maxPrice":15000}');
+  L.push('');
+  L.push('3. MORE EXAMPLES:');
+  L.push('   "business number" → SEARCH_JSON:{"scoreSum":5}');
+  L.push('   "lucky luxury VIP" → SEARCH_JSON:{"scoreSum":6}');
+  L.push('   "mirror number" → SEARCH_JSON:{"category":"mirror-numbers"}');
+  L.push('   "under 10000 starting 98" → SEARCH_JSON:{"maxPrice":10000,"startsWith":"98"}');
+  L.push('   "avoid 248" → SEARCH_JSON:{"category":"without-248-numbers"}');
+  L.push('   "show me trending" → SEARCH_JSON:{}');
+
   if (af) {
     L.push('');
     L.push('CURRENT ACTIVE SEARCH FILTERS: ' + af);
@@ -358,19 +392,22 @@ function formatProducts(products, totalCount, currentPage, totalPages, lang) {
   });
 
   const pageInfo = currentPage + '/' + totalPages;
-  let header;
+  let header = '\uD83C\uDF1F *' + totalCount + ' numbers found* (Page ' + pageInfo + '):\n\n';
   if (lang === 'Hindi') {
     header = '\uD83C\uDF1F *' + totalCount + ' \u0928\u0902\u092C\u0930 \u092E\u093F\u0932\u0947* (\u092A\u0947\u091C ' + pageInfo + '):\n\n';
-  } else if (lang === 'English') {
-    header = '\uD83C\uDF1F *' + totalCount + ' numbers found* (Page ' + pageInfo + '):\n\n';
-  } else {
+  } else if (lang === 'Hinglish') {
     header = '\uD83C\uDF1F *' + totalCount + ' numbers mile* (Page ' + pageInfo + '):\n\n';
   }
 
-  const footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
-    + (currentPage < totalPages ? '\uD83D\uDD39 Aur dekhne ke liye \u2192 reply *"more"*\n' : '')
-    + '\uD83D\uDD39 Nayi search \u2192 reply *"reset"*\n'
-    + '\uD83D\uDD39 Human agent \u2192 reply *"agent"* or call *9222 222 007*';
+  const footer = (lang === 'Hinglish' || lang === 'Hindi')
+    ? '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
+      + (currentPage < totalPages ? '\uD83D\uDD39 Aur dekhne ke liye \u2192 reply *"more"*\n' : '')
+      + '\uD83D\uDD39 Nayi search \u2192 reply *"reset"*\n'
+      + '\uD83D\uDD39 Human agent \u2192 reply *"agent"* or call *9222 222 007*'
+    : '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
+      + (currentPage < totalPages ? '\uD83D\uDD39 To see more \u2192 reply *"more"*\n' : '')
+      + '\uD83D\uDD39 New search \u2192 reply *"reset"*\n'
+      + '\uD83D\uDD39 Human consultant \u2192 reply *"agent"* or call *9222 222 007*';
 
   return header + lines.join('\n') + footer;
 }
@@ -405,7 +442,7 @@ export async function runAgent(opts) {
   const userMessage = opts.userMessage;
   const customerContext = opts.customerContext;
   const page = opts.page || 1;
-  const lang = (customerContext && customerContext.language) || 'Hinglish';
+  const lang = (customerContext && customerContext.language) || 'English';
   const history = (customerContext && customerContext.history) || [];
 
   // Build conversation history for LLM
