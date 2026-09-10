@@ -2,11 +2,10 @@
 /**
  * aiAgent.js - Unified Conversational Agent for Numberwale (Groq + OpenAI load-balanced)
  *
- * Tier 1: Groq (free, ~500ms) — llama-3.3-70b, llama-3.1-8b, gemma2-9b
- * Tier 2: OpenAI (paid fallback) — gpt-4o-mini, gpt-3.5-turbo
+ * Tier 1: Groq (free, ~500ms) - Dynamically queries live models via /v1/models
+ * Tier 2: OpenAI (paid safety net) - gpt-4o-mini
  *
  * Returns: { reply, searchJSON, model, escalate, totalCount, totalPages, currentPage }
- * When escalate=true: webhook pauses bot + tags contact in Gallabox
  */
 import { fetchNumbers } from './searchApi.js';
 
@@ -19,8 +18,6 @@ const VALID_CATEGORIES = [
   'middle-ab-ab-numbers', 'ending-ab-ab-numbers', 'aaa-bbb-numbers',
   'ab-ab-xy-xy-numbers', '108-numbers', '786-numbers', 'unique-numbers'
 ];
-
-
 
 function buildSystemPrompt(ctx) {
   const name = ctx && ctx.name && ctx.name !== 'Unknown' ? ctx.name : null;
@@ -127,55 +124,122 @@ function buildSystemPrompt(ctx) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// TIER 1: GROQ (free, fast)
+// TIER 1: GROQ DYNAMIC MODEL DISCOVERY (free, ~500ms)
 // ─────────────────────────────────────────────────────────────────
-// Current Groq models (updated Sep 2026 — check console.groq.com/docs/models for latest)
-// Primary picks: fast text-chat models on GroqCloud free tier
-const GROQ_MODELS = [
-  'meta-llama/llama-4-scout-17b-16e-instruct', // Llama 4 Scout — fast, good quality
-  'meta-llama/llama-4-maverick-17b-128e-instruct', // Llama 4 Maverick — better quality
-  'compound-beta-mini',                          // Groq Compound Beta Mini — lightweight
-];
+let cachedGroqModels = null;
+let lastGroqFetchTime = 0;
+
+async function getAvailableGroqModels(apiKey) {
+  const now = Date.now();
+  // Cache model list for 30 minutes
+  if (cachedGroqModels && cachedGroqModels.length > 0 && (now - lastGroqFetchTime < 1000 * 60 * 30)) {
+    return cachedGroqModels;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data?.data)) {
+        const textModels = data.data
+          .map(m => m.id)
+          .filter(id => {
+            const lower = id.toLowerCase();
+            return !lower.includes('whisper') &&
+                   !lower.includes('guard') &&
+                   !lower.includes('tts') &&
+                   !lower.includes('embed') &&
+                   !lower.includes('distil');
+          });
+
+        if (textModels.length > 0) {
+          // Sort models: prioritize known strong conversational models
+          textModels.sort((a, b) => {
+            const score = (id) => {
+              const l = id.toLowerCase();
+              if (l.includes('120b')) return 1;
+              if (l.includes('70b')) return 2;
+              if (l.includes('27b')) return 3;
+              if (l.includes('20b')) return 4;
+              if (l.includes('8b')) return 5;
+              if (l.includes('llama')) return 6;
+              return 10;
+            };
+            return score(a) - score(b);
+          });
+
+          cachedGroqModels = textModels;
+          lastGroqFetchTime = now;
+          console.log('[Agent] 🟢 Discovered active Groq models for key:', cachedGroqModels.slice(0, 4));
+          return cachedGroqModels;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Agent] Could not query Groq models endpoint:', err.message);
+  }
+
+  // Fallbacks if discovery API fails
+  return ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+}
 
 async function callGroq(systemPrompt, messages) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('NO_GROQ_KEY');
 
-  // Round-robin across Groq models to distribute load
-  const model = GROQ_MODELS[Math.floor(Math.random() * GROQ_MODELS.length)];
+  const models = await getAvailableGroqModels(apiKey);
+  let lastError = null;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  // Try top 4 available models in sequence
+  for (const model of models.slice(0, 4)) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 9000);
 
-  try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + apiKey,
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        temperature: 0.4,
-        max_tokens: 900,
-      }),
-      signal: controller.signal,
-    });
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + apiKey,
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: 'system', content: systemPrompt }, ...messages],
+          temperature: 0.4,
+          max_tokens: 900,
+        }),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      const error = new Error((errData && errData.error && errData.error.message) || response.statusText);
-      error.status = response.status;
-      throw error;
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const error = new Error((errData && errData.error && errData.error.message) || response.statusText);
+        error.status = response.status;
+        throw error;
+      }
+
+      const data = await response.json();
+      const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+      return { text: text.trim(), model: 'groq/' + model };
+    } catch (err) {
+      lastError = err;
+      console.warn(`[Agent] Groq model ${model} failed (${err.message}). Trying next available model...`);
+    } finally {
+      clearTimeout(timer);
     }
-
-    const data = await response.json();
-    const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
-    return { text: text.trim(), model: 'groq/' + model };
-  } finally {
-    clearTimeout(timer);
   }
+
+  throw lastError || new Error('All Groq models failed');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -208,6 +272,7 @@ async function callOpenAI(systemPrompt, messages, model) {
       const errData = await response.json().catch(() => ({}));
       const error = new Error((errData && errData.error && errData.error.message) || response.statusText);
       error.status = response.status;
+      error.code = errData?.error?.code;
       throw error;
     }
 
@@ -223,32 +288,34 @@ async function callOpenAI(systemPrompt, messages, model) {
 // LOAD-BALANCED CALL: Groq first, OpenAI fallback
 // ─────────────────────────────────────────────────────────────────
 async function callLLM(systemPrompt, messages) {
-  // Try Groq first (free, fast)
+  // 1. Try Groq first (free, fast)
   try {
     const result = await callGroq(systemPrompt, messages);
-    console.log('[Agent] Groq success:', result.model);
+    console.log('[Agent] ⚡ Groq success:', result.model);
     return result;
   } catch (groqErr) {
     if (groqErr.message === 'NO_GROQ_KEY') {
-      console.log('[Agent] No Groq key, using OpenAI...');
-    } else if (groqErr.status === 429) {
-      console.warn('[Agent] Groq rate limited, falling back to OpenAI...');
+      console.log('[Agent] No GROQ_API_KEY set, falling back to OpenAI...');
     } else {
-      console.warn('[Agent] Groq failed (' + groqErr.message + '), falling back to OpenAI...');
+      console.warn('[Agent] ⚠️ Groq failed (' + groqErr.message + '), falling back to OpenAI...');
     }
   }
 
-  // Fallback to OpenAI
+  // 2. Fallback to OpenAI
   try {
     const result = await callOpenAI(systemPrompt, messages, 'gpt-4o-mini');
-    console.log('[Agent] OpenAI gpt-4o-mini success');
+    console.log('[Agent] ✅ OpenAI gpt-4o-mini success');
     return result;
   } catch (oaiErr) {
-    if (oaiErr.status === 429) {
-      console.warn('[Agent] gpt-4o-mini rate limited, trying gpt-3.5-turbo...');
-      const result = await callOpenAI(systemPrompt, messages, 'gpt-3.5-turbo');
-      console.log('[Agent] OpenAI gpt-3.5-turbo success');
-      return result;
+    if (oaiErr.status === 429 && !oaiErr.message.toLowerCase().includes('credit')) {
+      console.warn('[Agent] gpt-4o-mini rate limited, trying gpt-4o...');
+      try {
+        const result = await callOpenAI(systemPrompt, messages, 'gpt-4o');
+        console.log('[Agent] ✅ OpenAI gpt-4o success');
+        return result;
+      } catch (err2) {
+        throw err2;
+      }
     }
     throw oaiErr;
   }
@@ -341,13 +408,11 @@ export async function runAgent(opts) {
   const lang = (customerContext && customerContext.language) || 'Hinglish';
   const history = (customerContext && customerContext.history) || [];
 
-
   // Build conversation history for LLM
   const messages = history.slice(-8).map(function(h) {
     return { role: h.role === 'bot' ? 'assistant' : 'user', content: h.text };
   });
   messages.push({ role: 'user', content: userMessage });
-
 
   const systemPrompt = buildSystemPrompt(customerContext);
 
