@@ -433,19 +433,9 @@ async function runLocalAISearch(userQuery, activeFilters) {
 export async function parseUserMessage(query, activeFilters = {}) {
   const userMsg = query.trim();
 
-  // 🧠 0. Rule Engine (Zero-Cost Bypass) 🧠
-  const { extracted, confident } = extractFiltersFromQuery(userMsg);
-  const hasActiveFilters = activeFilters && Object.keys(activeFilters).length > 0;
-
-  // If rules are 100% confident and no active filters exist, skip LLM entirely
-  if (confident && !hasActiveFilters) {
-    console.log(`[AI] ⚡ Skipped LLM — Rules confident:`, extracted);
-    return {
-      result: extracted,
-      model: "rules-engine",
-      tokensUsed: 0
-    };
-  }
+  // We no longer bypass the LLM. The rule engine serves only as a fallback.
+  // The LLM will use its deep intent understanding on every query.
+  const { extracted } = extractFiltersFromQuery(userMsg);
 
   // ── 1. Local AI Search Engine (Multi-Tier Load Balancer with OpenAI Fallback) ──
   try {
@@ -455,8 +445,8 @@ export async function parseUserMessage(query, activeFilters = {}) {
       aiParsed = typeof result === 'string' ? JSON.parse(result) : result;
     } catch (_) {}
 
-    // Merge rule-extracted fields (they take priority for precision)
-    const merged = { ...aiParsed, ...extracted };
+    // Merge rule-extracted fields (AI takes priority for precision & intent)
+    const merged = { ...extracted, ...aiParsed };
     return {
       result: merged,
       model,
