@@ -447,6 +447,21 @@ export async function parseUserMessage(query, activeFilters = {}) {
 
     // Merge rule-extracted fields (AI takes priority for precision & intent)
     const merged = { ...extracted, ...aiParsed };
+
+    // Strict Category validation
+    const validCategories = [
+      'without-248-numbers','mirror-numbers','semi-mirror-numbers','three-digit-numbers',
+      'two-digit-numbers','counting-numbers','doubling-numbers','triple-numbers',
+      'tetra-numbers','penta-numbers','hexa-numbers','septa-numbers','octa-numbers',
+      'abc-abc-abc-numbers','abc-abc-numbers','ab-ab-ab-numbers','start-ab-ab-numbers',
+      'middle-ab-ab-numbers','ending-ab-ab-numbers','aaa-bbb-numbers','ab-ab-xy-xy-numbers',
+      '108-numbers','786-numbers','unique-numbers'
+    ];
+    if (merged.category && !validCategories.includes(merged.category)) {
+      console.log(`[AI] Stripping invalid hallucinated category: ${merged.category}`);
+      delete merged.category;
+    }
+
     return {
       result: merged,
       model,

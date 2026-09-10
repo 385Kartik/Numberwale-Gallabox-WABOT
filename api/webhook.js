@@ -1,18 +1,10 @@
-import { parseUserMessage } from './utils/aiParser.js';
-import { fetchNumbers, formatNumbersReply } from './utils/searchApi.js';
-import { 
-  detectCustomerIntent, 
-  detectLanguage,
-  generateFaqReply, 
-  generateNumerologyReply, 
-  formatConversationalSearchResults,
-  generateSalesAgentResponse,
-  generateSalesConsultantChat
-} from './utils/agentEngine.js';
+import { fetchNumbers } from './utils/searchApi.js';
+import { detectLanguage } from './utils/agentEngine.js';
 import { isShowMoreIntent, isBotPaused, pauseBot, resumeBot } from './utils/sessionStore.js';
 import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters, storeBotMessageId, isBotMessageId, saveConversationId, touchInteraction, stopDrip } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/gallabox.js';
+
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
 function extractBuyNumber(text) {
@@ -734,303 +726,63 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({ success: true });
 
-    // ── Fresh search, Greeting, or Consultation (AI Sales Agent) ──────────
+    // ── Unified AI Agent (ChatGPT-style conversational handler) ─────────────
     } else {
-      // ── AI Sales Agent: Intent Analysis (Greeting / FAQ / Consultation / Numerology) ──
-      const customerIntent = detectCustomerIntent(userMessage);
-
-      // 0. Greeting & Consultative Sales Chat Intent
-      if (customerIntent.type === 'GREETING' || customerIntent.type === 'CONSULTATIVE_CHAT') {
-        const hasFilters = customerContext.activeFilters && Object.keys(customerContext.activeFilters).length > 0;
-        let chatReply = '';
-        if (hasFilters && /^(more|next|reset|clear)$/i.test(userMessage.trim())) {
-          const lang = customerContext.language || 'Hinglish';
-          if (lang === 'Hindi') {
-            chatReply = `😊 कोई बात नहीं! क्या आप अपनी पिछली खोज जारी रखना चाहते हैं या नई खोज करना चाहते हैं?\n\n👉 अगले पेज के लिए *"more"* रिप्लाई करें\n👉 नई खोज के लिए *"reset"* रिप्लाई करें\n👉 बात करने के लिए *"agent"* रिप्लाई करें`;
-          } else if (lang === 'Gujarati') {
-            chatReply = `😊 કોઈ વાંધો નહિ! શું તમે તમારી અગાઉની શોધ ચાલુ રાખવા માંગો છો કે નવી શોધ કરવા માંગો છો?\n\n👉 આગળના પેજ માટે *"more"* રિપ્લાય કરો\n👉 નવી શોધ માટે *"reset"* રિપ્લાય કરો\n👉 વાત કરવા *"agent"* રિપ્લાય કરો`;
-          } else if (lang === 'Marathi') {
-            chatReply = `😊 काही हरकत नाही! तुम्हाला तुमची मागील शोध चालू ठेवायची आहे की नवीन शोध करायची आहे?\n\n👉 पुढच्या पेजसाठी *"more"* रिप्लाय करा\n👉 नवीन शोधसाठी *"reset"* रिप्लाय करा\n👉 बोलण्यासाठी *"agent"* रिप्लाय करा`;
-          } else if (lang === 'English') {
-            chatReply = `😊 No problem! Would you like to continue your previous search or explore new numbers?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for fresh search\n👉 Reply *"agent"* to speak with our manager`;
-          } else {
-            chatReply = `😊 Koi baat nahi! Kya aap apni pichli search continue karna chahte hain ya naya number dekhna hai?\n\n👉 Reply *"more"* for next page\n👉 Reply *"reset"* for new search\n👉 Reply *"agent"* to connect with manager`;
-          }
-        } else {
-          // Fetch trending live sample numbers to showcase to the user
-          let sampleProducts = [];
-          try {
-            const sampleRes = await fetchNumbers({}, 1);
-            sampleProducts = sampleRes.products?.slice(0, 3) || [];
-          } catch (_) {}
-
-          chatReply = await generateSalesConsultantChat({
-            userMessage,
-            customerContext,
-            history: customerContext.history || [],
-            sampleProducts
-          });
-        }
-
-        await sendToGallabox(customerPhone, chatReply, channelID);
-        await logInteraction({
-          phone: customerPhone,
-          name: customerName,
-          userText: userMessage,
-          botText: chatReply,
-          isFail: false,
-          model: 'agent-sales-chat',
-          tokensUsed: 0,
-          jsonQuery: null,
-          page: 1
-        }).catch(() => {});
-        return res.status(200).json({ success: true, reason: 'sales_chat_replied' });
+      // Update language detection for active users
+      if (!customerContext.language) {
+        customerContext.language = detectLanguage(userMessage);
+        updateCustomerInfo(customerPhone, { language: customerContext.language }).catch(() => {});
       }
 
-      // 1. FAQ & Process Questions (Porting, SIM, MNP, Timeline, Pricing, Trust)
-      if (customerIntent.type.startsWith('FAQ_')) {
-        const t0Faq = Date.now();
-        const faqReply = await generateFaqReply({
-          intentType: customerIntent.type,
-          userMessage,
-          customerContext
-        });
-        const tFaq = Date.now() - t0Faq;
-        const t0Send = Date.now();
-        await sendToGallabox(customerPhone, faqReply, channelID);
-        const tSend = Date.now() - t0Send;
-        console.log(`⚡ [PERF] FAQ served in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | AI/FAQ: ${tFaq}ms | Gallabox: ${tSend}ms)`);
-        await logInteraction({
-          phone: customerPhone,
-          name: customerName,
-          userText: userMessage,
-          botText: faqReply,
-          isFail: false,
-          model: 'agent-faq',
-          tokensUsed: 0,
-          jsonQuery: null,
-          page: 1
-        }).catch(() => {});
-        return res.status(200).json({ success: true, reason: 'faq_replied' });
-      }
+      const t0Ai = Date.now();
+      let agentResult;
 
-      // 2. Numerology & Astrology Consultation
-      if (customerIntent.type === 'NUMEROLOGY') {
-        const t0Num = Date.now();
-        if (!customerIntent.data) {
-          const askDobReply = await generateNumerologyReply({
-            numerologyData: null,
-            customerContext
-          });
-          const t0Send = Date.now();
-          await sendToGallabox(customerPhone, askDobReply, channelID);
-          const tSend = Date.now() - t0Send;
-          console.log(`⚡ [PERF] Numerology DOB prompt served in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | Gallabox: ${tSend}ms)`);
-          return res.status(200).json({ success: true, reason: 'numerology_dob_requested' });
-        }
-
-        const numAnalysis = await generateNumerologyReply({
-          numerologyData: customerIntent.data,
-          customerContext
-        });
-
-        // Search for numbers matching user's recommended scoreSum (Mulank)
-        const luckyScoreSum = customerIntent.data.recommendedScoreSum;
-        const t0Search = Date.now();
-        const numResult = await fetchNumbers({ scoreSum: luckyScoreSum }, 1);
-        const tSearch = Date.now() - t0Search;
-
-        let finalReply = numAnalysis;
-        if (numResult.products && numResult.products.length > 0) {
-          const numbersDisplay = await generateSalesAgentResponse({
-            userMessage,
-            customerContext,
-            history: customerContext.history || [],
-            intent: { type: 'NUMEROLOGY' },
-            numerologyData: customerIntent.data,
-            products: numResult.products,
-            totalCount: numResult.totalCount,
-            currentPage: 1,
-            totalPages: numResult.totalPages
-          });
-          finalReply = `${numAnalysis}\n\n${numbersDisplay}`;
-        }
-
-        const t0Send = Date.now();
-        await sendToGallabox(customerPhone, finalReply, channelID);
-        const tSend = Date.now() - t0Send;
-        console.log(`⚡ [PERF] Numerology served in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | Calc: ${Date.now() - t0Num}ms | Search: ${tSearch}ms | Gallabox: ${tSend}ms)`);
-        await logInteraction({
-          phone: customerPhone,
-          name: customerName,
-          userText: userMessage,
-          botText: finalReply,
-          isFail: false,
-          model: 'agent-numerology',
-          tokensUsed: 0,
-          jsonQuery: { scoreSum: luckyScoreSum },
-          page: 1
-        }).catch(() => {});
-
-        return res.status(200).json({ success: true, reason: 'numerology_served' });
-      }
-
-      tAi = 0;
       try {
-        const t0Ai = Date.now();
-        const parsed = await parseUserMessage(userMessage, customerContext.activeFilters);
-        tAi = Date.now() - t0Ai;
-        
-        jsonQuery = parsed.result;
-        parsedTokens = parsed.tokensUsed || parsed.tokens || 0;
-        parsedModel = parsed.model || parsed.modelUsed || 'unknown';
-
-        // Remove empty strings / nulls from jsonQuery
-        if (jsonQuery && typeof jsonQuery === 'object') {
-          for (const key in jsonQuery) {
-            if (jsonQuery[key] === "" || jsonQuery[key] === null) {
-              delete jsonQuery[key];
-            }
-          }
-        }
-
-        // LLM handles merge/new-search decision via the system prompt.
-        // Refinement → LLM returns full merged JSON.
-        // New search  → LLM returns only new filters.
-
-        if (!jsonQuery || Object.keys(jsonQuery).length === 0) {
-          console.log(`[Webhook] No specific search filter detected. Engaging via Consultative Sales Chat.`);
-          let sampleProducts = [];
-          try {
-            const sampleRes = await fetchNumbers({}, 1);
-            sampleProducts = sampleRes.products?.slice(0, 3) || [];
-          } catch (_) {}
-
-          const chatReply = await generateSalesConsultantChat({
-            userMessage,
-            customerContext,
-            history: customerContext.history || [],
-            sampleProducts
-          });
-
-          await sendToGallabox(customerPhone, chatReply, channelID);
-          await logInteraction({
-            phone: customerPhone,
-            name: customerName,
-            userText: userMessage,
-            botText: chatReply,
-            isFail: false,
-            model: 'agent-sales-chat',
-            tokensUsed: 0,
-            jsonQuery: null,
-            page: 1
-          }).catch(() => {});
-          return res.status(200).json({ success: true, reason: 'sales_chat_replied' });
-        }
-      } catch (parseErr) {
-        console.error('[Webhook] NLP Parse Error, engaging via Sales Chat:', parseErr.message);
-        let sampleProducts = [];
-        try {
-          const sampleRes = await fetchNumbers({}, 1);
-          sampleProducts = sampleRes.products?.slice(0, 3) || [];
-        } catch (_) {}
-
-        const chatReply = await generateSalesConsultantChat({
+        const { runAgent } = await import('./utils/aiAgent.js');
+        agentResult = await runAgent({
           userMessage,
           customerContext,
-          history: customerContext.history || [],
-          sampleProducts
+          page,
         });
-
-        await sendToGallabox(customerPhone, chatReply, channelID);
-        await logInteraction({
-          phone: customerPhone,
-          name: customerName,
-          userText: userMessage,
-          botText: chatReply,
-          isFail: false,
-          model: 'agent-sales-chat',
-          tokensUsed: 0,
-          jsonQuery: null,
-          page: 1
-        }).catch(() => {});
-        return res.status(200).json({ success: true, reason: 'sales_chat_replied' });
-      }
-    }
-
-    // ── Fetch results from external API ───────────────────────────────────
-    const t0Search = Date.now();
-    const result = await fetchNumbers(jsonQuery, page);
-    const tSearch = Date.now() - t0Search;
-    console.log(`[Webhook] Fetched ${result.products?.length || 0} products in ${tSearch}ms (page ${page}/${result.totalPages})`);
-
-    // ── Format reply ──────────────────────────────────────────────────────
-    if (!result.products || result.products.length === 0) {
-      const lang = customerContext.language || 'English';
-      
-      let emptyMsg = '';
-      let noMoreMsg = '';
-      
-      if (lang === 'English') {
-        emptyMsg = `Oops! No numbers available matching your search right now. 😔\n\nPlease try another pattern (e.g., _req 9999_ or _mirror numbers_).`;
-        noMoreMsg = `That's all the numbers we have! Please try a new search. 😊`;
-      } else if (lang === 'Hindi') {
-        emptyMsg = `माफ़ कीजिये! आपकी खोज से मैच करते हुए नंबर्स अभी उपलब्ध नहीं हैं। 😔\n\nकृपया कोई दूसरा पैटर्न ट्राई करें (जैसे, _req 9999_ या _mirror numbers_)।`;
-        noMoreMsg = `यहीं तक थे नंबर्स! कृपया कोई नई सर्च करें। 😊`;
-      } else if (lang === 'Gujarati') {
-        emptyMsg = `માફ કરશો! તમારી શોધ સાથે મેળ ખાતા નંબર્સ હાલમાં ઉપલબ્ધ નથી. 😔\n\nકૃપા કરીને અન્ય પેટર્ન અજમાવો (દા.ત., _req 9999_).`;
-        noMoreMsg = `અહીં સુધી જ નંબર્સ હતા! કૃપા કરીને નવી શોધ કરો. 😊`;
-      } else if (lang === 'Marathi') {
-        emptyMsg = `क्षमस्व! तुमच्या शोधाशी जुळणारे क्रमांक सध्या उपलब्ध नाहीत. 😔\n\nकृपया दुसरा पॅटर्न वापरून पहा (उदा., _req 9999_).`;
-        noMoreMsg = `इतकेच क्रमांक उपलब्ध आहेत! कृपया नवीन शोध घ्या. 😊`;
-      } else {
-        // Hinglish
-        emptyMsg = `Oops! Aapki search se match karte hue numbers abhi available nahi hain. 😔\n\nKoi dusra pattern try karein (e.g., _req 9999_ ya _mirror numbers_).`;
-        noMoreMsg = `Yahi tak the numbers! Koi aur search karo. 😊`;
+      } catch (agentErr) {
+        console.error('[Webhook] Agent error:', agentErr.message);
+        const lang = customerContext.language || 'Hinglish';
+        const errMsg = lang === 'English'
+          ? `I'm having a brief technical issue. Please try again in a moment or call *+91 9222 222 007*. 🙏`
+          : lang === 'Hindi'
+          ? `तकनीकी समस्या आ गई है। कृपया थोड़ी देर बाद try करें या *9222 222 007* पर call करें। 🙏`
+          : `Abhi thodi technical problem hai. Thodi der baad try karo ya *9222 222 007* pe call karo. 🙏`;
+        await sendToGallabox(customerPhone, errMsg, channelID);
+        return res.status(200).json({ success: true, reason: 'agent_error_fallback' });
       }
 
+      const tAi = Date.now() - t0Ai;
+      const replyText = agentResult.reply;
+      const searchJSON = agentResult.searchJSON;
+
+      // Send reply
       const t0Send = Date.now();
-      if (page > 1) {
-        await sendToGallabox(customerPhone, noMoreMsg, channelID);
-      } else {
-        await sendToGallabox(customerPhone, emptyMsg, channelID);
-      }
+      await sendToGallabox(customerPhone, replyText, channelID);
       const tSend = Date.now() - t0Send;
-      console.log(`⚡ [PERF] Empty search response served in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | AI [${parsedModel}]: ${tAi}ms | Search: ${tSearch}ms | Gallabox: ${tSend}ms)`);
+
+      console.log(`⚡ [PERF] Agent response in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | AI [${agentResult.model}]: ${tAi}ms | Gallabox: ${tSend}ms)`);
+
+      // Log interaction and save active filters
+      await logInteraction({
+        phone: customerPhone,
+        name: customerName,
+        userText: userMessage,
+        botText: `✨ Agent reply | model: ${agentResult.model}${searchJSON ? ' | search: ' + JSON.stringify(searchJSON) : ''}`,
+        isFail: false,
+        model: agentResult.model || 'gpt-4o-mini',
+        tokensUsed: 0,
+        jsonQuery: searchJSON || null,
+        page: agentResult.currentPage || page,
+      }).catch(() => {});
+
       return res.status(200).json({ success: true });
-    }
 
-    const replyText = await generateSalesAgentResponse({
-      userMessage,
-      customerContext,
-      history: customerContext.history || [],
-      intent: { type: 'SEARCH' },
-      products: result.products, 
-      totalCount: result.totalCount, 
-      currentPage: page, 
-      totalPages: result.totalPages
-    });
-
-    const t0Send = Date.now();
-    await sendToGallabox(customerPhone, replyText, channelID);
-    const tSend = Date.now() - t0Send;
-    console.log(`⚡ [PERF] Search response served in ${Date.now() - reqStartTime}ms (DB: ${tContext}ms | AI [${parsedModel}]: ${tAi}ms | Search: ${tSearch}ms | Gallabox: ${tSend}ms)`);
-
-    // ── Log optimized interaction and Save DB State ───────────────
-    const optimizedBotText = `✨ ${result.totalCount} numbers found for category '${jsonQuery?.category || 'generic'}' (Page ${result.currentPage}/${result.totalPages})`;
-    await logInteraction({
-      phone: customerPhone,
-      name: customerName,
-      userText: userMessage,
-      botText: optimizedBotText,
-      isFail: false,
-      model: parsedModel,
-      tokensUsed: parsedTokens,
-      jsonQuery: jsonQuery, // Saves activeFilters
-      page: result.currentPage // Saves lastPage
-    }).catch(() => {});
-
-    return res.status(200).json({ success: true });
+    } // end else (AI agent)
 
   } catch (error) {
     console.error('[Webhook] Fatal Error:', error);

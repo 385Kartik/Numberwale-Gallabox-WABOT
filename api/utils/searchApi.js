@@ -200,8 +200,11 @@ export async function fetchNumbers(jsonQuery, page = 1) {
     if (jsonQuery.scoreSum)            advancedFields.scoreSum = Number(jsonQuery.scoreSum);
     if (jsonQuery.exactDigitPlacement) advancedFields.exactDigitPlacement = jsonQuery.exactDigitPlacement;
 
-    if (jsonQuery.mostContainDigit && jsonQuery.mostContainCount) {
-      advancedFields.mostContain = { digit: String(jsonQuery.mostContainDigit), count: Number(jsonQuery.mostContainCount) };
+    if (jsonQuery.mostContainDigit) {
+      advancedFields.mostContain = { 
+        digit: String(jsonQuery.mostContainDigit), 
+        count: Number(jsonQuery.mostContainCount) || 3 
+      };
     }
 
     for (let i = 1; i <= 10; i++) {
