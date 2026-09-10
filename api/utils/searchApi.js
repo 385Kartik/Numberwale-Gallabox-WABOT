@@ -232,15 +232,6 @@ export async function fetchNumbers(jsonQuery, page = 1) {
     if (jsonQuery.category) finalQuery.category = jsonQuery.category;
     if (priceRangeStr) finalQuery.priceRange = priceRangeStr;
 
-    // Sorting by price (e.g. lowest numbers first)
-    if (jsonQuery.sortPrice) {
-      finalQuery.sortPrice = jsonQuery.sortPrice;
-    } else if (jsonQuery.sort === 'lowToHigh' || jsonQuery.sort === 'lowest') {
-      finalQuery.sortPrice = 'lowToHigh';
-    } else if (jsonQuery.sort === 'highToLow' || jsonQuery.sort === 'highest') {
-      finalQuery.sortPrice = 'highToLow';
-    }
-
     console.log(`[Search] Querying ${API_URL}/api/v1/products/get-products with:`, finalQuery);
 
     // Timeout is set to 7000ms (7 seconds) to prevent Vercel Serverless Function (10s limit) from killing the execution.

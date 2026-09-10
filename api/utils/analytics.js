@@ -45,7 +45,6 @@ const CustomerBotProfileSchema = new mongoose.Schema({
   name: { type: String },
   language: { type: String, default: null },
   agentReplied: { type: Boolean, default: false },
-  lastAgentMessageAt: { type: Date, default: null },
   pendingBotMessages: [{ type: String }],  // localMessageIds sent by bot (to filter echoes)
   conversationId: { type: String, default: null }, // Gallabox conversationId for assign/unassign
 
@@ -84,7 +83,6 @@ function getMemoryProfile(phone) {
       pinCode: null,
       language: null,
       agentReplied: false,
-      lastAgentMessageAt: null,
       pendingBotMessages: [],
       history: []
     });
@@ -115,7 +113,6 @@ export async function getCustomerContext(phone, name) {
       pinCode: profile.pinCode,
       language: profile.language || null,
       agentReplied: profile.agentReplied || false,
-      lastAgentMessageAt: profile.lastAgentMessageAt || null,
       history: (profile.history || []).slice(-6)
     };
     const mem = getMemoryProfile(phone);
@@ -133,7 +130,6 @@ export async function getCustomerContext(phone, name) {
       pinCode: mem.pinCode,
       language: mem.language || null,
       agentReplied: mem.agentReplied || false,
-      lastAgentMessageAt: mem.lastAgentMessageAt || null,
       history: (mem.history || []).slice(-6)
     };
   }

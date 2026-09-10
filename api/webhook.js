@@ -35,41 +35,6 @@ function extractBuyNumber(text) {
   return null;
 }
 
-// ── 30-Minute Human Agent Inactivity Auto-Resume ──────────────────────────────
-const agentInactivityTimers = new Map();
-
-function scheduleAgentInactivityTimer(customerPhone, channelID) {
-  if (agentInactivityTimers.has(customerPhone)) {
-    clearTimeout(agentInactivityTimers.get(customerPhone));
-  }
-
-  const timer = setTimeout(async () => {
-    try {
-      const ctx = await getCustomerContext(customerPhone);
-      const THIRTY_MINUTES = 30 * 60 * 1000;
-      const lastTime = ctx.lastAgentMessageAt ? new Date(ctx.lastAgentMessageAt).getTime() : 0;
-      const elapsed = Date.now() - lastTime;
-
-      // If at least 30 minutes elapsed and bot is still PAUSED with agentReplied true:
-      if (ctx.botState === 'PAUSED' && ctx.agentReplied && elapsed >= THIRTY_MINUTES - 5000) {
-        console.log(`[Timer] ⏰ 30 minutes of agent inactivity for ${customerPhone}. Re-activating bot & sending greet.`);
-        resumeBot(customerPhone);
-        await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
-        
-        // Note: Gallabox agent assignment remains untouched as requested.
-        const greetMsg = "👋 Hi! I am back online to assist you with VIP mobile numbers. What kind of number or pattern are you looking for? 😊";
-        await sendToGallabox(customerPhone, greetMsg, channelID);
-      }
-    } catch (err) {
-      console.error('[Timer] Agent inactivity timer error for', customerPhone, err.message);
-    } finally {
-      agentInactivityTimers.delete(customerPhone);
-    }
-  }, 30 * 60 * 1000); // 30 minutes
-
-  agentInactivityTimers.set(customerPhone, timer);
-}
-
 // Vercel Serverless Function entry point
 export default async function handler(req, res) {
   const reqStartTime = Date.now();
@@ -179,10 +144,6 @@ export default async function handler(req, res) {
       // 3. #bot on command from Executive in Gallabox inbox
       if (userMessage && /^\s*#?bot[\s_]*on\b/i.test(userMessage.trim())) {
         console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
-        if (agentInactivityTimers.has(customerPhone)) {
-          clearTimeout(agentInactivityTimers.get(customerPhone));
-          agentInactivityTimers.delete(customerPhone);
-        }
         resumeBot(customerPhone);
         await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
         
@@ -209,17 +170,13 @@ export default async function handler(req, res) {
       // 4. Real human executive manual message (anything other than template, echo, #bot on)
       const ctxForAgent = await getCustomerContext(customerPhone);
       pauseBot(customerPhone);
-      const now = new Date();
       if (ctxForAgent.botState !== 'PAUSED') {
         console.log(`[Webhook] Real agent manual message received for ${customerPhone}. Pausing bot.`);
-        await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: true, lastAgentMessageAt: now });
+        await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: true });
       } else {
         console.log(`[Webhook] Real agent manual message received for ${customerPhone}. Setting agentReplied = true.`);
-        await updateCustomerInfo(customerPhone, { agentReplied: true, lastAgentMessageAt: now });
+        await updateCustomerInfo(customerPhone, { agentReplied: true });
       }
-      // Schedule 30-minute auto-resume timer
-      scheduleAgentInactivityTimer(customerPhone, channelID);
-
       return res.status(200).json({ success: true, reason: 'outbound_agent_message' });
     }
 
@@ -276,20 +233,8 @@ export default async function handler(req, res) {
     if (currentState === 'PAUSED') {
       const isMoreOrBuy = lowerMsg === 'more' || lowerMsg.startsWith('buy');
       
-      // Check if 30 minutes have elapsed since agent's last message
-      const lastAgentTime = customerContext.lastAgentMessageAt ? new Date(customerContext.lastAgentMessageAt).getTime() : 0;
-      const elapsedSinceAgent = Date.now() - lastAgentTime;
-      const THIRTY_MINUTES = 30 * 60 * 1000;
-
-      if (customerContext.agentReplied && lastAgentTime > 0 && elapsedSinceAgent >= THIRTY_MINUTES) {
-        console.log(`[Webhook] 30 minutes passed since agent replied for ${customerPhone}. Re-activating bot.`);
-        resumeBot(customerPhone);
-        await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
-        customerContext.botState = 'ACTIVE';
-        customerContext.agentReplied = false;
-        currentState = 'ACTIVE';
-        // Note: Gallabox agent assignment remains untouched as requested.
-      } else if (!isMoreOrBuy || customerContext.agentReplied) {
+      // If agent has already replied, bot MUST stay completely silent
+      if (!isMoreOrBuy || customerContext.agentReplied) {
         console.log(`[Webhook] Bot is PAUSED for ${customerPhone} (Agent replied: ${!!customerContext.agentReplied}). Skipping.`);
         return res.status(200).json({ success: true, reason: 'bot_paused' });
       } else {
