@@ -240,7 +240,7 @@ export async function generateFaqReply({ intentType, userMessage, customerContex
   const greeting = name ? `${name} ji` : '';
 
   // Prompt for LLM with official facts
-  const systemPrompt = `You are Aman, Senior AI VIP Number Consultant at Numberwale (India's leading VIP mobile number company since 2010, 10+ years legacy, 1 Lakh+ happy clients).
+  const systemPrompt = `You are NM Assistant, Senior AI VIP Number Consultant at Numberwale (India's leading VIP mobile number company since 2010, 10+ years legacy, 1 Lakh+ happy clients).
 Your job is to answer customer questions about Numberwale warmly, clearly, accurately, and sales-consultatively.
 
 FACTS TO USE STRICTLY:
@@ -572,15 +572,15 @@ export async function generateNumerologyReply({ numerologyData, customerContext 
 }
 
 /**
- * Generate a friendly, charismatic greeting introducing Aman from Numberwale.
+ * Generate a friendly, charismatic greeting introducing NM Assistant from Numberwale.
  */
 export async function generateConversationalGreeting({ lang = 'Hinglish', name = '', history = [] }) {
   const greeting = name && name !== 'Unknown' ? `${name} ji` : '';
 
-  const systemPrompt = `You are Aman, Senior VIP Mobile Number Consultant at Numberwale (India's #1 VIP phone number destination since 2010, 10+ years legacy, 1 Lakh+ happy clients across India).
+  const systemPrompt = `You are NM Assistant, Senior VIP Mobile Number Consultant at Numberwale (India's #1 VIP phone number destination since 2010, 10+ years legacy, 1 Lakh+ happy clients across India).
 The customer has greeted you on WhatsApp.
 Respond warmly, respectfully, and enthusiastically STRICTLY in ${lang}. DO NOT mix languages or append words from other languages.
-Introduce yourself as Aman from Numberwale.
+Introduce yourself as NM Assistant from Numberwale.
 Ask what kind of prestigious VIP number they have in mind today:
 - Lucky birthdate / numerology match
 - Royal repeating sequences (e.g. 9999, 786, 0007)
@@ -604,7 +604,7 @@ Keep it punchy (3-4 sentences), charismatic, with polite conversational flair an
 
   // Pre-crafted instant charismatic greeting
   if (lang === 'Hindi') {
-    return `नमस्ते ${greeting || 'जी'}! 🙏 मैं अमन, नंबरवाले से आपका Senior VIP Number Consultant।\n\n` +
+    return `नमस्ते ${greeting || 'जी'}! 🙏 मैं NM Assistant, नंबरवाले से आपका Senior VIP Number Consultant।\n\n` +
       `2010 से हमने 1 लाख से अधिक संतुष्ट ग्राहकों को उनके सपनों का VIP मोबाइल नंबर दिलाया है! ✨\n\n` +
       `आज आप कैसा नंबर ढूंढ रहे हैं?\n` +
       `🌟 बर्थडे / न्यूमरोलॉजी से मैच करता लकी नंबर\n` +
@@ -612,7 +612,7 @@ Keep it punchy (3-4 sentences), charismatic, with polite conversational flair an
       `💼 बिज़नेस ब्रांडिंग या मिरर पैटर्न्स?\n\n` +
       `आप अपना पसंदीदा डिजिट या बजट बताइए, मैं बेस्ट ऑप्शंस दिखाता हूँ! 😊`;
   } else if (lang === 'Gujarati') {
-    return `નમસ્તે ${greeting || 'જી'}! 🙏 હું અમન, નંબરવાલે તરફથી તમારો Senior VIP Number Consultant.\n\n` +
+    return `નમસ્તે ${greeting || 'જી'}! 🙏 હું NM Assistant, નંબરવાલે તરફથી તમારો Senior VIP Number Consultant.\n\n` +
       `2010 થી અમે 1 લાખથી વધુ ખુશ ગ્રાહકોને શ્રેષ્ઠ VIP નંબર આપ્યા છે! ✨\n\n` +
       `આજે તમે કેવો નંબર શોધી રહ્યા છો?\n` +
       `🌟 જન્મતારીખ / ન્યૂમરોલોજી મુજબ લકી નંબર\n` +
@@ -620,7 +620,7 @@ Keep it punchy (3-4 sentences), charismatic, with polite conversational flair an
       `💼 બિઝનેસ બ્રાન્ડિંગ કે મિરર નંબર?\n\n` +
       `તમારો મનપસંદ આંકડો કે બજેટ જણાવો, હું બેસ્ટ નંબર્સ બતાવું! 😊`;
   } else if (lang === 'Marathi') {
-    return `नमस्कार ${greeting || 'जी'}! 🙏 मी अमन, नंबरवाले कडून तुमचा Senior VIP Number Consultant.\n\n` +
+    return `नमस्कार ${greeting || 'जी'}! 🙏 मी NM Assistant, नंबरवाले कडून तुमचा Senior VIP Number Consultant.\n\n` +
       `2010 पासून आम्ही 1 लाखाहून अधिक समाधानी ग्राहकांना त्यांचे आवडते VIP नंबर दिले आहेत! ✨\n\n` +
       `आज तुम्ही कसा नंबर शोधत आहात?\n` +
       `🌟 जन्मतारीख / न्यूमरोलॉजी जुळणारा लकी नंबर\n` +
@@ -628,7 +628,7 @@ Keep it punchy (3-4 sentences), charismatic, with polite conversational flair an
       `💼 बिझनेस ब्रँडिंग किंवा मिरर नंबर?\n\n` +
       `तुमचा आवडता अंक किंवा बजेट सांगा, मी सर्वोत्तम पर्याय शोधून देतो! 😊`;
   } else if (lang === 'English') {
-    return `Hello ${greeting || 'there'}! 🙏 I'm Aman, your Senior VIP Number Consultant at Numberwale.\n\n` +
+    return `Hello ${greeting || 'there'}! 🙏 I'm NM Assistant, your Senior VIP Number Consultant at Numberwale.\n\n` +
       `Since 2010, we've helped over 100,000+ happy clients secure their ideal VIP & fancy mobile numbers! ✨\n\n` +
       `What kind of prestigious number are you looking for today?\n` +
       `🌟 Lucky birthdate / numerology match\n` +
@@ -637,7 +637,7 @@ Keep it punchy (3-4 sentences), charismatic, with polite conversational flair an
       `Tell me your favorite digits or budget, and I'll fetch the best options for you! 😊`;
   } else {
     // Hinglish
-    return `Namaste ${greeting || 'ji'}! 🙏 Main Aman, Numberwale se aapka Senior VIP Number Consultant.\n\n` +
+    return `Namaste ${greeting || 'ji'}! 🙏 Main NM Assistant, Numberwale se aapka Senior VIP Number Consultant.\n\n` +
       `2010 se humne 1 Lakh+ happy clients ko unka dream VIP mobile number provide kiya hai! ✨\n\n` +
       `Aaj aap kaisa prestigious number dekhna chahte hain?\n` +
       `🌟 Lucky Birthdate / Numerology match\n` +
@@ -672,7 +672,7 @@ export async function generateSalesConsultantChat({
     return `${idx + 1}️⃣ *${formatted}* 👑 (${cat})\n   💰 *₹${total.toLocaleString('en-IN')}* (Total with 18% GST & Bill)${sum !== null ? ` | Lucky Sum: ${sum}` : ''}\n   👉 Book: _buy ${raw}_`;
   }).join('\n\n');
 
-  const systemPrompt = `You are Aman, Senior VIP Mobile Number Consultant at Numberwale (India's premier VIP phone number destination since 2010, 10+ years legacy, 1 Lakh+ happy clients across India).
+  const systemPrompt = `You are NM Assistant, Senior VIP Mobile Number Consultant at Numberwale (India's premier VIP phone number destination since 2010, 10+ years legacy, 1 Lakh+ happy clients across India).
 You are consulting a customer on WhatsApp.
 
 YOUR SOLE MISSION:
@@ -945,7 +945,7 @@ export async function generateSalesAgentResponse({
       };
     });
 
-    const systemPrompt = `You are Aman, Senior VIP Mobile Number Consultant at Numberwale (est. 2010, 10+ years legacy, 1 Lakh+ happy clients across India).
+    const systemPrompt = `You are NM Assistant, Senior VIP Mobile Number Consultant at Numberwale (est. 2010, 10+ years legacy, 1 Lakh+ happy clients across India).
 You are consulting a customer on WhatsApp who wants to buy prestigious VIP mobile numbers.
 
 CUSTOMER:
