@@ -61,6 +61,9 @@ const CustomerBotProfileSchema = new mongoose.Schema({
   lastInteractionAt: { type: Date, default: null }, // last time user messaged the bot
 }, { timestamps: true });
 
+// Auto-expire inactive customer profiles after 30 days of inactivity to prevent database bloat
+CustomerBotProfileSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
+
 // Use existing models to avoid OverwriteModelError on hot reloads
 const DailyStats = mongoose.models.BotDailyStats || mongoose.model('BotDailyStats', DailyStatsSchema);
 const CustomerProfile = mongoose.models.CustomerBotProfile || mongoose.model('CustomerBotProfile', CustomerBotProfileSchema);
@@ -242,16 +245,16 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
       { upsert: true }
     );
 
-    // 2. Update Customer Profile
+    // 2. Update Customer Profile (Capped to last 10 messages & max text length to keep DB feather-light)
     const historyEntries = [
-      { role: 'user', text: userText, isFail, tokensUsed: 0 },
-      { role: 'bot', text: botText, isFail: false, tokensUsed } // Associate tokens with bot reply
+      { role: 'user', text: String(userText || '').substring(0, 300), isFail, tokensUsed: 0 },
+      { role: 'bot', text: String(botText || '').substring(0, 500), isFail: false, tokensUsed }
     ];
 
     const mem = getMemoryProfile(phone);
     if (!mem.history) mem.history = [];
     mem.history.push(...historyEntries);
-    if (mem.history.length > 20) mem.history = mem.history.slice(-20);
+    if (mem.history.length > 10) mem.history = mem.history.slice(-10);
 
     const incCustomer = isFail ? { failureCount: 1 } : { successCount: 1 };
 
@@ -267,7 +270,7 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
       { 
         $set: setFields,
         $inc: incCustomer,
-        $push: { history: { $each: historyEntries, $slice: -20 } }
+        $push: { history: { $each: historyEntries, $slice: -10 } }
       },
       { upsert: true }
     );
@@ -277,10 +280,10 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
     const mem = getMemoryProfile(phone);
     if (!mem.history) mem.history = [];
     mem.history.push(
-      { role: 'user', text: userText, isFail, tokensUsed: 0 },
-      { role: 'bot', text: botText, isFail: false, tokensUsed }
+      { role: 'user', text: String(userText || '').substring(0, 300), isFail, tokensUsed: 0 },
+      { role: 'bot', text: String(botText || '').substring(0, 500), isFail: false, tokensUsed }
     );
-    if (mem.history.length > 20) mem.history = mem.history.slice(-20);
+    if (mem.history.length > 10) mem.history = mem.history.slice(-10);
   }
 }
 
