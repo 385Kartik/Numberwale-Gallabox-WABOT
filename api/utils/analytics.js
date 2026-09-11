@@ -61,8 +61,7 @@ const CustomerBotProfileSchema = new mongoose.Schema({
   lastInteractionAt: { type: Date, default: null }, // last time user messaged the bot
 }, { timestamps: true });
 
-// Auto-expire inactive customer profiles after 30 days of inactivity to prevent database bloat
-CustomerBotProfileSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
+// Customer bot profiles are permanently retained (history capped via $slice: -10)
 
 // Use existing models to avoid OverwriteModelError on hot reloads
 const DailyStats = mongoose.models.BotDailyStats || mongoose.model('BotDailyStats', DailyStatsSchema);
