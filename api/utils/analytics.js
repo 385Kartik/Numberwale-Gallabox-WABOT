@@ -44,6 +44,9 @@ const CustomerBotProfileSchema = new mongoose.Schema({
   pinCode: { type: String },
   name: { type: String },
   language: { type: String, default: null },
+  dob: { type: String, default: null },
+  birthNumber: { type: Number, default: null },
+  lifePathNumber: { type: Number, default: null },
   agentReplied: { type: Boolean, default: false },
   lastAgentReplyAt: { type: Date, default: null },
   pendingBotMessages: [{ type: String }],  // localMessageIds sent by bot (to filter echoes)
@@ -85,6 +88,9 @@ function getMemoryProfile(phone) {
       name: 'Unknown',
       pinCode: null,
       language: null,
+      dob: null,
+      birthNumber: null,
+      lifePathNumber: null,
       agentReplied: false,
       pendingBotMessages: [],
       history: []
@@ -115,6 +121,9 @@ export async function getCustomerContext(phone, name) {
       name: profile.name,
       pinCode: profile.pinCode,
       language: profile.language || null,
+      dob: profile.dob || null,
+      birthNumber: profile.birthNumber != null ? profile.birthNumber : null,
+      lifePathNumber: profile.lifePathNumber != null ? profile.lifePathNumber : null,
       agentReplied: profile.agentReplied || false,
       lastAgentReplyAt: profile.lastAgentReplyAt || null,
       history: (profile.history || []).slice(-6)
@@ -133,6 +142,9 @@ export async function getCustomerContext(phone, name) {
       name: mem.name,
       pinCode: mem.pinCode,
       language: mem.language || null,
+      dob: mem.dob || null,
+      birthNumber: mem.birthNumber != null ? mem.birthNumber : null,
+      lifePathNumber: mem.lifePathNumber != null ? mem.lifePathNumber : null,
       agentReplied: mem.agentReplied || false,
       lastAgentReplyAt: mem.lastAgentReplyAt || null,
       history: (mem.history || []).slice(-6)
@@ -224,7 +236,7 @@ export async function resetActiveFilters(phone) {
 /**
  * Log a single interaction cycle (User Msg -> Bot Reply)
  */
-export async function logInteraction({ phone, name, userText, botText, isFail = false, model = null, tokensUsed = 0, jsonQuery = null, page = 1 }) {
+export async function logInteraction({ phone, name, userText, botText, isFail = false, model = null, tokensUsed = 0, jsonQuery = null, page = 1, dob = null, birthNumber = null, lifePathNumber = null }) {
   try {
     await connectDB();
     const date = todayStr();
@@ -254,6 +266,9 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
     if (!mem.history) mem.history = [];
     mem.history.push(...historyEntries);
     if (mem.history.length > 10) mem.history = mem.history.slice(-10);
+    if (dob) mem.dob = dob;
+    if (birthNumber != null) mem.birthNumber = birthNumber;
+    if (lifePathNumber != null) mem.lifePathNumber = lifePathNumber;
 
     const incCustomer = isFail ? { failureCount: 1 } : { successCount: 1 };
 
@@ -263,6 +278,9 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
       setFields.activeFilters = jsonQuery;
       setFields.lastPage = page;
     }
+    if (dob) setFields.dob = dob;
+    if (birthNumber != null) setFields.birthNumber = birthNumber;
+    if (lifePathNumber != null) setFields.lifePathNumber = lifePathNumber;
 
     await CustomerProfile.findOneAndUpdate(
       { phone },

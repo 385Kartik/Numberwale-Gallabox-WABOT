@@ -920,17 +920,23 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, reason: 'escalated_to_human' });
       }
 
-      // Log interaction and save active filters
+      // Save genuine bot text into history so LLM knows what it said in previous turns
+      const conversationalLog = (agentResult.conversationalIntro || agentResult.reply || '').substring(0, 500);
+
+      // Log interaction and save active filters + numerology profile
       await logInteraction({
         phone: customerPhone,
         name: customerName,
         userText: userMessage,
-        botText: `✨ Agent reply | model: ${agentResult.model}${searchJSON ? ' | search: ' + JSON.stringify(searchJSON) : ''}`,
+        botText: conversationalLog,
         isFail: false,
         model: agentResult.model || 'groq/llama-3.3-70b-versatile',
         tokensUsed: 0,
         jsonQuery: searchJSON || null,
         page: agentResult.currentPage || page,
+        dob: customerContext.dob || null,
+        birthNumber: customerContext.birthNumber != null ? customerContext.birthNumber : null,
+        lifePathNumber: customerContext.lifePathNumber != null ? customerContext.lifePathNumber : null,
       }).catch(() => {});
 
       return res.status(200).json({ success: true });
