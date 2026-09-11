@@ -19,10 +19,17 @@ export default async function handler(req, res) {
 
   // Admin Authentication Check
   const adminSecret = process.env.ADMIN_SECRET || process.env.ADMIN_BOT_SECRET;
-  const providedKey = req.headers['x-admin-key'] || req.headers['x-admin-secret'] || req.query?.secret;
+  const providedKey = req.headers['x-admin-key'] || 
+                      req.headers['x-admin-secret'] || 
+                      req.headers['x-bot-secret'] || 
+                      req.query?.secret;
 
-  if (adminSecret && providedKey !== adminSecret) {
-    console.warn('[AdminControl] ⚠️ Unauthorized access attempt.');
+  const clientIp = req.ip || req.connection?.remoteAddress || '';
+  const isLocalhost = clientIp.includes('127.0.0.1') || clientIp.includes('::1');
+
+  // Only protect mutating POST requests from external non-localhost callers
+  if (req.method !== 'GET' && !isLocalhost && adminSecret && providedKey !== adminSecret) {
+    console.warn('[AdminControl] ⚠️ Unauthorized access attempt from:', clientIp);
     return res.status(401).json({ error: 'Unauthorized: Invalid Admin Secret' });
   }
 
