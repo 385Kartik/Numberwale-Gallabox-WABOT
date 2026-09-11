@@ -23,6 +23,16 @@ function getCredentials() {
  * @param {string} [channelId] - Gallabox channel ID (falls back to GALLABOX_CHANNEL_ID env var)
  */
 export async function sendToGallabox(phone, text, channelId) {
+  const allowedPhones = process.env.ALLOWED_PHONES;
+  if (allowedPhones) {
+    const cleanPhone = String(phone || '').replace(/\D/g, '');
+    const whitelist = allowedPhones.split(',').map(p => p.trim().replace(/\D/g, ''));
+    if (!whitelist.includes(cleanPhone)) {
+      console.log(`[Gallabox] 🔒 Whitelist active. Blocked sending to non-whitelisted: ${phone}`);
+      return;
+    }
+  }
+
   const { apiKey, apiSecret, channelId: defaultChannelId } = getCredentials();
   const chId = channelId || defaultChannelId;
 

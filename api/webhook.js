@@ -39,12 +39,28 @@ function extractBuyNumber(text) {
 const agentInactivityTimers = new Map();
 
 function scheduleAgentInactivityTimer(customerPhone, channelID) {
+  const allowedPhones = process.env.ALLOWED_PHONES;
+  if (allowedPhones && customerPhone) {
+    const cleanPhone = String(customerPhone).replace(/\D/g, '');
+    const whitelist = allowedPhones.split(',').map(p => p.trim().replace(/\D/g, ''));
+    if (!whitelist.includes(cleanPhone)) {
+      return;
+    }
+  }
+
   if (agentInactivityTimers.has(customerPhone)) {
     clearTimeout(agentInactivityTimers.get(customerPhone));
   }
 
   const timer = setTimeout(async () => {
     try {
+      const allowedPhonesNow = process.env.ALLOWED_PHONES;
+      if (allowedPhonesNow && customerPhone) {
+        const cleanPhone = String(customerPhone).replace(/\D/g, '');
+        const whitelist = allowedPhonesNow.split(',').map(p => p.trim().replace(/\D/g, ''));
+        if (!whitelist.includes(cleanPhone)) return;
+      }
+
       const ctx = await getCustomerContext(customerPhone);
       if (ctx.botState === 'PAUSED' && ctx.agentReplied && ctx.lastAgentReplyAt) {
         const timeSince = Date.now() - new Date(ctx.lastAgentReplyAt).getTime();
@@ -122,6 +138,17 @@ export default async function handler(req, res) {
          body?.payload?.contact?.phone);
 
     const customerPhone = rawCustomerPhone ? String(rawCustomerPhone).replace(/\D/g, '') : null;
+
+    // ── Whitelist Guard (Enforce immediately on ALL events: Inbound, Outbound, Status, Media) ──
+    const allowedPhones = process.env.ALLOWED_PHONES;
+    if (allowedPhones && customerPhone) {
+      const cleanPhone = String(customerPhone).replace(/\D/g, '');
+      const whitelist = allowedPhones.split(',').map(p => p.trim().replace(/\D/g, ''));
+      if (!whitelist.includes(cleanPhone)) {
+        console.log(`[Webhook] ${customerPhone} not in whitelist. Skipping silently.`);
+        return res.status(200).json({ success: true, reason: 'not_whitelisted' });
+      }
+    }
 
     let rawMsg = body?.whatsapp?.text?.body ||
                  body?.request?.data?.whatsapp?.text?.body ||
@@ -216,15 +243,6 @@ export default async function handler(req, res) {
       }
       scheduleAgentInactivityTimer(customerPhone, channelID);
       return res.status(200).json({ success: true, reason: 'outbound_agent_message' });
-    }
-
-    const allowedPhones = process.env.ALLOWED_PHONES;
-    if (allowedPhones) {
-      const whitelist = allowedPhones.split(',').map(p => p.trim());
-      if (!whitelist.includes(customerPhone)) {
-        console.log(`[Webhook] ${customerPhone} not in whitelist. Skipping silently.`);
-        return res.status(200).json({ success: true, reason: 'not_whitelisted' });
-      }
     }
 
     // ── Handle Photo / Media Uploads ──
