@@ -663,7 +663,7 @@ export async function generateSalesConsultantChat({
   // Prepare short sample numbers list
   const sampleList = (sampleProducts || []).slice(0, 3).map((p, idx) => {
     const raw = p.productMobileNumber || '';
-    const formatted = formatNumberBeauty(raw);
+    const formatted = formatNumberBeauty(raw, p);
     const subtotal = p.pricing?.nwFinalPrice || p.price || 0;
     const gst = Math.round(subtotal * 0.18);
     const total = subtotal + gst;
@@ -834,7 +834,7 @@ export function formatConversationalSearchResults({
 
   products.forEach((p, idx) => {
     const rawNumber = p.productMobileNumber || 'N/A';
-    const formattedNum = formatNumberBeauty(rawNumber);
+    const formattedNum = formatNumberBeauty(rawNumber, p);
     const subtotal = p.pricing?.nwFinalPrice || p.price || null;
     const basePrice = p.pricing?.nwBasePrice?.inr || null;
     const myDiscount = p.pricing?.nwMyDiscount || 0;
@@ -929,7 +929,7 @@ export async function generateSalesAgentResponse({
   if (products && products.length > 0) {
     const topProducts = products.slice(0, 4).map((p, idx) => {
       const rawNumber = p.productMobileNumber || '';
-      const formattedNum = formatNumberBeauty(rawNumber);
+      const formattedNum = formatNumberBeauty(rawNumber, p);
       const subtotal = p.pricing?.nwFinalPrice || p.price || 0;
       const gst = Math.round(subtotal * 0.18);
       const total = subtotal + gst;
@@ -1019,12 +1019,35 @@ SALES DIRECTIVES:
 }
 
 /**
- * Format 10 digit number into clean readable blocks (e.g. 9820-999-786)
+ * Format 10 digit number into clean readable blocks
+ * If customDesignProductMobileNumber exists (e.g. 967-*167*-72-*167*):
+ * - Removes all '*' asterisks
+ * - Replaces '-' hyphens with ' ' spaces
  */
-function formatNumberBeauty(numStr) {
-  const clean = String(numStr).replace(/\D/g, '');
-  if (clean.length === 10) {
-    return `${clean.slice(0, 4)} ${clean.slice(4, 7)} ${clean.slice(7, 10)}`;
+function formatNumberBeauty(numStr, p) {
+  const custom = p?.customDesignProductMobileNumber;
+  if (custom && typeof custom === 'string' && custom.trim()) {
+    const cleaned = custom
+      .replace(/\*/g, '')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (cleaned.length >= 10) return cleaned;
   }
-  return numStr;
+
+  const raw = typeof numStr === 'string' ? numStr : (p?.productMobileNumber || '');
+  if (raw.includes('*') || raw.includes('-')) {
+    const cleaned = raw
+      .replace(/\*/g, '')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (cleaned.length >= 10) return cleaned;
+  }
+
+  const clean = String(raw).replace(/\D/g, '');
+  if (clean.length === 10) {
+    return `${clean.slice(0, 5)} ${clean.slice(5)}`;
+  }
+  return raw || 'N/A';
 }

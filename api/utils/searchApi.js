@@ -140,11 +140,37 @@ function classifyEngine(raw) {
 }
 
 /**
- * Format a 10-digit number with dashes + *bold* for WhatsApp
- * Pattern segments get wrapped in * for WhatsApp bold
+ * Format a 10-digit number with spaces for WhatsApp
+ * If product has customDesignProductMobileNumber (e.g. 967-*167*-72-*167*):
+ * - Removes all '*' asterisks
+ * - Replaces '-' hyphens with ' ' spaces
  */
-function formatNumberForWhatsApp(number) {
-  const d = String(number).replace(/\D/g, '');
+function formatNumberForWhatsApp(number, p) {
+  const custom = p?.customDesignProductMobileNumber;
+  if (custom && typeof custom === 'string' && custom.trim()) {
+    const cleaned = custom
+      .replace(/\*/g, '')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (cleaned.length >= 10) {
+      return cleaned;
+    }
+  }
+
+  const rawStr = String(number || '');
+  if (rawStr.includes('*') || rawStr.includes('-')) {
+    const cleaned = rawStr
+      .replace(/\*/g, '')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (cleaned.length >= 10) {
+      return cleaned;
+    }
+  }
+
+  const d = rawStr.replace(/\D/g, '');
   if (d.length !== 10) return number;
 
   const { matches } = classifyEngine(d);
@@ -323,8 +349,8 @@ export function formatNumbersReply(products, totalCount = 0, currentPage = 1, to
     const trap     = p.trap ?? null;
     const score    = p.score ?? null;
 
-    const formattedNum = formatNumberForWhatsApp(number);
-    reply += `${index + 1}. ${formattedNum}\n`;
+    const formattedNum = formatNumberForWhatsApp(number, p);
+    reply += `${index + 1}. *${formattedNum}*\n`;
     if (catName) reply += `   📁 ${catName}\n`;
     if (brand)   reply += `   🏷️  ${brand}\n`;
 
@@ -388,7 +414,8 @@ export function formatNumbersReply(products, totalCount = 0, currentPage = 1, to
     reply += `🛒 *To buy, please reply:*\n`;
   }
 
-  reply += `_"buy ${products[0]?.productMobileNumber}"_`;
+  const firstClean = String(products[0]?.productMobileNumber || '').replace(/\D/g, '') || products[0]?.productMobileNumber;
+  reply += `_"buy ${firstClean}"_`;
 
   return reply;
 }

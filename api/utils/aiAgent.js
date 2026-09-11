@@ -406,6 +406,44 @@ async function callLLM(systemPrompt, messages) {
 // ─────────────────────────────────────────────────────────────────
 // FORMAT PRODUCTS
 // ─────────────────────────────────────────────────────────────────
+export function formatProductNumberForWhatsApp(p) {
+  if (!p) return 'N/A';
+
+  // 1. Check customDesignProductMobileNumber from database (e.g. 967-*167*-72-*167*)
+  const custom = p.customDesignProductMobileNumber;
+  if (custom && typeof custom === 'string' && custom.trim()) {
+    const cleaned = custom
+      .replace(/\*/g, '')         // Remove all * asterisks
+      .replace(/-/g, ' ')         // Replace - hyphens with space
+      .replace(/\s+/g, ' ')       // Collapse multiple spaces
+      .trim();
+    if (cleaned.length >= 10) {
+      return cleaned;
+    }
+  }
+
+  // 2. Check if productMobileNumber itself contains formatting (* or -)
+  const rawNum = String(p.productMobileNumber || '');
+  if (rawNum.includes('*') || rawNum.includes('-')) {
+    const cleaned = rawNum
+      .replace(/\*/g, '')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (cleaned.length >= 10) {
+      return cleaned;
+    }
+  }
+
+  // 3. Fallback: 5-5 split for standard 10-digit numbers
+  const d = rawNum.replace(/\D/g, '');
+  if (d.length === 10) {
+    return `${d.slice(0, 5)} ${d.slice(5)}`;
+  }
+
+  return rawNum || 'N/A';
+}
+
 export function formatProducts(products, totalCount, currentPage, totalPages, lang) {
   if (!products || products.length === 0) return null;
 
@@ -414,8 +452,8 @@ export function formatProducts(products, totalCount, currentPage, totalPages, la
 
   products.forEach(function(p, idx) {
     const raw = p.productMobileNumber || 'N/A';
-    const d = String(raw).replace(/\D/g, '');
-    const formatted = d.length === 10 ? (d.slice(0, 5) + ' ' + d.slice(5)) : raw;
+    const cleanDigits = String(raw).replace(/\D/g, '');
+    const formatted = formatProductNumberForWhatsApp(p);
     const price = p.pricing && p.pricing.nwFinalPrice;
     const basePrice = p.pricing && p.pricing.nwBasePrice && p.pricing.nwBasePrice.inr;
     const discount = (p.pricing && p.pricing.nwMyDiscount) || (p.vendor && p.vendor.vendorDiscount) || 0;
@@ -435,7 +473,7 @@ export function formatProducts(products, totalCount, currentPage, totalPages, la
     }
 
     if (score !== null) lines.push('   \uD83D\uDD2E Lucky Sum: *' + score + '*');
-    lines.push('   \uD83D\uDC49 Book: _buy ' + raw + '_');
+    lines.push('   \uD83D\uDC49 Book: _buy ' + (cleanDigits || raw) + '_');
     lines.push('');
   });
 
