@@ -2,7 +2,7 @@
  * Shared Gallabox API utilities.
  * Used by webhook.js, cart-webhook.js, and dripCron.js.
  */
-import { storeBotMessageId } from './analytics.js';
+import { storeBotMessageId, getGlobalBotConfig } from './analytics.js';
 import { randomUUID } from 'crypto';
 import axios from 'axios';
 
@@ -23,11 +23,28 @@ function getCredentials() {
  * @param {string} [channelId] - Gallabox channel ID (falls back to GALLABOX_CHANNEL_ID env var)
  */
 export async function sendToGallabox(phone, text, channelId) {
-  const allowedPhones = process.env.ALLOWED_PHONES;
-  if (allowedPhones) {
+  const globalConfig = await getGlobalBotConfig().catch(() => null);
+  if (globalConfig && (!globalConfig.isGlobalEnabled || globalConfig.botMode === 'OFF')) {
+    console.log(`[Gallabox] 🔴 Bot is GLOBALLY PAUSED via Admin CRM. Blocked sending to ${phone}.`);
+    return;
+  }
+
+  let isWhitelistActive = false;
+  let allowedList = [];
+
+  if (process.env.ALLOWED_PHONES) {
+    isWhitelistActive = true;
+    allowedList.push(...process.env.ALLOWED_PHONES.split(',').map(p => p.trim().replace(/\D/g, '')));
+  }
+
+  if (globalConfig?.isWhitelistOnly && Array.isArray(globalConfig?.whitelistPhones) && globalConfig.whitelistPhones.length > 0) {
+    isWhitelistActive = true;
+    allowedList.push(...globalConfig.whitelistPhones.map(p => p.trim().replace(/\D/g, '')));
+  }
+
+  if (isWhitelistActive) {
     const cleanPhone = String(phone || '').replace(/\D/g, '');
-    const whitelist = allowedPhones.split(',').map(p => p.trim().replace(/\D/g, ''));
-    if (!whitelist.includes(cleanPhone)) {
+    if (!allowedList.includes(cleanPhone)) {
       console.log(`[Gallabox] 🔒 Whitelist active. Blocked sending to non-whitelisted: ${phone}`);
       return;
     }

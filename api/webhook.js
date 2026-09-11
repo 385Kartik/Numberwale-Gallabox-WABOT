@@ -1,7 +1,18 @@
 import { fetchNumbers } from './utils/searchApi.js';
 import { detectLanguage } from './utils/agentEngine.js';
 import { isShowMoreIntent, isBotPaused, pauseBot, resumeBot } from './utils/sessionStore.js';
-import { getCustomerContext, logInteraction, updateCustomerInfo, resetActiveFilters, storeBotMessageId, isBotMessageId, saveConversationId, touchInteraction, stopDrip } from './utils/analytics.js';
+import { 
+  getCustomerContext, 
+  logInteraction, 
+  updateCustomerInfo, 
+  resetActiveFilters, 
+  storeBotMessageId, 
+  isBotMessageId, 
+  saveConversationId, 
+  touchInteraction, 
+  stopDrip,
+  getGlobalBotConfig
+} from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/gallabox.js';
 import { formatProducts } from './utils/aiAgent.js';
@@ -139,12 +150,30 @@ export default async function handler(req, res) {
 
     const customerPhone = rawCustomerPhone ? String(rawCustomerPhone).replace(/\D/g, '') : null;
 
-    // ── Whitelist Guard (Enforce immediately on ALL events: Inbound, Outbound, Status, Media) ──
-    const allowedPhones = process.env.ALLOWED_PHONES;
-    if (allowedPhones && customerPhone) {
+    // ── Global Master Bot Switch (Admin CRM Emergency Kill-Switch) ──
+    const globalConfig = await getGlobalBotConfig().catch(() => null);
+    if (globalConfig && (!globalConfig.isGlobalEnabled || globalConfig.botMode === 'OFF')) {
+      console.log(`[Webhook] 🔴 Bot is GLOBALLY PAUSED via Admin CRM (${globalConfig.disabledReason || 'Manual Pause'}). Skipping all events.`);
+      return res.status(200).json({ success: true, reason: 'bot_globally_disabled' });
+    }
+
+    // ── Whitelist Guard (Enforce on ALL events: Inbound, Outbound, Status, Media) ──
+    let isWhitelistActive = false;
+    let allowedList = [];
+
+    if (process.env.ALLOWED_PHONES) {
+      isWhitelistActive = true;
+      allowedList.push(...process.env.ALLOWED_PHONES.split(',').map(p => p.trim().replace(/\D/g, '')));
+    }
+
+    if (globalConfig?.isWhitelistOnly && Array.isArray(globalConfig?.whitelistPhones) && globalConfig.whitelistPhones.length > 0) {
+      isWhitelistActive = true;
+      allowedList.push(...globalConfig.whitelistPhones.map(p => p.trim().replace(/\D/g, '')));
+    }
+
+    if (isWhitelistActive && customerPhone) {
       const cleanPhone = String(customerPhone).replace(/\D/g, '');
-      const whitelist = allowedPhones.split(',').map(p => p.trim().replace(/\D/g, ''));
-      if (!whitelist.includes(cleanPhone)) {
+      if (!allowedList.includes(cleanPhone)) {
         console.log(`[Webhook] ${customerPhone} not in whitelist. Skipping silently.`);
         return res.status(200).json({ success: true, reason: 'not_whitelisted' });
       }

@@ -460,3 +460,93 @@ export async function advanceDripDay(phone, nextDay) {
     console.error('[Analytics] advanceDripDay error:', err.message);
   }
 }
+
+// ─── Global Bot Configuration (Persistent State) ──────────────────────────────
+const GlobalBotConfigSchema = new mongoose.Schema({
+  key: { type: String, default: 'global_bot_config', unique: true },
+  isGlobalEnabled: { type: Boolean, default: true },
+  botMode: { type: String, enum: ['FULL', 'CATALOG_ONLY', 'OFF'], default: 'FULL' },
+  isWhitelistOnly: { type: Boolean, default: false },
+  whitelistPhones: [{ type: String }],
+  disabledReason: { type: String, default: '' },
+  disabledAt: { type: Date, default: null },
+  updatedBy: { type: String, default: 'system' }
+}, { timestamps: true });
+
+const GlobalBotConfig = mongoose.models.GlobalBotConfig || mongoose.model('GlobalBotConfig', GlobalBotConfigSchema);
+
+let cachedGlobalConfig = null;
+let globalConfigExpiry = 0;
+
+export async function getGlobalBotConfig() {
+  const now = Date.now();
+  if (cachedGlobalConfig && now < globalConfigExpiry) {
+    return cachedGlobalConfig;
+  }
+  try {
+    await connectDB();
+    let doc = await GlobalBotConfig.findOne({ key: 'global_bot_config' }).lean();
+    if (!doc) {
+      const envAllowed = process.env.ALLOWED_PHONES
+        ? process.env.ALLOWED_PHONES.split(',').map(p => p.trim().replace(/\D/g, '')).filter(Boolean)
+        : [];
+      doc = await GlobalBotConfig.create({
+        key: 'global_bot_config',
+        isGlobalEnabled: true,
+        botMode: 'FULL',
+        isWhitelistOnly: envAllowed.length > 0,
+        whitelistPhones: envAllowed,
+        updatedBy: 'initial_setup'
+      });
+      doc = doc.toObject ? doc.toObject() : doc;
+    }
+    cachedGlobalConfig = doc;
+    globalConfigExpiry = now + 10000; // 10-second cache
+    return doc;
+  } catch (err) {
+    console.error('[Analytics] getGlobalBotConfig error:', err.message);
+    const envAllowed = process.env.ALLOWED_PHONES
+      ? process.env.ALLOWED_PHONES.split(',').map(p => p.trim().replace(/\D/g, '')).filter(Boolean)
+      : [];
+    return cachedGlobalConfig || {
+      key: 'global_bot_config',
+      isGlobalEnabled: true,
+      botMode: 'FULL',
+      isWhitelistOnly: envAllowed.length > 0,
+      whitelistPhones: envAllowed,
+      disabledReason: '',
+      updatedBy: 'fallback'
+    };
+  }
+}
+
+export async function updateGlobalBotConfig(updates, updatedBy = 'admin') {
+  try {
+    await connectDB();
+    const doc = await GlobalBotConfig.findOneAndUpdate(
+      { key: 'global_bot_config' },
+      { $set: { ...updates, updatedBy, updatedAt: new Date() } },
+      { new: true, upsert: true }
+    ).lean();
+    cachedGlobalConfig = doc;
+    globalConfigExpiry = Date.now() + 10000;
+    return doc;
+  } catch (err) {
+    console.error('[Analytics] updateGlobalBotConfig error:', err.message);
+    throw err;
+  }
+}
+
+export async function getRecentCustomerChats(limit = 25) {
+  try {
+    await connectDB();
+    return await CustomerProfile.find({})
+      .sort({ updatedAt: -1, lastInteractionAt: -1 })
+      .limit(limit)
+      .select('phone name botState agentReplied lastAgentReplyAt lastInteractionAt activeFilters updatedAt history')
+      .lean();
+  } catch (err) {
+    console.error('[Analytics] getRecentCustomerChats error:', err.message);
+    return [];
+  }
+}

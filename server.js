@@ -27,7 +27,8 @@ app.get('/', (req, res) => {
 // API Routes
 app.post('/api/webhook', webhookHandler);
 app.get('/api/analytics', analyticsHandler);
-app.post('/api/admin/bot-control', botControlHandler);
+app.all('/api/admin/bot-control', botControlHandler);
+app.all('/api/admin/bot-status', botControlHandler);
 
 // 404 Handler
 app.use((req, res) => {
