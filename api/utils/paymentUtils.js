@@ -82,17 +82,17 @@ export async function fetchProductByNumber(mobileNumber) {
   }
 }
 
-let cachedBotCoupon = null;
+let cachedBotCoupons = null;
 let botCouponExpiry = 0;
 
 /**
- * Fetch the active promotional coupon configured for WhatsApp Bot from main API.
+ * Fetch all active promotional coupons configured for WhatsApp Bot from main API.
  * Uses a 5-minute in-memory cache to avoid repeated HTTP calls on every turn.
  */
-export async function fetchActiveBotCoupon() {
+export async function fetchActiveBotCoupons() {
   const now = Date.now();
-  if (cachedBotCoupon !== null && now < botCouponExpiry) {
-    return cachedBotCoupon;
+  if (cachedBotCoupons !== null && now < botCouponExpiry) {
+    return cachedBotCoupons;
   }
 
   const API_URL = process.env.MAIN_API_URL || 'https://api.numberwale.com';
@@ -102,23 +102,54 @@ export async function fetchActiveBotCoupon() {
     const response = await axios.get(`${API_URL}/api/v1/coupons/bot-active`, {
       timeout: 3000
     });
-    const coupon = response.data?.data;
-    if (coupon && coupon.code) {
-      cachedBotCoupon = {
-        code: coupon.code,
-        discountType: coupon.discountType, // "percentage" or "fixed"
-        discountValue: coupon.discountValue,
-        minOrderValue: coupon.minOrderValue || 0,
-        maxDiscount: coupon.maxDiscount || null,
-        description: coupon.description || ''
-      };
-    } else {
-      cachedBotCoupon = null;
+    
+    // Support both new `coupons` array and legacy `data` single object
+    let list = response.data?.coupons;
+    if (!Array.isArray(list) || list.length === 0) {
+      if (response.data?.data && response.data.data.code) {
+        list = [response.data.data];
+      } else {
+        list = [];
+      }
     }
+
+    // Safety fallback: If only SPECIAL200 is returned (before server deploy updates findOne -> find),
+    // ensure SPECIAL75 is also available if not already in list
+    const hasSpecial200 = list.some(c => c.code === 'SPECIAL200');
+    const hasSpecial75 = list.some(c => c.code === 'SPECIAL75');
+    if (hasSpecial200 && !hasSpecial75) {
+      list.push({
+        code: 'SPECIAL75',
+        description: 'Save ₹75 on any VIP number!',
+        discountType: 'fixed',
+        discountValue: 75,
+        minOrderValue: 0,
+        maxDiscount: null
+      });
+    }
+
+    cachedBotCoupons = list.map(c => ({
+      code: c.code,
+      discountType: c.discountType, // "percentage" or "fixed"
+      discountValue: c.discountValue,
+      minOrderValue: c.minOrderValue || 0,
+      maxDiscount: c.maxDiscount || null,
+      description: c.description || ''
+    }));
+
     botCouponExpiry = now + (5 * 60 * 1000); // Cache for 5 minutes
-    return cachedBotCoupon;
+    return cachedBotCoupons;
   } catch (err) {
-    console.warn('[Payment] fetchActiveBotCoupon error:', err.message);
-    return cachedBotCoupon || null;
+    console.warn('[Payment] fetchActiveBotCoupons error:', err.message);
+    return cachedBotCoupons || [];
   }
 }
+
+/**
+ * Backwards compatibility: returns primary bot coupon or null
+ */
+export async function fetchActiveBotCoupon() {
+  const all = await fetchActiveBotCoupons();
+  return (all && all.length > 0) ? all[0] : null;
+}
+

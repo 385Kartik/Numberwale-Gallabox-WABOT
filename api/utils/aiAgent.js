@@ -8,7 +8,7 @@
  * Returns: { reply, searchJSON, model, escalate, totalCount, totalPages, currentPage }
  */
 import { fetchNumbers } from './searchApi.js';
-import { fetchProductByNumber, fetchActiveBotCoupon } from './paymentUtils.js';
+import { fetchProductByNumber, fetchActiveBotCoupon, fetchActiveBotCoupons } from './paymentUtils.js';
 import { detectLanguage } from './agentEngine.js';
 
 export function cleanCustomerName(rawName) {
@@ -173,6 +173,8 @@ export function buildSystemPrompt(ctx) {
   L.push('3. NEVER repeat brand introductory welcomes ("Welcome to Numberwale since 2010...") on continuing conversations.');
   L.push('4. NEVER ignore the customer\'s requested pattern or category (e.g. "abc abc", "mirror", "786"). Always map and search it!');
   L.push('5. NEVER use markdown tables (no pipes `|` or `|---|`). WhatsApp does NOT render tables! Always use bullet points with • or emojis.');
+  L.push('6. 🚨 NEVER invent, generate, hallucinate, or write phone numbers in your conversational text (e.g. NEVER write "• 112 112 – ₹19,980" or "• 334 334" or "• 98765 43210")! All numbers and prices come exclusively from live inventory and are attached by the system via SEARCH_JSON.');
+  L.push('7. 🚨 NEVER mention coupons, promo codes, or extra discounts UNLESS the customer specifically and explicitly asks for a discount, offer, concession, cheaper price, or best price!');
   L.push('');
   L.push('## IDENTITY & CREATOR');
   L.push('If customer asks "who made you", "who created you", "who are you", "what is your name", "are you chatgpt/openai/ai":');
@@ -203,13 +205,7 @@ export function buildSystemPrompt(ctx) {
   L.push('- Payment: UPI / Cards / NetBanking / Credit Card EMI | NO COD (UPC is digital delivery)');
   L.push('- Guarantee: 100% Money-Back if porting fails | Fresh UPC free if expired within 4 days');
   L.push('- Pricing: 18% GST included, official GST invoice provided | Business buyers can claim ITC');
-  if (ctx && ctx.activeCoupon) {
-    const ac = ctx.activeCoupon;
-    const discStr = ac.discountType === 'percentage' ? `${ac.discountValue}% OFF` : `₹${ac.discountValue} FLAT OFF`;
-    L.push(`- Discounts: Website prices are already up to 50% off. Additionally, exclusive coupon *${ac.code}* gives extra ${discStr} on checkout cart.`);
-  } else {
-    L.push('- Discounts: Already up to 50% off on website. Bulk/family orders: connect to manager.');
-  }
+  L.push('- Discounts: Website prices are already direct wholesale discounted up to 50% off.');
   L.push('');
   L.push('## OFFICIAL SOCIAL MEDIA LINKS');
   L.push('- Instagram: https://www.instagram.com/numberwale?stkn=MTlyNnlzaG1lMmwzeQ==');
@@ -296,11 +292,15 @@ export function buildSystemPrompt(ctx) {
   L.push('CONSECUTIVE vs FREQUENCY:');
   L.push('- Consecutive digits together in a row: "anywhere":"555", "endsWith":"9999", "startsWith":"98"');
   L.push('- Digit frequency (appears N times anywhere): "digitFreq1Digit":"9","digitFreq1Count":3');
+  L.push('BUDGET vs LUXURY CATEGORY CONFLICT:');
+  L.push('- High-end patterns like "mirror-numbers", "hexa-numbers", "penta-numbers", "octa-numbers" start at ₹1,00,000+.');
+  L.push('- If customer specifies a budget under ₹50,000 (e.g. "20000 me", "budget 15000", "under 30k"), NEVER combine narrow luxury categories like "mirror-numbers" into SEARCH_JSON!');
+  L.push('- Instead, search within budget: SEARCH_JSON:{"maxPrice":20000} or recommend accessible categories like SEARCH_JSON:{"category":"doubling-numbers","maxPrice":20000}.');
   L.push('');
   if (af) {
     L.push('CURRENT ACTIVE SEARCH FILTERS: ' + af);
-    L.push('- REFINEMENT (adding budget/digit/pattern to existing search) -> MERGE with active filters');
-    L.push('- NEW SEARCH (completely different category/pattern) -> DISCARD active, output only new JSON');
+    L.push('- REFINEMENT: Merge new constraint with active filters UNLESS there is a conflict (e.g. customer specifies a budget under 50k like "20000 me" after a luxury category like mirror-numbers -> DISCARD the luxury category and search within requested budget).');
+    L.push('- NEW SEARCH (different pattern/category or broad budget request): DISCARD active filters, output only new JSON.');
     L.push('');
   }
   L.push('## BEST NUMBERS / RECOMMENDATIONS');
@@ -349,19 +349,24 @@ export function buildSystemPrompt(ctx) {
       L.push('STRICT MANDATORY RULES FOR THIS INQUIRY:');
       L.push('1. THIS IS ONE SINGLE 10-DIGIT NUMBER. NEVER SPLIT IT INTO TWO NUMBERS (e.g. NEVER treat "8574 113322" as 8574 and 113322)! NEVER say "dono numbers" or "combined amount"!');
       L.push(`2. The price is EXACTLY ${priceGst} (including 18% GST). NEVER hallucinate, guess, or invent any other price!`);
-      if (ctx && ctx.activeCoupon) {
-        const ac = ctx.activeCoupon;
-        const discountText = ac.discountType === 'percentage' ? `${ac.discountValue}% extra discount` : `₹${ac.discountValue} flat extra discount`;
-        const minNote = ac.minOrderValue > 0 ? ` (valid on cart value above ₹${ac.minOrderValue.toLocaleString('en-IN')})` : '';
+      const targetCoupons = (ctx && ctx.activeCoupons && ctx.activeCoupons.length > 0)
+        ? ctx.activeCoupons
+        : (ctx && ctx.activeCoupon ? [ctx.activeCoupon] : []);
+
+      if (targetCoupons.length > 0) {
+        // Pick best coupon for this specific target number
+        const bestCoupon = targetCoupons.find(c => tp.totalWithGst >= (c.minOrderValue || 0)) || targetCoupons[0];
+        const discountText = bestCoupon.discountType === 'percentage' ? `${bestCoupon.discountValue}% extra discount` : `₹${bestCoupon.discountValue} flat extra discount`;
+        const minNote = bestCoupon.minOrderValue > 0 ? ` (valid on cart value above ₹${bestCoupon.minOrderValue.toLocaleString('en-IN')})` : '';
         L.push('3. If customer asks about price, final rate, discount, or negotiations ("kitna final hoga", "best price", "discount", "kam karo"):');
         if (lang === 'English') {
-          L.push(`   - Explain in English that ${priceGst} is already up to 50% discounted on Numberwale.`);
-          L.push(`   - BUT warmly offer them our exclusive coupon code: *${ac.code}* for ${discountText}${minNote} on checkout cart!`);
-          L.push(`   - Instruct them to click the booking link and apply coupon *${ac.code}* in cart to claim the savings.`);
+          L.push(`   - Explain in English that ${priceGst} is already direct wholesale discounted on Numberwale.`);
+          L.push(`   - BUT warmly offer them our exclusive coupon code: *${bestCoupon.code}* for ${discountText}${minNote} on checkout cart!`);
+          L.push(`   - Instruct them to click the booking link and apply coupon *${bestCoupon.code}* in cart to claim the savings.`);
         } else {
-          L.push(`   - Explain that ${priceGst} is already up to 50% discounted on Numberwale.`);
-          L.push(`   - BUT warmly offer them our exclusive coupon code: *${ac.code}* for ${discountText}${minNote} on checkout cart!`);
-          L.push(`   - Tell them to click the booking link and enter coupon *${ac.code}* in cart to apply the discount.`);
+          L.push(`   - Explain that ${priceGst} is already direct wholesale discounted on Numberwale.`);
+          L.push(`   - BUT warmly offer them our exclusive coupon code: *${bestCoupon.code}* for ${discountText}${minNote} on checkout cart!`);
+          L.push(`   - Tell them to click the booking link and enter coupon *${bestCoupon.code}* in cart to apply the discount.`);
         }
       } else {
         L.push('3. If customer asks about price, final rate, discount, or negotiations ("kitna final hoga", "best price", "discount", "kam karo"):');
@@ -376,29 +381,32 @@ export function buildSystemPrompt(ctx) {
     }
   }
 
-  if (ctx && ctx.activeCoupon) {
-    const ac = ctx.activeCoupon;
-    const discountText = ac.discountType === 'percentage'
-      ? `${ac.discountValue}% OFF`
-      : `₹${ac.discountValue} FLAT OFF`;
-    const minText = ac.minOrderValue > 0 ? ` on cart value above ₹${ac.minOrderValue.toLocaleString('en-IN')}` : '';
-    const maxText = ac.maxDiscount ? ` (up to ₹${ac.maxDiscount.toLocaleString('en-IN')})` : '';
+  const botCoupons = (ctx && ctx.activeCoupons && ctx.activeCoupons.length > 0)
+    ? ctx.activeCoupons
+    : (ctx && ctx.activeCoupon ? [ctx.activeCoupon] : []);
 
+  if (botCoupons.length > 0) {
     L.push('');
-    L.push('## ACTIVE EXCLUSIVE DISCOUNT COUPON (USE WHEN CUSTOMER ASKS FOR DISCOUNT / NEGOTIATION / OFFERS)');
-    L.push(`- Active Coupon Code: *${ac.code}*`);
-    L.push(`- Offer: ${discountText}${minText}${maxText}`);
-    L.push('- How it works: Applied in website cart during checkout');
-    L.push('');
-    L.push('WHEN CUSTOMER ASKS ABOUT DISCOUNT, "BEST PRICE", "FINAL PRICE", "OFFERS", "COUPON", "KAM KARO":');
+    L.push('## 🚨 STRICT COUPON RULES (CRITICAL — READ CAREFULLY!)');
+    L.push('1. NEVER EVER mention coupon codes, promo codes, or extra discounts UNLESS the customer specifically and explicitly asks for a discount, concession, deal, cheaper price, or best price ("discount hai kya", "kam karo", "best price", "offers kya hai", "koi coupon code hai?").');
+    L.push('2. On greetings, normal number searches, category recommendations, or numerology discussions: NEVER mention coupon codes! Keep focus 100% on the numbers and customer requirements.');
+    L.push('3. When (and ONLY when) customer asks for discount, best price, or negotiation:');
+    L.push('   Offer the following exclusive coupon codes according to their order value:');
+    botCoupons.forEach(c => {
+      const disc = c.discountType === 'percentage' ? `${c.discountValue}% OFF` : `₹${c.discountValue} FLAT OFF`;
+      const minCond = c.minOrderValue > 0 ? `(Valid on cart value above ₹${Number(c.minOrderValue).toLocaleString('en-IN')})` : `(Valid on any cart value — No minimum order)`;
+      L.push(`   • Code *${c.code}*: ${disc} ${minCond}`);
+    });
+    L.push('   Rules for selecting coupon:');
+    L.push('   - If customer\'s selected number or budget is ₹5,000 or more: recommend *SPECIAL200* for ₹200 instant savings!');
+    L.push('   - If customer\'s order or budget is below ₹5,000: recommend *SPECIAL75* for ₹75 instant savings!');
+    L.push('   - If general inquiry ("any discount?"): warmly share both options so they know they get discounts at every price point!');
     if (lang === 'English') {
-      L.push(`1. In English, warmly present this exclusive coupon code (*${ac.code}*) so they get extra direct savings (${discountText})!`);
-      L.push('2. Mention that website prices are already up to 50% off, but this coupon gives them an extra special discount.');
-      L.push(`3. Provide the booking / cart link and explain that they can enter coupon code *${ac.code}* in the cart to see the discounted total.`);
+      L.push('   - Explain politely: "Our website prices are already up to 50% discounted, but you can apply coupon *[CODE]* at checkout for extra direct savings!"');
+    } else if (lang === 'Hindi') {
+      L.push('   - Explain politely: "हमारी वेबसाइट पर कीमतें पहले से ही 50% तक कम हैं, लेकिन आप चेकआउट के समय कूपन कोड *[CODE]* लगाकर अतिरिक्त छूट प्राप्त कर सकते हैं!"');
     } else {
-      L.push(`1. Warmly present this exclusive coupon code (*${ac.code}*) so they get extra direct savings (${discountText})!`);
-      L.push('2. Explain that website prices are already up to 50% discounted, but this coupon gives them an extra special discount.');
-      L.push(`3. Provide the booking / cart link and explain that they can enter coupon code *${ac.code}* in the cart to see the discounted total.`);
+      L.push('   - Explain politely: "Hamari website par rates already up to 50% discounted hain, par aapke liye special coupon code *[CODE]* hai jisse aapko checkout cart mein extra discount mil jayega!"');
     }
   }
 
@@ -764,6 +772,37 @@ function stripSearchJSON(text) {
   return text.replace(/SEARCH_JSON:\{[^]*?\}\s*\n?/g, '').trim();
 }
 
+export function formatCategoryName(cat) {
+  if (!cat) return 'VIP Numbers';
+  return cat.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+export function sanitizeHallucinatedNumbers(text) {
+  if (!text) return text;
+  const lines = text.split('\n');
+  const filtered = lines.filter(line => {
+    const trimmed = line.trim();
+    // Match bullet or numbered list prefix: e.g. "• ", "- ", "* ", "1. ", "1) "
+    const bulletMatch = trimmed.match(/^[\s\u2022\u25aa\u25b6\u25c6\u25cf•\-\*]+|^\s*\d{1,2}[\.\)]\s*/u);
+    if (!bulletMatch) return true;
+    
+    const afterBullet = trimmed.slice(bulletMatch[0].length).trim();
+    // Check if after bullet there is a sequence of digits like "112 112" or "9876543210" or "786 110" or a fake price
+    const hasNumberListing = /^\*?[0-9]{2,5}[\s\-]?[0-9]{2,5}/.test(afterBullet) || 
+                             /^\*?[6-9]\d{9}/.test(afterBullet) ||
+                             /(?:₹|rs\.?|inr)\s*[\d,]+/i.test(afterBullet);
+    if (hasNumberListing) {
+      return false;
+    }
+    return true;
+  });
+  
+  let res = filtered.join('\n');
+  // Clean empty header lines left hanging
+  res = res.replace(/(?:^|\n)[^\n]+(?:top picks|suggested numbers|picks|options|series)[^\n]*:\s*(?=\n\s*\n|\s*$)/gi, '');
+  return res.trim();
+}
+
 // ─────────────────────────────────────────────────────────────────
 // MAIN EXPORT
 // ─────────────────────────────────────────────────────────────────
@@ -816,17 +855,21 @@ export async function runAgent(opts) {
     }
   }
 
-  // Fetch active promotional coupon for WhatsApp Bot (cached 5 min)
+  // Fetch active promotional coupons for WhatsApp Bot (cached 5 min)
   try {
-    const activeCoupon = await fetchActiveBotCoupon();
-    if (activeCoupon) {
-      customerContext.activeCoupon = activeCoupon;
-      console.log(`[Agent] Active bot coupon loaded: ${activeCoupon.code} (${activeCoupon.discountValue}${activeCoupon.discountType === 'percentage' ? '%' : ' INR'})`);
+    const activeCoupons = await fetchActiveBotCoupons();
+    if (activeCoupons && activeCoupons.length > 0) {
+      customerContext.activeCoupons = activeCoupons;
+      customerContext.activeCoupon = activeCoupons[0];
+      console.log(`[Agent] Active bot coupons loaded (${activeCoupons.length}):`, activeCoupons.map(c => c.code).join(', '));
     } else {
+      customerContext.activeCoupons = [];
       customerContext.activeCoupon = null;
     }
   } catch (couponErr) {
-    console.warn('[Agent] Could not load bot coupon:', couponErr.message);
+    console.warn('[Agent] Could not load bot coupons:', couponErr.message);
+    customerContext.activeCoupons = [];
+    customerContext.activeCoupon = null;
   }
 
   // Build conversation history for LLM
@@ -863,24 +906,104 @@ export async function runAgent(opts) {
   console.log('[Agent] Raw (' + usedModel + '):', agentText.substring(0, 500));
 
   const searchJSON = extractSearchJSON(agentText);
-  let conversationalText = cleanMarkdownTables(stripSearchJSON(agentText));
+  let conversationalText = sanitizeHallucinatedNumbers(cleanMarkdownTables(stripSearchJSON(agentText)));
   const conversationalIntro = conversationalText;
 
   if (searchJSON !== undefined) {
     console.log('[Agent] Searching with:', JSON.stringify(searchJSON));
     try {
-      const result = await fetchNumbers(searchJSON, page);
+      let result = await fetchNumbers(searchJSON, page);
+      let fallbackNote = '';
+      let effectiveSearchJSON = searchJSON;
+
+      // Smart multi-step search relaxation if 0 results
+      if ((!result.products || result.products.length === 0) && page === 1) {
+        console.log('[Agent] Initial search yielded 0 results. Running smart relaxation...');
+
+        // 1. Both category AND maxPrice present: relax narrow category to find numbers in requested budget!
+        if (searchJSON.category && searchJSON.maxPrice) {
+          const relaxedA = { ...searchJSON };
+          delete relaxedA.category;
+          const resA = await fetchNumbers(relaxedA, 1);
+          if (resA.products && resA.products.length > 0) {
+            result = resA;
+            effectiveSearchJSON = relaxedA;
+            const catName = formatCategoryName(searchJSON.category);
+            const budgetFormatted = Number(searchJSON.maxPrice).toLocaleString('en-IN');
+            if (lang === 'English') {
+              fallbackNote = `\n\n📌 *Note:* Pure ${catName} start in higher luxury price tiers. However, here are outstanding VIP numbers available within your *₹${budgetFormatted}* budget:`;
+            } else if (lang === 'Hindi') {
+              fallbackNote = `\n\n📌 *नोट:* ${catName} लक्ज़री सेगमेंट में आते हैं। लेकिन आपके *₹${budgetFormatted}* के बजट में ये शानदार VIP नंबर उपलब्ध हैं:`;
+            } else {
+              fallbackNote = `\n\n📌 *Note:* Pure ${catName} luxury segment mein aate hain. Lekin aapke *₹${budgetFormatted}* ke budget mein ye shandar VIP numbers available hain:`;
+            }
+          } else {
+            // Try doubling numbers within budget
+            const relaxedB = { category: 'doubling-numbers', maxPrice: searchJSON.maxPrice };
+            const resB = await fetchNumbers(relaxedB, 1);
+            if (resB.products && resB.products.length > 0) {
+              result = resB;
+              effectiveSearchJSON = relaxedB;
+              const budgetFormatted = Number(searchJSON.maxPrice).toLocaleString('en-IN');
+              if (lang === 'English') {
+                fallbackNote = `\n\n📌 *Note:* Here are premium Doubling VIP numbers available within your *₹${budgetFormatted}* budget:`;
+              } else {
+                fallbackNote = `\n\n📌 *Note:* Aapke *₹${budgetFormatted}* budget ke andar ye shandar Doubling VIP numbers available hain:`;
+              }
+            }
+          }
+        }
+
+        // 2. Category + restrictive sub-filters (scoreSum, anywhere, endsWith) had 0 results
+        else if (searchJSON.category && (searchJSON.scoreSum || searchJSON.anywhere || searchJSON.endsWith || searchJSON.digitFreq1Digit)) {
+          const relaxedC = { category: searchJSON.category };
+          const resC = await fetchNumbers(relaxedC, 1);
+          if (resC.products && resC.products.length > 0) {
+            result = resC;
+            effectiveSearchJSON = relaxedC;
+            const catName = formatCategoryName(searchJSON.category);
+            if (lang === 'English') {
+              fallbackNote = `\n\n📌 *Note:* That exact sub-pattern combination in ${catName} is currently unavailable, but here are the top available ${catName}:`;
+            } else {
+              fallbackNote = `\n\n📌 *Note:* Is exact combination mein abhi number available nahi hai, par is category ke top VIP numbers ye rahe:`;
+            }
+          }
+        }
+
+        // 3. Digit pattern + scoreSum had 0 results: search digits directly without scoreSum
+        else if (searchJSON.scoreSum && (searchJSON.anywhere || searchJSON.endsWith || searchJSON.startsWith)) {
+          const relaxedD = { anywhere: searchJSON.anywhere, endsWith: searchJSON.endsWith, startsWith: searchJSON.startsWith };
+          const resD = await fetchNumbers(relaxedD, 1);
+          if (resD.products && resD.products.length > 0) {
+            result = resD;
+            effectiveSearchJSON = relaxedD;
+            if (lang === 'English') {
+              fallbackNote = `\n\n📌 *Note:* Here are top numbers featuring your requested digits:`;
+            } else {
+              fallbackNote = `\n\n📌 *Note:* Aapke pasandeeda digits ke saath ye top VIP numbers available hain:`;
+            }
+          }
+        }
+      }
+
       const productsBlock = formatProducts(
         result.products, result.totalCount, result.currentPage, result.totalPages, lang
       );
+
       if (productsBlock) {
-        conversationalText = conversationalText
-          ? (conversationalText + '\n\n' + productsBlock)
-          : productsBlock;
+        if (fallbackNote) {
+          conversationalText = conversationalText
+            ? (conversationalText + fallbackNote + '\n\n' + productsBlock)
+            : (fallbackNote.trim() + '\n\n' + productsBlock);
+        } else {
+          conversationalText = conversationalText
+            ? (conversationalText + '\n\n' + productsBlock)
+            : productsBlock;
+        }
         return {
           reply: conversationalText,
           conversationalIntro: conversationalIntro,
-          searchJSON: searchJSON,
+          searchJSON: effectiveSearchJSON,
           model: usedModel,
           escalate: false,
           totalCount: result.totalCount,
@@ -888,20 +1011,41 @@ export async function runAgent(opts) {
           currentPage: result.currentPage,
         };
       } else {
-        let noResults;
+        // Engaging consultative follow-up — NEVER an abrupt dead-end!
+        let engagingFollowUp;
         if (lang === 'English') {
-          noResults = '\n\n\uD83D\uDE14 No numbers found for this exact search right now. Try adjusting budget or pattern!';
+          engagingFollowUp = `\n\nThe exact combination you're looking for isn't in our active inventory right now.\n\n` +
+            `Don't worry at all! We have over 1 Lakh+ VIP mobile numbers in our collection. Tell me:\n` +
+            `🔹 Do you have any favourite digits (like 9, 7, 5, or 0)?\n` +
+            `🔹 Would you like to see popular styles like Doubling, 786 series, or your Lucky Sum?\n\n` +
+            `Tell me your preference and I'll find the best options for you right away! 😊`;
         } else if (lang === 'Hindi') {
-          noResults = '\n\n\uD83D\uDE14 इस सर्च के लिए अभी कोई नंबर उपलब्ध नहीं है। कृपया बजट या पैटर्न थोड़ा बदलकर देखें!';
+          engagingFollowUp = `\n\nआपके द्वारा मांगा गया सटीक कॉम्बिनेशन अभी हमारे एक्टिव स्टॉक में उपलब्ध नहीं है।\n\n` +
+            `लेकिन चिंता की कोई बात नहीं! हमारे पास 1 लाख से अधिक VIP नंबर्स का विशाल संग्रह है। आप मुझे बताइए:\n` +
+            `🔹 आपका कोई पसंदीदा अंक है (जैसे 9, 7, 5 या 0)?\n` +
+            `🔹 या आप डबलिंग, 786 सीरीज़ या अपने लकी सम में नंबर देखना चाहेंगे?\n\n` +
+            `आप बताइए, मैं तुरंत आपके लिए बेहतरीन विकल्प निकाल कर दिखाती हूँ! 😊`;
         } else if (lang === 'Gujarati') {
-          noResults = '\n\n\uD83D\uDE14 આ સર્ચ માટે અત્યારે કોઈ નંબર મળ્યો નથી. કૃપા કરીને બજેટ અથવા પેટર્ન થોડું બદલીને જુઓ!';
+          engagingFollowUp = `\n\nતમે જે ચોક્કસ કોમ્બિનેશન માંગ્યું છે તે અત્યારે અમારા સ્ટોકમાં ઉપલબ્ધ નથી.\n\n` +
+            `પણ ચિંતા ના કરશો! અમારી પાસે 1 લાખથી વધુ VIP નંબર્સ છે. તમે મને કહો:\n` +
+            `🔹 તમારો કોઈ ફેવરિટ નંબર છે (જેમ કે 9, 7, 5, 0)?\n` +
+            `🔹 કે પછી ડબલિંગ, 786 સીરીઝ અથવા લકી સમમાં નંબર જોવા છે?\n\n` +
+            `તમે જણાવો, હું તરત જ તમારા માટે બેસ્ટ ઓપ્શન્સ શોધી આપું છું! 😊`;
         } else if (lang === 'Marathi') {
-          noResults = '\n\n\uD83D\uDE14 या शोधासाठी सध्या कोणताही नंबर उपलब्ध नाही. कृपया बजेट किंवा पॅटर्न थोडा बदलून पहा!';
+          engagingFollowUp = `\n\nतुम्ही मागितलेले कॉम्बिनेशन सध्या आमच्या उपलब्ध साठ्यात उपलब्ध नाही.\n\n` +
+            `पण काळजी करू नका! आमच्याकडे 1 लाखांहून अधिक VIP नंबर्स आहेत. मला सांगा:\n` +
+            `🔹 तुमचा कोणताही आवडता अंक आहे का (उदा. 9, 7, 5, किंवा 0)?\n` +
+            `🔹 की तुम्हाला डबलિંગ, 786 सीरिज किंवा तुमच्या लकी सममधील नंबर पाहायचे आहेत?\n\n` +
+            `तुम्ही सांगा, मी लगेच तुमच्यासाठी सर्वोत्तम पर्याय शोधून देते! 😊`;
         } else {
-          noResults = '\n\n\uD83D\uDE14 Is exact search se koi number nahi mila. Budget thoda badhao ya pattern change karo!';
+          engagingFollowUp = `\n\nAapne jo exact combination manga hai, woh is waqt hamare active collection mein available nahi hai.\n\n` +
+            `Lekin fikar bilkul mat kijiye! Hamare paas 1 Lakh+ VIP numbers hain. Aap mujhe batayein:\n` +
+            `🔹 Aapka koi favourite digit hai (jaise 9, 7, 5, 0)?\n` +
+            `🔹 Ya kisi specific category jaise Doubling, 786 series, ya apne Lucky Sum mein number dekhna chahenge?\n\n` +
+            `Aap jo bataenge, main turant best options nikal ke dikhati hoon! 😊`;
         }
-        conversationalText = conversationalText + noResults;
-        return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: searchJSON, model: usedModel, escalate: false };
+        conversationalText = conversationalText ? (conversationalText + engagingFollowUp) : engagingFollowUp.trim();
+        return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: null, model: usedModel, escalate: false };
       }
     } catch (searchErr) {
       console.error('[Agent] Search failed:', searchErr.message);
