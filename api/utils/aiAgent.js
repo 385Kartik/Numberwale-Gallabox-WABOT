@@ -9,6 +9,7 @@
  */
 import { fetchNumbers } from './searchApi.js';
 import { fetchProductByNumber, fetchActiveBotCoupon } from './paymentUtils.js';
+import { detectLanguage } from './agentEngine.js';
 
 export function cleanCustomerName(rawName) {
   if (!rawName || typeof rawName !== 'string') return null;
@@ -119,7 +120,19 @@ export function buildSystemPrompt(ctx) {
   const isFirst = !ctx || !ctx.history || ctx.history.length === 0;
   const af = ctx && ctx.activeFilters && Object.keys(ctx.activeFilters).length > 0
     ? JSON.stringify(ctx.activeFilters) : null;
-  const customerTitle = name ? `${name} bhai` : 'ji';
+  let customerTitle = 'Sir';
+  if (lang === 'English') {
+    customerTitle = name || 'Sir';
+  } else if (lang === 'Hindi') {
+    customerTitle = name ? `${name} जी` : 'जी';
+  } else if (lang === 'Marathi') {
+    customerTitle = name ? `${name} भाऊ` : 'मंडळी';
+  } else if (lang === 'Gujarati') {
+    customerTitle = name ? `${name} ભાઈ` : 'ભાઈ';
+  } else {
+    // Hinglish
+    customerTitle = name ? `${name} bhai` : 'ji';
+  }
 
   const L = [];
   L.push('You are NM Assistant, Senior VIP Mobile Number Consultant at Numberwale.');
@@ -127,10 +140,30 @@ export function buildSystemPrompt(ctx) {
   L.push('');
   L.push('## PERSONA & SPEAKING STYLE (CRITICAL — READ CAREFULLY)');
   L.push('You talk like an elite, warm, consultative luxury sales consultant on WhatsApp. NEVER sound like a robotic answering machine, menu bot, or computer program.');
-  L.push('- Address the client warmly and politely as "' + customerTitle + '" (or "' + (name || 'Sir') + '" in English).');
-  L.push('- Natural conversational tone: Use natural, confident, enthusiastic Hinglish (or Gujarati/English if preferred by customer).');
+  L.push(`- Address the client warmly and politely as "${customerTitle}".`);
+  if (lang === 'English') {
+    L.push('- 🚨 STRICT LANGUAGE REQUIREMENT: The customer is communicating in ENGLISH. You MUST write your ENTIRE response in 100% natural, fluent, elegant, and professional ENGLISH. Absolutely NO Hindi or Hinglish words (never use "bhai", "ji", "shubh", "mil jaayega", "options dekh lijiye", etc.).');
+  } else if (lang === 'Hindi') {
+    L.push('- 🚨 STRICT LANGUAGE REQUIREMENT: The customer is communicating in HINDI. You MUST write your ENTIRE response in polite, respectful HINDI using Devanagari script.');
+  } else if (lang === 'Gujarati') {
+    L.push('- 🚨 STRICT LANGUAGE REQUIREMENT: The customer is communicating in GUJARATI. You MUST write your ENTIRE response in warm, respectful GUJARATI.');
+  } else if (lang === 'Marathi') {
+    L.push('- 🚨 STRICT LANGUAGE REQUIREMENT: The customer is communicating in MARATHI. You MUST write your ENTIRE response in polite, helpful MARATHI.');
+  } else {
+    L.push('- 🚨 STRICT LANGUAGE REQUIREMENT: The customer is communicating in HINGLISH. You MUST write your response in natural, warm, modern conversational HINGLISH.');
+  }
   L.push('- Keep messages bite-sized & readable: 2-3 friendly, consultative sentences before presenting numbers. Never write long essays or walls of text.');
-  L.push('- Always end with a helpful, engaging human closing question (e.g. "Aapko inme se kaunsa pattern sabse best lag raha hai?", "Kaunsa number reserve karein?").');
+  if (lang === 'English') {
+    L.push('- Always end with a helpful, engaging human closing question (e.g. "Which of these patterns catches your eye?", "Shall I reserve one of these for you?").');
+  } else if (lang === 'Hindi') {
+    L.push('- Always end with a helpful, engaging human closing question (e.g. "इनमें से कौन सा नंबर आपको सबसे अच्छा लग रहा है?", "क्या इनमें से कोई नंबर आपके लिए बुक करें?").');
+  } else if (lang === 'Gujarati') {
+    L.push('- Always end with a helpful, engaging human closing question (e.g. "આમાંથી કયો નંબર તમને સૌથી વધુ પસંદ આવ્યો?", "શું આમાંથી કોઈ નંબર બુક કરવો છે?").');
+  } else if (lang === 'Marathi') {
+    L.push('- Always end with a helpful, engaging human closing question (e.g. "यापैकी कोणता नंबर तुम्हाला सर्वात जास्त आवडला?", "यातला कोणता नंबर बुक करायचा आहे?").');
+  } else {
+    L.push('- Always end with a helpful, engaging human closing question (e.g. "Aapko inme se kaunsa pattern sabse best lag raha hai?", "Kaunsa number reserve karein?").');
+  }
   L.push('');
   L.push('## STRICT ANTI-ROBOTIC RULES');
   L.push('1. NEVER repeat calculations, arithmetic steps (like "0+3+0+8=..."), or planet definitions if already given earlier in the conversation!');
@@ -141,13 +174,23 @@ export function buildSystemPrompt(ctx) {
   L.push('');
   L.push('## IDENTITY & CREATOR');
   L.push('If customer asks "who made you", "who created you", "who are you", "are you chatgpt/openai/ai":');
-  L.push('Always reply: "I am Numberwale\'s official AI assistant, created by Kartik Parmar to assist you in finding and booking your perfect VIP mobile number! 😊"');
+  if (lang === 'English') {
+    L.push('Always reply: "I am Numberwale\'s official AI assistant, created by Kartik Parmar to assist you in finding and booking your perfect VIP mobile number! 😊"');
+  } else if (lang === 'Hindi') {
+    L.push('Always reply: "मैं Numberwale का आधिकारिक AI सहायक हूँ, जिसे Kartik Parmar द्वारा आपके लिए सबसे बेहतरीन VIP मोबाइल नंबर खोजने और बुक करने के लिए बनाया गया है! 😊"');
+  } else if (lang === 'Gujarati') {
+    L.push('Always reply: "હું Numberwale નો ઑફિશિયલ AI સહાયક છું, જેને Kartik Parmar દ્વારા તમારા માટે શ્રેષ્ઠ VIP મોબાઇલ નંબર શોધવા અને બુક કરવામાં મદદ કરવા માટે બનાવવામાં આવ્યો છે! 😊"');
+  } else if (lang === 'Marathi') {
+    L.push('Always reply: "मी Numberwale चा अधिकृत AI सहाय्यक आहे, ज्याला Kartik Parmar यांनी तुमच्यासाठी सर्वोत्तम VIP मोबाईल नंबर शोधण्यात आणि बुक करण्यात मदत करण्यासाठी बनवले आहे! 😊"');
+  } else {
+    L.push('Always reply: "Main Numberwale ka official AI assistant hun, jise Kartik Parmar ne create kiya hai aapko perfect VIP mobile number dhoondhne aur book karne mein assist karne ke liye! 😊"');
+  }
   L.push('⚠️ NEVER say you are OpenAI, ChatGPT, Groq, Meta, or Llama! You are exclusively Numberwale\'s assistant created by Kartik Parmar.');
   L.push('');
-  L.push('## LANGUAGE');
-  L.push('Default language: English. Also support Gujarati if customer writes in Gujarati.');
-  L.push('If customer writes in Hindi/Hinglish, you may respond in Hinglish naturally.');
-  L.push('Detected preference: ' + lang);
+  L.push('## LANGUAGE POLICY (STRICT MIRRORING)');
+  L.push(`- Customer's active language: **${lang.toUpperCase()}**`);
+  L.push(`- You MUST write your ENTIRE conversational message in **${lang}**.`);
+  L.push('- Strictly NEVER switch to another language unless customer specifically switches language in their message.');
   L.push(name ? 'Customer name: ' + name : 'Customer name: Unknown');
   L.push('');
   L.push('## NUMBERWALE FACTS (use strictly, never guess)');
@@ -188,14 +231,30 @@ export function buildSystemPrompt(ctx) {
     if (ctx.justSharedDOB) {
       L.push('Customer JUST shared their date of birth in this message.');
       L.push('Guidelines for this response:');
-      L.push(`1. Celebrate their numbers warmly in 2 lines (e.g. "Aapka Birth Number *${bNum}* (${bPlanet}) hai aur Life Path *${lpNum}* (${lpPlanet})! Dono hi bahut shubh vibrations hain.").`);
-      L.push(`2. Present numbers matching Life Path total ${lpNum} (or Birth Number ${bNum}). If customer was discussing a specific category (e.g. ABC-ABC, mirror), COMBINE IT in SEARCH_JSON:{"category":"...","scoreSum":${lpNum}}!`);
-      L.push('3. Softly add: "Agar aapko detailed reading dekhni ho, toh report bhi check kar sakte hain: https://www.numberwale.com/numerology"');
+      if (lang === 'English') {
+        L.push(`1. Celebrate their numbers warmly in 2 lines (e.g. "Your Birth Number is *${bNum}* (${bPlanet}) and Life Path Number is *${lpNum}* (${lpPlanet})! Both carry strong, positive vibrations.").`);
+        L.push(`2. Present numbers matching Life Path total ${lpNum} (or Birth Number ${bNum}). If customer was discussing a specific category (e.g. ABC-ABC, mirror), COMBINE IT in SEARCH_JSON:{"category":"...","scoreSum":${lpNum}}!`);
+        L.push('3. Softly add: "If you would like to explore your comprehensive numerology reading, you can also view your report here: https://www.numberwale.com/numerology"');
+      } else if (lang === 'Hindi') {
+        L.push(`1. Celebrate their numbers warmly in 2 lines (e.g. "आपका बर्थ नंबर *${bNum}* (${bPlanet}) है और लाइफ पाथ नंबर *${lpNum}* (${lpPlanet}) है! दोनों ही बहुत शुभ ऊर्जा लेकर आते हैं।").`);
+        L.push(`2. Present numbers matching Life Path total ${lpNum} (or Birth Number ${bNum}). If customer was discussing a specific category (e.g. ABC-ABC, mirror), COMBINE IT in SEARCH_JSON:{"category":"...","scoreSum":${lpNum}}!`);
+        L.push('3. Softly add: "यदि आप अपनी विस्तृत अंकशास्त्र रिपोर्ट देखना चाहते हैं, तो यहाँ देख सकते हैं: https://www.numberwale.com/numerology"');
+      } else {
+        L.push(`1. Celebrate their numbers warmly in 2 lines (e.g. "Aapka Birth Number *${bNum}* (${bPlanet}) hai aur Life Path *${lpNum}* (${lpPlanet})! Dono hi bahut shubh vibrations hain.").`);
+        L.push(`2. Present numbers matching Life Path total ${lpNum} (or Birth Number ${bNum}). If customer was discussing a specific category (e.g. ABC-ABC, mirror), COMBINE IT in SEARCH_JSON:{"category":"...","scoreSum":${lpNum}}!`);
+        L.push('3. Softly add: "Agar aapko detailed reading dekhni ho, toh report bhi check kar sakte hain: https://www.numberwale.com/numerology"');
+      }
     } else {
       L.push('⚠️ STRICT ANTI-REPETITION RULE:');
       L.push('- DO NOT re-calculate, DO NOT show addition steps (like "0+3+0+8=..."), and DO NOT repeat planet definitions!');
       L.push('- DO NOT paste the numerology report link note again!');
-      L.push(`- Speak naturally like a human consultant: "Arre bilkul ${customerTitle}! Aapke lucky sum ${lpNum} ke hisaab se yeh rahe top [Category] options:"`);
+      if (lang === 'English') {
+        L.push(`- Speak naturally like a human consultant: "Certainly ${customerTitle}! Based on your lucky sum ${lpNum}, here are the top options:"`);
+      } else if (lang === 'Hindi') {
+        L.push(`- Speak naturally like a human consultant: "बिल्कुल ${customerTitle}! आपके लकी सम ${lpNum} के अनुसार ये रहे बेहतरीन विकल्प:"`);
+      } else {
+        L.push(`- Speak naturally like a human consultant: "Arre bilkul ${customerTitle}! Aapke lucky sum ${lpNum} ke hisaab se yeh rahe top [Category] options:"`);
+      }
     }
   } else {
     L.push('Planets per scoreSum: 1=Sun (Leadership), 2=Moon (Harmony), 3=Jupiter (Wisdom/Growth), 4=Rahu (Innovation), 5=Mercury (Business/Sales), 6=Venus (Luxury/Fame), 7=Ketu (Spiritual), 8=Saturn (Stability), 9=Mars (Dynamic Energy/Action)');
@@ -292,13 +351,23 @@ export function buildSystemPrompt(ctx) {
         const ac = ctx.activeCoupon;
         const discountText = ac.discountType === 'percentage' ? `${ac.discountValue}% extra discount` : `₹${ac.discountValue} flat extra discount`;
         const minNote = ac.minOrderValue > 0 ? ` (valid on cart value above ₹${ac.minOrderValue.toLocaleString('en-IN')})` : '';
-        L.push('3. If customer asks "kitna final hoga", "discount", "kam karo", or for the rate:');
-        L.push(`   - Explain that ${priceGst} is already up to 50% discounted on Numberwale.`);
-        L.push(`   - BUT warmly offer them our exclusive coupon code: *${ac.code}* for ${discountText}${minNote} on checkout cart!`);
-        L.push(`   - Tell them to click the booking link and enter coupon *${ac.code}* in cart to apply the discount.`);
+        L.push('3. If customer asks about price, final rate, discount, or negotiations ("kitna final hoga", "best price", "discount", "kam karo"):');
+        if (lang === 'English') {
+          L.push(`   - Explain in English that ${priceGst} is already up to 50% discounted on Numberwale.`);
+          L.push(`   - BUT warmly offer them our exclusive coupon code: *${ac.code}* for ${discountText}${minNote} on checkout cart!`);
+          L.push(`   - Instruct them to click the booking link and apply coupon *${ac.code}* in cart to claim the savings.`);
+        } else {
+          L.push(`   - Explain that ${priceGst} is already up to 50% discounted on Numberwale.`);
+          L.push(`   - BUT warmly offer them our exclusive coupon code: *${ac.code}* for ${discountText}${minNote} on checkout cart!`);
+          L.push(`   - Tell them to click the booking link and enter coupon *${ac.code}* in cart to apply the discount.`);
+        }
       } else {
-        L.push('3. If customer asks "kitna final hoga", "discount", "kam karo", or for the rate:');
-        L.push(`   Explain warmly that ${priceGst} is already our best direct discounted price on Numberwale, complete with 18% GST invoice and 100% money-back guarantee.`);
+        L.push('3. If customer asks about price, final rate, discount, or negotiations ("kitna final hoga", "best price", "discount", "kam karo"):');
+        if (lang === 'English') {
+          L.push(`   Explain warmly in English that ${priceGst} is already our best direct discounted price on Numberwale, complete with 18% GST invoice and 100% money-back guarantee.`);
+        } else {
+          L.push(`   Explain warmly that ${priceGst} is already our best direct discounted price on Numberwale, complete with 18% GST invoice and 100% money-back guarantee.`);
+        }
       }
       L.push(`4. Share the direct reservation link to book the number: https://numberwale.com/cart-add/${tp.number}`);
       L.push('5. Do NOT output SEARCH_JSON when customer is asking about this specific number, unless they ask to see other numbers.');
@@ -319,10 +388,16 @@ export function buildSystemPrompt(ctx) {
     L.push(`- Offer: ${discountText}${minText}${maxText}`);
     L.push('- How it works: Applied in website cart during checkout');
     L.push('');
-    L.push('WHEN CUSTOMER ASKS ABOUT DISCOUNT, "KAM KARO", "FINAL KITNA HOGA", "KOI OFFER HAI", "COUPON":');
-    L.push(`1. Warmly present this exclusive coupon code (*${ac.code}*) so they get extra direct savings (${discountText})!`);
-    L.push('2. Explain that website prices are already up to 50% discounted, but this coupon gives them an extra special discount.');
-    L.push(`3. Provide the booking / cart link and explain that they can enter coupon code *${ac.code}* in the cart to see the discounted total.`);
+    L.push('WHEN CUSTOMER ASKS ABOUT DISCOUNT, "BEST PRICE", "FINAL PRICE", "OFFERS", "COUPON", "KAM KARO":');
+    if (lang === 'English') {
+      L.push(`1. In English, warmly present this exclusive coupon code (*${ac.code}*) so they get extra direct savings (${discountText})!`);
+      L.push('2. Mention that website prices are already up to 50% off, but this coupon gives them an extra special discount.');
+      L.push(`3. Provide the booking / cart link and explain that they can enter coupon code *${ac.code}* in the cart to see the discounted total.`);
+    } else {
+      L.push(`1. Warmly present this exclusive coupon code (*${ac.code}*) so they get extra direct savings (${discountText})!`);
+      L.push('2. Explain that website prices are already up to 50% discounted, but this coupon gives them an extra special discount.');
+      L.push(`3. Provide the booking / cart link and explain that they can enter coupon code *${ac.code}* in the cart to see the discounted total.`);
+    }
   }
 
   return L.join('\n');
@@ -600,15 +675,33 @@ export function formatProducts(products, totalCount, currentPage, totalPages, la
     lines.push('');
   });
 
-  const footer = (lang === 'Hinglish' || lang === 'Hindi')
-    ? '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
-      + (currentPage < totalPages ? '\uD83D\uDD39 Aur dekhne ke liye \u2192 reply *"more"*\n' : '')
-      + '\uD83D\uDD39 Nayi search \u2192 reply *"reset"*\n'
-      + '\uD83D\uDD39 Human agent \u2192 reply *"agent"* or call *9222 222 007*'
-    : '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
+  let footer;
+  if (lang === 'Gujarati') {
+    footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
+      + (currentPage < totalPages ? '\uD83D\uDD39 વધુ જોવા માટે \u2192 reply *"more"*\n' : '')
+      + '\uD83D\uDD39 નવી સર્ચ \u2192 reply *"reset"*\n'
+      + '\uD83D\uDD39 કન્સલ્ટન્ટ સાથે વાત \u2192 reply *"agent"* અથવા કૉલ *9222 222 007*';
+  } else if (lang === 'Marathi') {
+    footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
+      + (currentPage < totalPages ? '\uD83D\uDD39 अजून पाहण्यासाठी \u2192 reply *"more"*\n' : '')
+      + '\uD83D\uDD39 नवीन शोध \u2192 reply *"reset"*\n'
+      + '\uD83D\uDD39 प्रतिनिधीशी संपर्क \u2192 reply *"agent"* किंवा कॉल करा *9222 222 007*';
+  } else if (lang === 'Hindi') {
+    footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
+      + (currentPage < totalPages ? '\uD83D\uDD39 और देखने के लिए \u2192 reply *"more"*\n' : '')
+      + '\uD83D\uDD39 नई खोज \u2192 reply *"reset"*\n'
+      + '\uD83D\uDD39 सहायता के लिए \u2192 reply *"agent"* या कॉल करें *9222 222 007*';
+  } else if (lang === 'English') {
+    footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
       + (currentPage < totalPages ? '\uD83D\uDD39 To see more \u2192 reply *"more"*\n' : '')
       + '\uD83D\uDD39 New search \u2192 reply *"reset"*\n'
       + '\uD83D\uDD39 Human consultant \u2192 reply *"agent"* or call *9222 222 007*';
+  } else {
+    footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
+      + (currentPage < totalPages ? '\uD83D\uDD39 Aur dekhne ke liye \u2192 reply *"more"*\n' : '')
+      + '\uD83D\uDD39 Nayi search \u2192 reply *"reset"*\n'
+      + '\uD83D\uDD39 Human agent \u2192 reply *"agent"* ya call *9222 222 007*';
+  }
 
   return lines.join('\n') + footer;
 }
@@ -676,7 +769,9 @@ export async function runAgent(opts) {
   const userMessage = opts.userMessage;
   const customerContext = opts.customerContext || {};
   const page = opts.page || 1;
-  const lang = (customerContext && customerContext.language) || 'English';
+  const detectedLang = detectLanguage(userMessage, customerContext.language || 'English');
+  customerContext.language = detectedLang;
+  const lang = detectedLang;
   const history = (customerContext && customerContext.history) || [];
 
   // Check if current user message shares DOB
@@ -745,11 +840,18 @@ export async function runAgent(opts) {
     llmResult = await callLLM(systemPrompt, messages);
   } catch (err) {
     console.error('[Agent] All LLM slots failed:', err.message);
-    const fallbackReply = (lang === 'English')
-      ? 'Sorry, I\'m having a brief technical issue. Please try again in a moment or call *+91 9222 222 007*. \uD83D\uDE4F'
-      : (lang === 'Hindi')
-      ? 'Maafi chahta hun, abhi thodi technical problem hai. Thodi der baad try karein ya *9222 222 007* pe call karein. \uD83D\uDE4F'
-      : 'Oops! Abhi thodi technical dikkat hai. Thodi der baad try karo ya *9222 222 007* pe call karo. \uD83D\uDE4F';
+    let fallbackReply;
+    if (lang === 'English') {
+      fallbackReply = "Sorry, I'm having a brief technical issue. Please try again in a moment or call *+91 9222 222 007*. \uD83D\uDE4F";
+    } else if (lang === 'Hindi') {
+      fallbackReply = "माफ़ी चाहता हूँ, अभी थोड़ी तकनीकी समस्या है। कृपया थोड़ी देर बाद पुनः प्रयास करें या *9222 222 007* पर कॉल करें। \uD83D\uDE4F";
+    } else if (lang === 'Gujarati') {
+      fallbackReply = "માફ કરશો, અત્યારે થોડી તકનીકી સમસ્યા છે. કૃપા કરીને થોડીવાર પછી ફરી પ્રયાસ કરો અથવા *9222 222 007* પર કૉલ કરો. \uD83D\uDE4F";
+    } else if (lang === 'Marathi') {
+      fallbackReply = "क्षमस्व, सध्या थोडी तांत्रिक अडचण आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा किंवा *9222 222 007* वर कॉल करा. \uD83D\uDE4F";
+    } else {
+      fallbackReply = "Oops! Abhi thodi technical dikkat hai. Thodi der baad try karo ya *9222 222 007* pe call karo. \uD83D\uDE4F";
+    }
     return { reply: fallbackReply, conversationalIntro: fallbackReply, searchJSON: null, model: 'fallback', escalate: false };
   }
 
@@ -784,9 +886,18 @@ export async function runAgent(opts) {
           currentPage: result.currentPage,
         };
       } else {
-        const noResults = (lang === 'English')
-          ? '\n\n\uD83D\uDE14 No numbers found for this exact search right now. Try adjusting budget or pattern!'
-          : '\n\n\uD83D\uDE14 Is exact search se koi number nahi mila. Budget thoda badhao ya pattern change karo!';
+        let noResults;
+        if (lang === 'English') {
+          noResults = '\n\n\uD83D\uDE14 No numbers found for this exact search right now. Try adjusting budget or pattern!';
+        } else if (lang === 'Hindi') {
+          noResults = '\n\n\uD83D\uDE14 इस सर्च के लिए अभी कोई नंबर उपलब्ध नहीं है। कृपया बजट या पैटर्न थोड़ा बदलकर देखें!';
+        } else if (lang === 'Gujarati') {
+          noResults = '\n\n\uD83D\uDE14 આ સર્ચ માટે અત્યારે કોઈ નંબર મળ્યો નથી. કૃપા કરીને બજેટ અથવા પેટર્ન થોડું બદલીને જુઓ!';
+        } else if (lang === 'Marathi') {
+          noResults = '\n\n\uD83D\uDE14 या शोधासाठी सध्या कोणताही नंबर उपलब्ध नाही. कृपया बजेट किंवा पॅटर्न थोडा बदलून पहा!';
+        } else {
+          noResults = '\n\n\uD83D\uDE14 Is exact search se koi number nahi mila. Budget thoda badhao ya pattern change karo!';
+        }
         conversationalText = conversationalText + noResults;
         return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: searchJSON, model: usedModel, escalate: false };
       }

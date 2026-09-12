@@ -622,11 +622,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // Ensure language is set for ACTIVE users (default English)
-    if (!customerContext.language) {
-      customerContext.language = 'English';
-      updateCustomerInfo(customerPhone, { language: 'English' }).catch(() => {});
-    }
+    // Detect language dynamically for active users per turn
+    const detectedLang = detectLanguage(userMessage, customerContext.language || 'English');
+    customerContext.language = detectedLang;
+    updateCustomerInfo(customerPhone, { language: detectedLang }).catch(() => {});
 
     // If state is ACTIVE, proceed normally
     let jsonQuery;
@@ -871,10 +870,9 @@ export default async function handler(req, res) {
 
     // ── Unified AI Agent (ChatGPT-style conversational handler) ─────────────
     } else {
-      // Update language detection for active users
+      // Language is already dynamically updated per turn above; ensure context consistency
       if (!customerContext.language) {
-        customerContext.language = detectLanguage(userMessage);
-        updateCustomerInfo(customerPhone, { language: customerContext.language }).catch(() => {});
+        customerContext.language = 'English';
       }
 
       const t0Ai = Date.now();

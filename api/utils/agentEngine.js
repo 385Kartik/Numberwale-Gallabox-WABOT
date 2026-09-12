@@ -150,32 +150,48 @@ export function calculateNumerology(text) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. INTENT DETECTOR & LANGUAGE DETECTION
 // ─────────────────────────────────────────────────────────────────────────────
-export function detectLanguage(text) {
-  if (!text) return 'Hinglish';
-  // Devanagari script (Hindi or Marathi)
-  if (/[\u0900-\u097F]/.test(text)) {
-    if (/\b(आहे|नाही|कसा|कशी|करा|हवा|हवे|घ्यायचा|घ्यायचे|नमस्कार)\b/.test(text)) {
+export function detectLanguage(text, prevLang = 'English') {
+  if (!text || !text.trim()) return prevLang;
+  const t = text.trim();
+
+  // 1. Script-based detection
+  // Gujarati script
+  if (/[\u0A80-\u0AFF]/.test(t)) return 'Gujarati';
+
+  // Devanagari script (Hindi / Marathi) - Note: Do not use \b with Devanagari in JS regex
+  if (/[\u0900-\u097F]/.test(t)) {
+    if (/(?:आहे|नाही|कसा|कशी|करा|हवा|हवे|घ्यायचा|घ्यायचे|नमस्कार|पाहिजे|धन्यवाद)/.test(t)) {
       return 'Marathi';
     }
     return 'Hindi';
   }
-  // Gujarati script
-  if (/[\u0A80-\u0AFF]/.test(text)) {
+
+  // 2. Pure numbers or short neutral greetings/commands: retain previous language
+  if (/^[\d\s\-\+\(\)]+$/.test(t) || /^(more|reset|menu|agent|hi|hello|hey|ok|okay|sure|thanks|thank you)$/i.test(t)) {
+    return prevLang || 'English';
+  }
+
+  const lower = t.toLowerCase();
+
+  // 3. Roman Gujarati
+  if (/\b(kem\s*cho|maja\s*ma|chhe|chho|joye|joyie|aapo|tamare|tamne|mane|ketla|nathi|su\s*bhav|shu\s*bhav|bhav\s*shu)\b/i.test(lower)) {
     return 'Gujarati';
   }
-  // Roman Gujarati indicators
-  if (/\b(kem cho|maja ma|bhai joye|aapo|karo|chhe)\b/i.test(text)) {
-    return 'Gujarati';
-  }
-  // Roman Marathi indicators
-  if (/\b(kasa ahes|kay karto|pahije|havay|aahe)\b/i.test(text)) {
+
+  // 4. Roman Marathi
+  if (/\b(kasa\s*aahes|kasa\s*ahes|aahe|pahije|havay|kiti\s*padel|dya|sang|bol)\b/i.test(lower)) {
     return 'Marathi';
   }
-  // Explicit Pure English
-  if (/^(hi|hello|hey|can you|i want|please show|do you have|what is|how much)\b/i.test(text) && !/\b(chahiye|batao|karo|hai|hoga|bhai|kaisa|milega|kitna)\b/i.test(text)) {
-    return 'English';
+
+  // 5. Roman Hindi / Hinglish indicators
+  const hinglishRegex = /\b(hai|hain|ho|kya|kyu|kyun|kaise|kaisa|kaisi|chahiye|chahie|batao|bataiye|dikhao|dikhaye|dekhna|milega|milegi|kitna|kitne|kitni|kam\s*karo|thoda|bhai|bhaiya|sirji|mujhe|humko|hume|mera|meri|mere|apna|apni|apne|kuch|achha|accha|shubh|janam|naam|bhejo|saste|hoga|hogi|hoge|lena|lenahai|dena|karna|wala|wali|wale|bhi|toh|aur|ek|do|teen|char|paanch|chhe|saat|aath|nau|das|shukriya|dhanyawad)\b/i;
+
+  if (hinglishRegex.test(lower)) {
+    return 'Hinglish';
   }
-  return 'Hinglish';
+
+  // 6. If no Indian language keywords found -> English!
+  return 'English';
 }
 
 export function detectCustomerIntent(rawMsg) {
