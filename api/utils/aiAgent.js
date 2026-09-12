@@ -8,6 +8,41 @@
  * Returns: { reply, searchJSON, model, escalate, totalCount, totalPages, currentPage }
  */
 import { fetchNumbers } from './searchApi.js';
+import { fetchProductByNumber } from './paymentUtils.js';
+
+export function cleanCustomerName(rawName) {
+  if (!rawName || typeof rawName !== 'string') return null;
+  let name = rawName.trim();
+  if (!name || /^(unknown|null|undefined|none)$/i.test(name)) return null;
+
+  // Remove common brand/admin terms like "Numberwale", "Number Wale", "NW", "Admin", "VIP"
+  name = name.replace(/\b(?:numberwale|number\s*wale|nw|admin|vip|store|shop)\b/gi, '');
+  // Replace punctuation/separators (-, _, |, :, etc.) with spaces
+  name = name.replace(/[-_\|\:\,\.\(\)\[\]\/\\]+/g, ' ');
+  // Remove non-letter characters (preserve unicode letters for Hindi/Gujarati/Marathi names)
+  name = name.replace(/[^\p{L}\s]/gu, '');
+  // Collapse spaces
+  name = name.replace(/\s+/g, ' ').trim();
+
+  if (!name || name.length < 2) return null;
+  const parts = name.split(' ');
+  return parts[0];
+}
+
+export function extract10DigitNumber(text) {
+  if (!text) return null;
+  // Match any chunk of digits with optional spaces or hyphens between them (starting with Indian mobile 6-9)
+  const regex = /(?:(?:\+?91[\s-]*)?([6-9][\d\s-]{8,14}\d))/g;
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    const raw = m[1];
+    const digitsOnly = raw.replace(/\D/g, '');
+    if (digitsOnly.length === 10 && /^[6-9]/.test(digitsOnly)) {
+      return digitsOnly;
+    }
+  }
+  return null;
+}
 
 const VALID_CATEGORIES = [
   'without-248-numbers', 'mirror-numbers', 'semi-mirror-numbers',
@@ -78,7 +113,8 @@ const PLANET_GUIDE = {
 };
 
 export function buildSystemPrompt(ctx) {
-  const name = ctx && ctx.name && ctx.name !== 'Unknown' ? ctx.name : null;
+  const rawName = ctx && ctx.name && ctx.name !== 'Unknown' ? ctx.name : null;
+  const name = cleanCustomerName(rawName);
   const lang = (ctx && ctx.language) || 'English';
   const isFirst = !ctx || !ctx.history || ctx.history.length === 0;
   const af = ctx && ctx.activeFilters && Object.keys(ctx.activeFilters).length > 0
@@ -222,6 +258,35 @@ export function buildSystemPrompt(ctx) {
     L.push('- Output SEARCH_JSON:{} to show trending numbers');
   } else {
     L.push('Continuing conversation — skip Numberwale re-introduction.');
+  }
+
+  if (ctx && ctx.targetProduct) {
+    const tp = ctx.targetProduct;
+    if (tp.notFound) {
+      L.push('');
+      L.push('## TARGET NUMBER INQUIRY (SINGLE NUMBER):');
+      L.push(`Customer is asking about the 10-digit number: *${tp.formattedNumber || tp.number}*`);
+      L.push('This number is NOT currently available in our active inventory (might be sold out or unlisted).');
+      L.push('Politely inform the customer that this specific number is currently unavailable or sold out, but offer to search similar patterns or suggest other numbers.');
+      L.push('⚠️ NEVER invent or make up a price for an unavailable number!');
+    } else {
+      const formatted = tp.formattedNumber || tp.number;
+      const priceGst = tp.totalWithGst ? `₹${tp.totalWithGst.toLocaleString('en-IN')}` : `₹${tp.price}`;
+      L.push('');
+      L.push('## TARGET NUMBER INQUIRY (CRITICAL — READ CAREFULLY!)');
+      L.push(`Customer is inquiring about THIS SINGLE 10-DIGIT NUMBER: *${formatted}* (Raw digits: ${tp.number})`);
+      L.push(`- Category: ${tp.category || 'VIP Fancy Number'}`);
+      L.push(`- EXACT Price: ${priceGst} (includes 18% GST and official GST invoice)`);
+      L.push(`- Direct Booking Link: https://numberwale.com/cart-add/${tp.number}`);
+      L.push('');
+      L.push('STRICT MANDATORY RULES FOR THIS INQUIRY:');
+      L.push('1. THIS IS ONE SINGLE 10-DIGIT NUMBER. NEVER SPLIT IT INTO TWO NUMBERS (e.g. NEVER treat "8574 113322" as 8574 and 113322)! NEVER say "dono numbers" or "combined amount"!');
+      L.push(`2. The price is EXACTLY ${priceGst} (including 18% GST). NEVER hallucinate, guess, or invent any other price!`);
+      L.push('3. If customer asks "kitna final hoga", "discount", "kam karo", or for the rate:');
+      L.push(`   Explain warmly that ${priceGst} is already our best direct discounted price on Numberwale, complete with 18% GST invoice and 100% money-back guarantee.`);
+      L.push(`4. Share the direct reservation link to book the number: https://numberwale.com/cart-add/${tp.number}`);
+      L.push('5. Do NOT output SEARCH_JSON when customer is asking about this specific number, unless they ask to see other numbers.');
+    }
   }
 
   return L.join('\n');
@@ -585,6 +650,37 @@ export async function runAgent(opts) {
     customerContext.birthNumber = parsedDOB.birthNumber;
     customerContext.lifePathNumber = parsedDOB.lifePathNumber;
     customerContext.justSharedDOB = true;
+  }
+
+  // Check if message inquires about a specific 10-digit mobile number
+  const detected10Digit = extract10DigitNumber(userMessage);
+  if (detected10Digit) {
+    try {
+      const prod = await fetchProductByNumber(detected10Digit);
+      if (prod) {
+        const subtotal = prod.price || prod.basePrice || 0;
+        const totalWithGst = subtotal ? subtotal + Math.round(subtotal * 0.18) : null;
+        customerContext.targetProduct = {
+          number: prod.number,
+          price: prod.price,
+          basePrice: prod.basePrice,
+          category: prod.category,
+          totalWithGst: totalWithGst,
+          formattedNumber: formatProductNumberForWhatsApp({ productMobileNumber: prod.number }),
+          cartLink: `https://numberwale.com/cart-add/${prod.number}`
+        };
+        console.log(`[Agent] Injected targetProduct: ${prod.number} (Price with GST: ₹${totalWithGst})`);
+      } else {
+        customerContext.targetProduct = {
+          number: detected10Digit,
+          notFound: true,
+          formattedNumber: `${detected10Digit.slice(0, 5)} ${detected10Digit.slice(5)}`
+        };
+        console.log(`[Agent] Target number ${detected10Digit} not found in inventory.`);
+      }
+    } catch (fetchErr) {
+      console.warn('[Agent] Could not fetch target number details:', fetchErr.message);
+    }
   }
 
   // Build conversation history for LLM

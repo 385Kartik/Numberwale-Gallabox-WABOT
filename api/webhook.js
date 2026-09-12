@@ -15,34 +15,42 @@ import {
 } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/gallabox.js';
-import { formatProducts } from './utils/aiAgent.js';
+import { formatProducts, cleanCustomerName, extract10DigitNumber } from './utils/aiAgent.js';
 
 
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
 function extractBuyNumber(text) {
+  if (!text) return null;
+  const num = extract10DigitNumber(text);
+  if (!num) return null;
+
+  const trimmed = text.trim();
+  const lower = trimmed.toLowerCase();
+
+  // Direct buy command: e.g. "buy 8574113322", "book 8574 113322", "b 8574113322"
+  if (/^\s*(?:buy|book|b)\s+/i.test(trimmed)) return num;
+
+  // Words that indicate intent to buy / book / reserve / take
   const buyKeywords = [
-    'buy', 'purchase', 'kharidna', 'kharidne', 'kharid', 'kharidi', 'lenahai', 'lena', 'le', 'want',
-    'खरीदना', 'खरीदें', 'खरीद', 'बाय', 'लेना', 'ખરીદવા', 'ખરીદો', 'બાય', 'લેવો', 'લેવોછે', 'ખરેદી', 'खरेदी', 'घ्यायचा', 'घ्यायचे'
+    'buy', 'purchase', 'kharidna', 'kharidne', 'kharid', 'kharidi', 'lenahai', 'lena', 'lene', 'le',
+    'chahiye', 'chahie', 'chahiye tha', 'chahiye mujhe', 'hawa', 'havo', 'joye', 'joye che',
+    'book', 'booking', 'reserve', 'lock', 'order', 'finalize', 'confirm', 'pay', 'payment', 'cart',
+    'खरीदना', 'खरीदें', 'खरीद', 'बाय', 'लेना', 'चाहिए', 'बुक', 'બુક', 'ખરીદવા', 'ખરીદો', 'બાય', 'લેવો', 'લેવોછે', 'જોઈએ', 'જોઈએ છે', 'ખરેદી', 'खरेदी', 'घ्यायचा', 'घ्यायचे', 'हवा'
   ];
-  
-  const keywordsPattern = buyKeywords.join('|');
-  
-  // Case 1: Keyword before the number
-  const prefixRegex = new RegExp(`(?:${keywordsPattern})\\s*(?:this|it|number)?\\s*([\\d\\s\\-]{10,15})`, 'i');
-  
-  // Case 2: Number before the keyword
-  const suffixRegex = new RegExp(`([\\d\\s\\-]{10,15})\\s*(?:this|it|number)?\\s*(?:${keywordsPattern})`, 'i');
 
-  let match = text.trim().match(prefixRegex);
-  if (!match) {
-    match = text.trim().match(suffixRegex);
+  // If user asks a pricing/negotiation inquiry (e.g. "iska kitna final hoga", "rate kya hai", "discount milega")
+  // let it pass to AI agent to answer consultative questions, unless they explicitly wrote a buy/book prefix command
+  const isQuestion = /(?:kitna|kitne|rate|price|cost|discount|kam|available|milega|hoga)\b/i.test(lower);
+  const hasBuyKeyword = buyKeywords.some(kw => {
+    const re = new RegExp('(?:^|\\b|\\s)' + kw + '(?:\\b|\\s|$)', 'i');
+    return re.test(lower) || lower.includes(kw);
+  });
+
+  if (hasBuyKeyword && (!isQuestion || /^\s*(?:buy|book)\b/i.test(trimmed))) {
+    return num;
   }
 
-  if (match) {
-    const cleanNum = match[1].replace(/\D/g, '');
-    if (cleanNum.length === 10) return cleanNum;
-  }
   return null;
 }
 
@@ -309,7 +317,8 @@ export default async function handler(req, res) {
     const lowerMsg = userMessage.toLowerCase().trim();
 
     // Fetch state from MongoDB early
-    const customerName = body?.contact?.name || 'Unknown';
+    const rawCustomerName = body?.contact?.name || 'Unknown';
+    const customerName = cleanCustomerName(rawCustomerName) || 'Unknown';
     const t0Context = Date.now();
     const customerContext = await getCustomerContext(customerPhone, customerName);
     const tContext = Date.now() - t0Context;
@@ -770,7 +779,8 @@ export default async function handler(req, res) {
             `✅ *${labelTotal}: ₹${totalAmount.toLocaleString('en-IN')}*\n\n`;
         }
 
-        const custName = customerContext.name && customerContext.name !== 'Unknown' ? `${customerContext.name} ji` : '';
+        const cleanName = cleanCustomerName(customerContext.name);
+        const custName = cleanName ? `${cleanName} ji` : '';
         let caption = '';
         if (lang === 'Hindi') {
           caption = `🎉 *शानदार चुनाव ${custName}!* यह VIP नंबर आपकी व्यक्तिगत और व्यापारिक पहचान को नई ऊँचाइयों पर ले जाएगा। ✨\n\n` +
