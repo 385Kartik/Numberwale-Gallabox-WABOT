@@ -259,6 +259,12 @@ export async function fetchNumbers(jsonQuery, page = 1) {
     if (priceRangeStr) finalQuery.priceRange = priceRangeStr;
     if (jsonQuery.sortPrice) finalQuery.sortPrice = jsonQuery.sortPrice;
     if (jsonQuery.sortBy) finalQuery.sortBy = jsonQuery.sortBy;
+    if (jsonQuery.isDirectFromOperator !== undefined) {
+      finalQuery.isDirectFromOperator = String(jsonQuery.isDirectFromOperator);
+    }
+    if (jsonQuery.operatorState) {
+      finalQuery.operatorState = jsonQuery.operatorState;
+    }
 
     console.log(`[Search] Querying ${API_URL}/api/v1/products/get-products with:`, finalQuery);
 
@@ -352,6 +358,15 @@ export function formatNumbersReply(products, totalCount = 0, currentPage = 1, to
     const formattedNum = formatNumberForWhatsApp(number, p);
     reply += `${index + 1}. *${formattedNum}*\n`;
     if (catName) reply += `   📁 ${catName}\n`;
+    if (p.isDirectFromOperator) {
+      const stateStr = p.operatorState ? `${p.operatorState} Circle` : 'State-Specific';
+      const providerStr = p.operatorProvider ? ` (${p.operatorProvider})` : '';
+      reply += `   ⚡ *Instant 5-Min Activation* — ${stateStr}${providerStr}\n`;
+      reply += `   ⚠️ _Note: Valid only for ${p.operatorState || 'this state'} residents!_\n`;
+    } else if (p.readyToPort) {
+      const rtpStr = p.readyToPort === 'rtp' ? 'Ready to Port' : 'Cond. RTP';
+      reply += `   🌐 *All-India MNP* (${rtpStr} — Any Operator/State)\n`;
+    }
     if (brand)   reply += `   🏷️  ${brand}\n`;
 
     if (subtotal) {

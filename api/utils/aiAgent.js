@@ -113,6 +113,30 @@ const PLANET_GUIDE = {
   9: 'Mars 🔥 (Dynamic Energy, Courage & Bold Action)'
 };
 
+export function getOfficeHoursStatus() {
+  const now = new Date();
+  const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  const istDate = new Date(istString);
+  const day = istDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const hours = istDate.getHours();
+  const minutes = istDate.getMinutes();
+  const currentMinutes = hours * 60 + minutes;
+
+  const isSunday = (day === 0);
+  const isOpen = !isSunday && (currentMinutes >= 10 * 60 && currentMinutes < 19 * 60); // 10:00 AM to 7:00 PM
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const formattedTime = istDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  return {
+    isOpen,
+    isSunday,
+    currentDay: dayNames[day],
+    currentTime: formattedTime,
+    schedule: "10:00 AM to 7:00 PM, Monday to Saturday (Closed on Sundays)"
+  };
+}
+
 export function buildSystemPrompt(ctx) {
   const rawName = ctx && ctx.name && ctx.name !== 'Unknown' ? ctx.name : null;
   const name = cleanCustomerName(rawName);
@@ -197,16 +221,73 @@ export function buildSystemPrompt(ctx) {
   L.push('- Strictly NEVER switch to another language unless customer specifically switches language in their message.');
   L.push(name ? 'Customer name: ' + name : 'Customer name: Unknown');
   L.push('');
+  const officeStatus = (ctx && ctx.testOfficeStatus) || getOfficeHoursStatus();
+  L.push('## OFFICE HOURS & STRICT CALLING POLICY');
+  L.push('- Official Office Hours: 10:00 AM to 7:00 PM, Monday to Saturday (Closed on Sundays).');
+  L.push(`- Current IST Time: ${officeStatus.currentDay}, ${officeStatus.currentTime}.`);
+  L.push(`- Office Current Status: ${officeStatus.isOpen ? '🟢 OPEN (Helpline Active: 10am to 7pm)' : '🔴 CLOSED (AFTER OFFICE HOURS — PHONE CALLS CANNOT BE ANSWERED)'}.`);
+  L.push('- CRITICAL CALLING POLICY:');
+  if (officeStatus.isOpen) {
+    L.push('  • Helpline +91 9222 222 007 is active right now (10:00 AM to 7:00 PM, Mon–Sat).');
+    L.push('  • If customer wants to speak with an agent or call: "Aap hamare helpline *+91 9222 222 007* par call kar sakte hain (10am–7pm)! 😊"');
+  } else {
+    L.push('  • 🚨 OFFICE IS CURRENTLY CLOSED! Phone calls CANNOT be answered right now.');
+    L.push('  • If customer asks to call, speak to an agent/manager, or requests a callback:');
+    L.push('    1. State clearly that our office hours are 10:00 AM to 7:00 PM, Monday to Saturday (Closed on Sundays).');
+    L.push('    2. Politely explain that calls cannot be answered after office hours.');
+    L.push('    3. Reassure them that you (Eva) are available 24/7 on WhatsApp chat to answer all questions and help them find/book numbers right now!');
+    L.push('    4. Promise that our team will gladly connect or call them back as soon as the office opens at 10:00 AM.');
+  }
+  L.push('');
   L.push('## NUMBERWALE FACTS (use strictly, never guess)');
   L.push('- Founded 2010 | 1 Lakh+ clients | Helpline: +91 9222 222 007 | support@numberwale.com');
-  L.push('- Office: Bhayandar East, Thane/Mumbai, Maharashtra 401105');
-  L.push('- Process: Pay online -> UPC + GST invoice in 24h -> e-KYC at any Jio/Airtel/Vi/BSNL store with Aadhar -> Active in 3-5 business days');
-  L.push('- Works: All operators (Jio, Airtel, Vi, BSNL) | 4G/5G | Prepaid or Postpaid | eSIM convertible');
+  L.push('- Office: Bhayandar East, Thane/Mumbai, Maharashtra 401105 (Working Hours: 10:00 AM to 7:00 PM, Mon–Sat)');
+  L.push('- Networks: All operators (Jio, Airtel, Vi, BSNL) | 4G/5G | Prepaid or Postpaid | eSIM convertible');
   L.push('- Payment: UPI / Cards / NetBanking / Credit Card EMI | NO COD (UPC is digital delivery)');
-  L.push('- Guarantee: 100% Money-Back if porting fails | Fresh UPC free if expired within 4 days');
+  L.push('- Guarantee: 100% Money-Back if porting fails | Fresh UPC free if expired within validity');
   L.push('- Pricing: 18% GST included, official GST invoice provided | Business buyers can claim ITC');
   L.push('- Discounts: Website prices are already direct wholesale discounted up to 50% off.');
   L.push('');
+  L.push('## 🚨 PORTING, MNP & UPC SUPPORT — 100% ONE-STOP SOLUTION (STRICT RULE)');
+  L.push('1. 🛑 NEVER, UNDER ANY CIRCUMSTANCE, TELL THE CUSTOMER TO CONTACT THE TELECOM OPERATOR CUSTOMER CARE (Jio/Airtel/Vi/BSNL care)! Telecom operators do NOT manage Numberwale bookings, invoices, or UPC generation.');
+  L.push('2. Numberwale is the customer\'s ONE-STOP SOLUTION for everything.');
+  L.push('3. If customer reports ANY issue (MNP rejected, UPC code not received, UPC expired, store facing issue, porting delay, payment query):');
+  L.push('   - Assure them with complete confidence: "Aapko kisi bhi operator ke customer care mein call karne ki bilkul zarurat nahi hai. Numberwale aapka One-Stop Solution hai!"');
+  L.push('   - If UPC expires: Numberwale generates a fresh new UPC code completely FREE of charge.');
+  L.push('   - If porting fails for any reason: Numberwale provides a fresh UPC or a 100% money-back refund guarantee.');
+  L.push('   - Instruct them to connect directly with Numberwale on WhatsApp or call +91 9222 222 007 (10am–7pm Mon–Sat) / support@numberwale.com.');
+  L.push('');
+  L.push('## ACCURATE STEP-BY-STEP UPC & ACTIVATION PROCESS');
+  L.push('When explaining the porting / MNP / activation process to the customer, use this exact 4-step framework:');
+  L.push('Intro: "Your purchased VIP mobile number can be activated with any telecom operator (Jio, Airtel, Vi or BSNL; BSNL subject to availability) anywhere in India through Mobile Number Portability (MNP). A Unique Porting Code (UPC) is mandatory to activate your VIP mobile number through the MNP process."');
+  L.push('1️⃣ Order Confirmation: Once your payment is confirmed, the UPC generation process begins.');
+  L.push('2️⃣ UPC Generation: The UPC will be shared with you via SMS within 24 working hours. The UPC is valid for a limited period, so please make sure to submit your MNP request at least 1 day before expiration.');
+  L.push('3️⃣ Visit a Store: Carry your original Aadhaar Card and the UPC. Visit any official telecom operator store OR nearby local mobile store to complete the MNP request and collect your SIM. (For postpaid connections, please visit an official operator store).');
+  L.push('4️⃣ Number Activation: The number will be activated as per the operator\'s standard MNP timeline (typically 3 to 5 business days nationwide).');
+  L.push('');
+  L.push('## ⚡ INSTANT ACTIVATION (DFO) vs ALL-INDIA RTP NUMBERS');
+  L.push('Numberwale offers two distinct types of VIP numbers:');
+  L.push('1. 🌐 All-India RTP / CRTP Numbers:');
+  L.push('   - Works in ALL states across India with ANY operator (Jio, Airtel, Vi, BSNL).');
+  L.push('   - Activated via standard MNP in 3-5 business days using UPC code.');
+  L.push('2. ⚡ Instant Activation Numbers (Direct From Operator - DFO):');
+  L.push('   - Activates instantly within 5 to 10 minutes (no waiting 3-5 days for MNP!).');
+  L.push('   - 🚨 CRITICAL: Instant Activation numbers are STATE-SPECIFIC (e.g. Maharashtra, Gujarat, Assam, Karnataka, Bihar, Mumbai circle).');
+  L.push('   - 🚨 MANDATORY 2-3 TIMES STATE VERIFICATION RULE:');
+  L.push('     Whenever you present or discuss an Instant Activation number with a customer, you MUST explicitly remind them 2 to 3 times to verify their state proof:');
+  L.push('     • Reminder 1: Mention that this number has instant 5-10 minute activation for [State] circle.');
+  L.push('     • Reminder 2: Clarify that they must have Aadhaar / address proof of [State] to activate it.');
+  L.push('     • Reminder 3: Warn them that if they are NOT from [State] or do not have [State] address proof, they CANNOT activate this number and should choose an All-India RTP number instead!');
+  L.push('');
+  L.push('## 🚨 PAYMENT LINK & BOOKING LINK POLICY (STRICT RULE)');
+  L.push('When customer asks for a payment link ("payment link bhejo", "pay kaise karu", "link do", "checkout link", "online pay karna hai"):');
+  L.push('1. IF customer has already selected / specified a 10-digit number (or targetProduct is active):');
+  L.push('   - Provide the exact direct cart booking link: https://numberwale.com/cart-add/<10-digit-number>');
+  L.push('   - Warmly explain that they can open the link, review the order, apply any coupon, and complete payment securely via UPI, Cards, NetBanking, or EMI.');
+  L.push('2. IF customer has NOT selected or specified a number yet:');
+  L.push('   - 🛑 NEVER send a generic, broken, or blank payment link! (NEVER send /cart-add/ without a number).');
+  L.push('   - Politely and warmly explain: "Payment link ke liye kripya pehle apna pasandeeda VIP number choose/select kar lijiye. Jaise hi aap koi number select karenge, main turant uska direct booking link aapko share kar dungi! 😊"');
+  L.push('   - Offer to show numbers matching their preference or budget.');
   L.push('## OFFICIAL SOCIAL MEDIA LINKS');
   L.push('- Instagram: https://www.instagram.com/numberwale?stkn=MTlyNnlzaG1lMmwzeQ==');
   L.push('- Pinterest: https://pin.it/4oSvL04QV');
@@ -296,6 +377,10 @@ export function buildSystemPrompt(ctx) {
   L.push('- High-end patterns like "mirror-numbers", "hexa-numbers", "penta-numbers", "octa-numbers" start at ₹1,00,000+.');
   L.push('- If customer specifies a budget under ₹50,000 (e.g. "20000 me", "budget 15000", "under 30k"), NEVER combine narrow luxury categories like "mirror-numbers" into SEARCH_JSON!');
   L.push('- Instead, search within budget: SEARCH_JSON:{"maxPrice":20000} or recommend accessible categories like SEARCH_JSON:{"category":"doubling-numbers","maxPrice":20000}.');
+  L.push('');
+  L.push('INSTANT ACTIVATION & STATE-SPECIFIC (DFO) FILTERS:');
+  L.push('- "isDirectFromOperator": "true" (use when customer specifically asks for instant 5-10 min activation numbers)');
+  L.push('- "operatorState": state name e.g. "Maharashtra", "Gujarat", "Assam", "Karnataka", "Bihar", "Mumbai" (used with isDirectFromOperator)');
   L.push('');
   if (af) {
     L.push('CURRENT ACTIVE SEARCH FILTERS: ' + af);
@@ -671,6 +756,16 @@ export function formatProducts(products, totalCount, currentPage, totalPages, la
     lines.push((numEmoji[idx] || (idx + 1) + '.') + ' *' + formatted + '* \uD83D\uDC51');
     lines.push('   \uD83D\uDCC1 ' + catName);
 
+    if (p.isDirectFromOperator) {
+      const stateStr = p.operatorState ? `${p.operatorState} Circle` : 'State-Specific';
+      const providerStr = p.operatorProvider ? ` (${p.operatorProvider})` : '';
+      lines.push(`   ⚡ *Instant 5-Min Activation* — ${stateStr}${providerStr}`);
+      lines.push(`   ⚠️ _Note: Valid ONLY for ${p.operatorState || 'this state'} address proof residents!_`);
+    } else if (p.readyToPort) {
+      const rtpStr = p.readyToPort === 'rtp' ? 'Ready to Port' : 'Cond. RTP';
+      lines.push(`   🌐 *All-India MNP* (${rtpStr} — Any Operator/State)`);
+    }
+
     if (price) {
       const withGst = price + Math.round(price * 0.18);
       if (discount > 0 && basePrice) {
@@ -690,27 +785,27 @@ export function formatProducts(products, totalCount, currentPage, totalPages, la
     footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
       + (currentPage < totalPages ? '\uD83D\uDD39 વધુ જોવા માટે \u2192 reply *"more"*\n' : '')
       + '\uD83D\uDD39 નવી સર્ચ \u2192 reply *"reset"*\n'
-      + '\uD83D\uDD39 કન્સલ્ટન્ટ સાથે વાત \u2192 reply *"agent"* અથવા કૉલ *9222 222 007*';
+      + '\uD83D\uDD39 કન્સલ્ટન્ટ સાથે વાત \u2192 reply *"agent"* અથવા કૉલ *9222 222 007* (10am–7pm Mon–Sat)';
   } else if (lang === 'Marathi') {
     footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
       + (currentPage < totalPages ? '\uD83D\uDD39 अजून पाहण्यासाठी \u2192 reply *"more"*\n' : '')
       + '\uD83D\uDD39 नवीन शोध \u2192 reply *"reset"*\n'
-      + '\uD83D\uDD39 प्रतिनिधीशी संपर्क \u2192 reply *"agent"* किंवा कॉल करा *9222 222 007*';
+      + '\uD83D\uDD39 प्रतिनिधीशी संपर्क \u2192 reply *"agent"* किंवा कॉल करा *9222 222 007* (10am–7pm सोम–शनि)';
   } else if (lang === 'Hindi') {
     footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
       + (currentPage < totalPages ? '\uD83D\uDD39 और देखने के लिए \u2192 reply *"more"*\n' : '')
       + '\uD83D\uDD39 नई खोज \u2192 reply *"reset"*\n'
-      + '\uD83D\uDD39 सहायता के लिए \u2192 reply *"agent"* या कॉल करें *9222 222 007*';
+      + '\uD83D\uDD39 सहायता के लिए \u2192 reply *"agent"* या कॉल करें *9222 222 007* (10am–7pm Mon–Sat)';
   } else if (lang === 'English') {
     footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
       + (currentPage < totalPages ? '\uD83D\uDD39 To see more \u2192 reply *"more"*\n' : '')
       + '\uD83D\uDD39 New search \u2192 reply *"reset"*\n'
-      + '\uD83D\uDD39 Human consultant \u2192 reply *"agent"* or call *9222 222 007*';
+      + '\uD83D\uDD39 Human consultant \u2192 reply *"agent"* or call *9222 222 007* (10am–7pm Mon–Sat)';
   } else {
     footer = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n'
       + (currentPage < totalPages ? '\uD83D\uDD39 Aur dekhne ke liye \u2192 reply *"more"*\n' : '')
       + '\uD83D\uDD39 Nayi search \u2192 reply *"reset"*\n'
-      + '\uD83D\uDD39 Human agent \u2192 reply *"agent"* ya call *9222 222 007*';
+      + '\uD83D\uDD39 Human agent \u2192 reply *"agent"* ya call *9222 222 007* (10am–7pm Mon–Sat)';
   }
 
   return lines.join('\n') + footer;
@@ -769,7 +864,9 @@ function cleanMarkdownTables(text) {
 }
 
 function stripSearchJSON(text) {
-  return text.replace(/SEARCH_JSON:\{[^]*?\}\s*\n?/g, '').trim();
+  if (!text) return '';
+  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  return cleaned.replace(/SEARCH_JSON:\{[^]*?\}\s*\n?/g, '').trim();
 }
 
 export function formatCategoryName(cat) {
@@ -872,6 +969,31 @@ export async function runAgent(opts) {
     customerContext.activeCoupon = null;
   }
 
+  // Fast Intercept: Customer asking for payment link without selecting a number
+  const isAskingPaymentLink = /\b(payment\s*link|pay\s*link|link\s*(?:do|bhejo|dijiye|send|bhej)|kaise\s*pay\s*(?:kare|karein|karu)|pay\s*kaise\s*(?:kare|karein|karu)|checkout\s*link)\b/i.test(userMessage);
+  const hasTargetProduct = customerContext.targetProduct && !customerContext.targetProduct.notFound;
+  if (isAskingPaymentLink && !hasTargetProduct && !detected10Digit) {
+    let noNumReply;
+    if (lang === 'English') {
+      noNumReply = `To provide a payment link, please first select or choose your preferred VIP mobile number from our collection! 😊\n\nOnce you choose a number, I will immediately share its direct online booking link so you can complete your order securely. Would you like to explore some trending VIP numbers or search by your favourite digits or budget?`;
+    } else if (lang === 'Hindi') {
+      noNumReply = `पेमेंट लिंक के लिए कृपया पहले अपना पसंदीदा VIP मोबाइल नंबर चुन लीजिए! 😊\n\nजैसे ही आप कोई नंबर चुनेंगे, मैं तुरंत उसका सीधा बुकिंग लिंक आपके साथ शेयर कर दूँगी ताकि आप आसानी से सुरक्षित पेमेंट कर सकें। क्या आप ट्रेंडिंग नंबर्स देखना चाहेंगे या आपका कोई पसंदीदा डिजिट या बजट है?`;
+    } else if (lang === 'Gujarati') {
+      noNumReply = `પેમેન્ટ લિંક માટે કૃપા કરીને પહેલા તમારો મનપસંદ VIP મોબાઇલ નંબર પસંદ કરી લો! 😊\n\nજેવો તમે કોઈ નંબર પસંદ કરશો, હું તરત જ તેની ડાયરેક્ટ બુકિંગ લિંક મોકલી આપીશ જેથી તમે સુરક્ષિત રીતે ઓર્ડર કરી શકો. શું તમારે ટ્રેન્ડિંગ નંબર્સ જોવા છે કે તમારું કોઈ બજેટ છે?`;
+    } else if (lang === 'Marathi') {
+      noNumReply = `पेमेंट लिंकसाठी कृपया आधी तुमचा आवडता VIP मोबाईल नंबर निवडा! 😊\n\nतुम्ही नंबर निवडताच, मी लगेच त्याची थेट बुकिंग लिंक पाठवून देईन जेणेकरून तुम्ही सुरक्षित पेमेंट करू शकाल. तुम्हाला काही ट्रेंडिंग नंबर पाहायचे आहेत का किंवा तुमचे काही बजेट आहे?`;
+    } else {
+      noNumReply = `Payment link ke liye please pehle apna pasandeeda VIP mobile number choose kar lijiye! 😊\n\nJaise hi aap koi number select karenge, main turant uska direct online booking link aapko bhej dungi jisse aap securely order complete kar sakein. Kya aap kuch trending VIP numbers dekhna chahenge ya aapka koi specific budget ya favourite digit hai?`;
+    }
+    return {
+      reply: noNumReply,
+      conversationalIntro: noNumReply,
+      searchJSON: null,
+      model: 'rule-guard',
+      escalate: false
+    };
+  }
+
   // Build conversation history for LLM
   const messages = history.slice(-8).map(function(h) {
     return { role: h.role === 'bot' ? 'assistant' : 'user', content: h.text };
@@ -887,15 +1009,15 @@ export async function runAgent(opts) {
     console.error('[Agent] All LLM slots failed:', err.message);
     let fallbackReply;
     if (lang === 'English') {
-      fallbackReply = "Sorry, I'm having a brief technical issue. Please try again in a moment or call *+91 9222 222 007*. \uD83D\uDE4F";
+      fallbackReply = "Sorry, I'm having a brief technical issue. Please try again in a moment or reach our helpline *+91 9222 222 007* (10am–7pm Mon–Sat). \uD83D\uDE4F";
     } else if (lang === 'Hindi') {
-      fallbackReply = "माफ़ी चाहता हूँ, अभी थोड़ी तकनीकी समस्या है। कृपया थोड़ी देर बाद पुनः प्रयास करें या *9222 222 007* पर कॉल करें। \uD83D\uDE4F";
+      fallbackReply = "माफ़ी चाहती हूँ, अभी थोड़ी तकनीकी समस्या है। कृपया थोड़ी देर बाद पुनः प्रयास करें या हमारे हेल्पलाइन *9222 222 007* (10am–7pm सोम–शनि) पर संपर्क करें। \uD83D\uDE4F";
     } else if (lang === 'Gujarati') {
-      fallbackReply = "માફ કરશો, અત્યારે થોડી તકનીકી સમસ્યા છે. કૃપા કરીને થોડીવાર પછી ફરી પ્રયાસ કરો અથવા *9222 222 007* પર કૉલ કરો. \uD83D\uDE4F";
+      fallbackReply = "માફ કરશો, અત્યારે થોડી તકનીકી સમસ્યા છે. કૃપા કરીને થોડીવાર પછી ફરી પ્રયાસ કરો અથવા *9222 222 007* (10am–7pm Mon–Sat) પર કૉલ કરો. \uD83D\uDE4F";
     } else if (lang === 'Marathi') {
-      fallbackReply = "क्षमस्व, सध्या थोडी तांत्रिक अडचण आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा किंवा *9222 222 007* वर कॉल करा. \uD83D\uDE4F";
+      fallbackReply = "क्षमस्व, सध्या थोडी तांत्रिक अडचण आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा किंवा *9222 222 007* (10am–7pm सोम–शनि) वर संपर्क करा. \uD83D\uDE4F";
     } else {
-      fallbackReply = "Oops! Abhi thodi technical dikkat hai. Thodi der baad try karo ya *9222 222 007* pe call karo. \uD83D\uDE4F";
+      fallbackReply = "Oops! Abhi thodi technical dikkat hai. Thodi der baad try karein ya *9222 222 007* (10am–7pm Mon–Sat) pe connect karein. \uD83D\uDE4F";
     }
     return { reply: fallbackReply, conversationalIntro: fallbackReply, searchJSON: null, model: 'fallback', escalate: false };
   }

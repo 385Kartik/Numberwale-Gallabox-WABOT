@@ -18,18 +18,21 @@ export const NUMBERWALE_KNOWLEDGE = {
   tagline: "Your Number, Your Identity",
   legacy: "Since 2010 (10+ Years of Trust & Excellence)",
   customers: "1 Lakh+ (100,000+) Happy Customers across India",
-  helpline: "+91 9222 222 007 (9222222007)",
+  helpline: "+91 9222 222 007 (10:00 AM – 7:00 PM Mon–Sat)",
   email: "support@numberwale.com",
   officeAddress: "005, Building no.12-B, Sangeet Complex, Jesal Park, Bhayandar East, Thane / Mumbai, Maharashtra 401105, India",
+  officeHours: "10:00 AM to 7:00 PM, Monday to Saturday (Closed on Sundays)",
   
   // 4-Step MNP Porting & Activation Journey
   process: {
-    step1: "Select your desired VIP number & pay 100% securely online (UPI, Cards, Net Banking, or Credit Card EMI).",
-    step2: "Numberwale generates & delivers the Unique Porting Code (UPC) and official GST invoice within 24 hours on WhatsApp, SMS & Email.",
-    step3: "Visit any nearest telecom operator store (Jio, Airtel, Vi, BSNL) with your original Aadhar Card for mandatory biometric e-KYC to legally register the number in your name.",
-    step4: "SIM gets activated in 3 to 5 business days nationwide (up to 15 days in J&K or North East) as per standard TRAI MNP regulations.",
+    intro: "Your purchased VIP mobile number can be activated with any telecom operator (Jio, Airtel, Vi or BSNL; BSNL subject to availability) anywhere in India through Mobile Number Portability (MNP). A Unique Porting Code (UPC) is mandatory to activate your VIP mobile number through the MNP process.",
+    step1: "1️⃣ Order Confirmation: Once payment is confirmed, the UPC generation process begins.",
+    step2: "2️⃣ UPC Generation: The UPC will be shared via SMS within 24 working hours. Valid for a limited period; submit MNP request at least 1 day before expiration.",
+    step3: "3️⃣ Visit a Store: Carry Aadhaar Card and UPC. Visit official operator store OR nearby local mobile store for MNP & SIM issuance (for postpaid, visit official operator store).",
+    step4: "4️⃣ Number Activation: Activated as per operator's standard MNP timeline (3-5 business days nationwide).",
     guarantee: "100% Money-Back Guarantee if porting fails due to any operator technical error.",
-    upcValidity: "Standard UPC is valid for 4 days. If it expires before you visit the store, Numberwale issues a fresh UPC at zero extra cost."
+    upcValidity: "Standard UPC is valid for a limited period. If it expires before you visit the store, Numberwale issues a fresh UPC at zero extra cost.",
+    support: "Numberwale is your One-Stop Solution. NEVER contact operator customer care for Numberwale orders or UPC issues. Connect directly with Numberwale (+91 9222 222 007 / WhatsApp) for instant resolution or 100% refund."
   },
 
   // Networks & Compatibility
@@ -261,11 +264,18 @@ CRITICAL FEMALE GRAMMAR RULE (HINDI / HINGLISH / MARATHI): Always use natural fe
 Your job is to answer customer questions about Numberwale warmly, clearly, accurately, and sales-consultatively.
 
 FACTS TO USE STRICTLY:
-- MNP/Process: 4-step process. 1. Pay securely online -> 2. Receive Unique Porting Code (UPC) and official GST invoice within 24 hours on WhatsApp & SMS -> 3. Visit nearest Jio/Airtel/Vi/BSNL store with Aadhar card for biometric e-KYC -> 4. Activates in 3-5 business days under customer's own name.
+- MNP/Process: 4-step process.
+  • Intro: Your purchased VIP mobile number can be activated with any telecom operator (Jio, Airtel, Vi or BSNL; BSNL subject to availability) anywhere in India through Mobile Number Portability (MNP). A Unique Porting Code (UPC) is mandatory to activate your VIP mobile number through the MNP process.
+  • Step 1 (Order Confirmation): Once payment is confirmed, UPC generation process begins.
+  • Step 2 (UPC Generation): UPC shared via SMS within 24 working hours. Valid for limited period; submit MNP request at least 1 day before expiration.
+  • Step 3 (Visit a Store): Carry original Aadhaar Card and UPC to any official telecom operator store or local mobile store for MNP & SIM issuance (for postpaid, visit official operator store).
+  • Step 4 (Number Activation): Activated as per operator's standard MNP timeline (3-5 business days nationwide).
+- 🚨 One-Stop Solution: NEVER tell customer to contact telecom operator customer care! Telecom operators do NOT handle Numberwale orders or UPCs. Numberwale is their 100% one-stop solution. Free replacement UPC or 100% money-back guarantee.
+- Office Hours & Calls: 10:00 AM to 7:00 PM, Monday to Saturday (Closed on Sundays). Calls cannot be answered after office hours.
 - Networks: Works with any operator (Jio, Airtel, Vi, BSNL). Works on 4G/5G, can be activated as Prepaid or Postpaid, can convert to eSIM.
-- Guarantee: 100% Money Back Guarantee if porting fails due to operator issues. UPC is valid 4 days; if expired, Numberwale provides a fresh UPC free of cost.
+- Guarantee: 100% Money Back Guarantee if porting fails. UPC is valid for limited days; if expired, Numberwale provides a fresh UPC free of cost.
 - Payments: 100% online & secure (UPI, Google Pay, PhonePe, Cards, Netbanking, Credit Card EMI). No COD because UPC is digital. Official GST invoice provided.
-- Office: Head office in Bhayandar East, Thane / Mumbai, Maharashtra. Helpline: +91 9222 222 007.
+- Office: Head office in Bhayandar East, Thane / Mumbai, Maharashtra. Helpline: +91 9222 222 007 (10am–7pm Mon–Sat).
 
 TONE & RULES:
 - STRICT LANGUAGE RULE: You must respond PURELY and STRICTLY in ${lang}. DO NOT mix languages. DO NOT append Hindi words if the language is English. Never output gibberish.
@@ -291,40 +301,46 @@ TONE & RULES:
   // Instant High-Quality Fallbacks if LLM fails or is slow
   if (intentType === 'FAQ_PROCESS') {
     if (lang === 'Hindi') {
-      return `नमस्ते ${greeting}! 🙏 नंबरवाले से VIP नंबर लेना बेहद आसान और 100% कानूनी है:\n\n` +
-        `1️⃣ अपनी पसंद का नंबर चुनकर सुरक्षित पेमेंट करें।\n` +
-        `2️⃣ 24 घंटे में आपको WhatsApp और SMS पर UPC (Unique Porting Code) और GST इनवॉइस मिलेगा।\n` +
-        `3️⃣ अपने नज़दीकी Jio, Airtel, Vi या BSNL स्टोर जाकर आधार कार्ड से बायोमेट्रिक e-KYC करवाएं।\n` +
-        `4️⃣ 3-5 दिनों में नंबर सीधे आपके अपने नाम पर एक्टिव हो जाएगा! 🎉\n\n` +
-        `🛡️ *100% Money Back Guarantee!* आप कैसा नंबर ढूंढ रहे हैं? मुझे बताइए! 😊`;
+      return `नमस्ते ${greeting}! 🙏 नंबरवाले से VIP नंबर लेना और एक्टिवेट करना बेहद आसान है:\n\n` +
+        `आपके द्वारा खरीदा गया VIP मोबाइल नंबर MNP के ज़रिए पूरे भारत में किसी भी ऑपरेटर (Jio, Airtel, Vi या BSNL) पर एक्टिवेट किया जा सकता है। MNP प्रक्रिया के लिए Unique Porting Code (UPC) अनिवार्य होता है।\n\n` +
+        `1️⃣ *Order Confirmation:* पेमेंट कन्फर्म होते ही UPC जनरेशन शुरू हो जाता है।\n` +
+        `2️⃣ *UPC Generation:* 24 वर्किंग घंटों के अंदर SMS द्वारा UPC भेज दिया जाता है। यह सीमित समय के लिए मान्य होता है, अतः एक्सपायर होने से कम से कम 1 दिन पहले MNP सबमिट करें।\n` +
+        `3️⃣ *Visit a Store:* ओरिजिनल आधार कार्ड और UPC लेकर किसी भी ऑफिशियल ऑपरेटर स्टोर या नज़दीकी मोबाइल शॉप जाएं और MNP करवा कर सिम लें।\n` +
+        `4️⃣ *Number Activation:* ऑपरेटर की MNP टाइमलाइन के अनुसार (3 से 5 वर्किंग दिन) नंबर आपके नाम पर एक्टिवेट हो जाएगा! 🎉\n\n` +
+        `🛡️ *One-Stop Solution:* किसी भी समस्या के लिए आपको ऑपरेटर केयर में कॉल करने की कोई आवश्यकता नहीं है, नंबरवाले ही आपका वन-स्टॉप सॉल्यूशन है! आप कैसा नंबर ढूंढ रहे हैं? मुझे बताइए! 😊`;
     } else if (lang === 'Gujarati') {
-      return `નમસ્તે ${greeting}! 🙏 નંબરવાલેથી VIP નંબર લેવો ખૂબ જ સરળ અને 100% કાનૂની છે:\n\n` +
-        `1️⃣ તમારી પસંદગીનો નંબર પસંદ કરી ઓનલાઇન સુરક્ષિત પેમેન્ટ કરો.\n` +
-        `2️⃣ 24 કલાકમાં તમને WhatsApp પર UPC કોડ અને પાકું GST બિલ મળશે.\n` +
-        `3️⃣ નજીકના Jio/Airtel/Vi સ્ટોર પર જઈ આધાર કાર્ડથી બાયોમેટ્રિક e-KYC કરાવો.\n` +
-        `4️⃣ 3-5 દિવસમાં સિમ તમારા નામે એક્ટિવેટ થઈ જશે! 🎉\n\n` +
-        `🛡️ *100% Money Back Guarantee!* તમારે કેવો નંબર જોઈએ છે? જણાવો! 😊`;
+      return `નમસ્તે ${greeting}! 🙏 નંબરવાલેથી VIP નંબર એક્ટિવેટ કરવાની સંપૂર્ણ પ્રક્રિયા:\n\n` +
+        `તમારો ખરીદેલ VIP મોબાઇલ નંબર ભારતમાં કોઈપણ ઓપરેટર (Jio, Airtel, Vi, BSNL) પર MNP દ્વારા એક્ટિવેટ કરી શકાય છે. MNP પ્રક્રિયા માટે Unique Porting Code (UPC) ફરજિયાત છે.\n\n` +
+        `1️⃣ *Order Confirmation:* પેમેન્ટ કન્ફર્મ થતાં જ UPC જનરેશન શરૂ થાય છે.\n` +
+        `2️⃣ *UPC Generation:* 24 કામકાજના કલાકોમાં SMS દ્વારા UPC મોકલવામાં આવે છે. એક્સપાયર થવાના 1 દિવસ પહેલા MNP રિક્વેસ્ટ સબમિટ કરો.\n` +
+        `3️⃣ *Visit a Store:* ઓરિજિનલ આધાર કાર્ડ અને UPC લઈને કોઈપણ ઓપરેટર સ્ટોર અથવા મોબાઈલ શોપ પર જાઓ અને સિમ મેળવો.\n` +
+        `4️⃣ *Number Activation:* 3 થી 5 દિવસમાં નંબર તમારા નામે શરૂ થઈ જશે! 🎉\n\n` +
+        `🛡️ *One-Stop Solution:* ઓપરેટર કેરમાં ફોન કરવાની કોઈ જરૂર નથી, નંબરવાલે તમારો વન-સ્ટોપ સોલ્યુશન છે! તમારે કેવો નંબર જોઈએ છે? 😊`;
     } else if (lang === 'Marathi') {
-      return `नमस्कार ${greeting}! 🙏 नंबरवाले वरून VIP नंबर घेणे अत्यंत सोपे आणि 100% कायदेशीर आहे:\n\n` +
-        `1️⃣ आपल्या पसंतीचा नंबर निवडून सुरक्षित पेमेंट करा.\n` +
-        `2️⃣ 24 तासांच्या आत WhatsApp वर UPC कोड आणि GST बिल मिळेल.\n` +
-        `3️⃣ जवळच्या Jio, Airtel, Vi किंवा BSNL स्टोअरमध्ये जाऊन आधार कार्डद्वारे e-KYC करा.\n` +
-        `4️⃣ 3 ते 5 दिवसांत नंबर थेट तुमच्या नावाने सुरू होईल! 🎉\n\n` +
-        `🛡️ *100% Money Back Guarantee!* तुम्हाला कसा नंबर हवा आहे? सांगा! 😊`;
+      return `नमस्कार ${greeting}! 🙏 नंबरवाले वरून VIP नंबर ॲक्टिव्हेट करण्याची पायरी-दर-पायरी प्रक्रिया:\n\n` +
+        `खरेदी केलेला VIP मोबाईल नंबर संपूर्ण भारतात कोणत्याही ऑपरेटरवर (Jio, Airtel, Vi, BSNL) MNP द्वारे ॲक्टिव्हेट करता येतो. MNP साठी Unique Porting Code (UPC) आवश्यक असतो.\n\n` +
+        `1️⃣ *Order Confirmation:* पेमेंट कन्फर्म झाल्यावर UPC जनरेशन सुरू होते.\n` +
+        `2️⃣ *UPC Generation:* 24 कामकाजाच्या तासांत SMS द्वारे UPC पाठवला जातो. एक्सपायर होण्याच्या किमान 1 दिवस आधी MNP रिक्वेस्ट सबमिट करा.\n` +
+        `3️⃣ *Visit a Store:* मूळ आधार कार्ड आणि UPC घेऊन कोणत्याही ऑपरेटर स्टोअर किंवा स्थानिक मोबाईल दुकानात जाऊन सिम घ्या.\n` +
+        `4️⃣ *Number Activation:* ऑपरेटरच्या नियमांनुसार (3 ते 5 कामकाजाचे दिवस) नंबर तुमच्या नावे सुरू होईल! 🎉\n\n` +
+        `🛡️ *One-Stop Solution:* ऑपरेटर कस्टमर केअरला कॉल करण्याची गरज नाही, नंबरवाले हेच तुमचे वन-स्टॉप सोल्युशन आहे! तुम्हाला कसा नंबर हवा आहे? 😊`;
     } else if (lang === 'Hinglish') {
-      return `Namaste ${greeting}! 🙏 Numberwale se VIP number lena bilkul simple aur 100% legal hai:\n\n` +
-        `1️⃣ Number select karke secure payment karein.\n` +
-        `2️⃣ 24 hours ke andar aapko WhatsApp & SMS par UPC (Unique Porting Code) aur official GST invoice mil jayega.\n` +
-        `3️⃣ Nearest Jio, Airtel, Vi ya BSNL store jakar Aadhar card se biometric e-KYC karwayein.\n` +
-        `4️⃣ 3-5 business days mein SIM aapke apne naam par activate ho jayega! 🎉\n\n` +
-        `🛡️ *100% Money Back Guarantee!* Aapko kis tarah ka pattern ya budget chahiye? Batayein! 😊`;
+      return `Namaste ${greeting}! 🙏 Numberwale se VIP number activate karne ka step-by-step process yeh raha:\n\n` +
+        `Aapka purchased VIP mobile number MNP ke through poore India mein kisi bhi telecom operator (Jio, Airtel, Vi ya BSNL) par activate kiya ja sakta hai. MNP process ke liye Unique Porting Code (UPC) mandatory hota hai.\n\n` +
+        `1️⃣ *Order Confirmation:* Payment confirm hote hi UPC generation process shuru ho jata hai.\n` +
+        `2️⃣ *UPC Generation:* 24 working hours ke andar aapko SMS ke through UPC mil jata hai. Yeh limited period ke liye valid hota hai, isiliye expire hone se kam se kam 1 din pehle MNP request submit karein.\n` +
+        `3️⃣ *Visit a Store:* Original Aadhaar Card aur UPC lekar kisi bhi official operator store ya local mobile shop par visit karein aur SIM receive karein.\n` +
+        `4️⃣ *Number Activation:* Operator ke MNP timeline (3 to 5 business days) ke mutabik number aapke apne naam par activate ho jayega! 🎉\n\n` +
+        `🛡️ *One-Stop Solution:* Kisi bhi dikkat par aapko operator customer care call karne ki bilkul zarurat nahi hai, Numberwale hi aapka One-Stop Solution hai! Aapko kaisa VIP number pasand hai? Batayein! 😊`;
     } else {
-      return `Hello ${greeting}! 🙏 Getting a VIP number with Numberwale is 100% legal, fast, and simple:\n\n` +
-        `1️⃣ Select your number and pay securely online.\n` +
-        `2️⃣ Receive your Unique Porting Code (UPC) and GST invoice within 24 hours on WhatsApp.\n` +
-        `3️⃣ Visit your nearest telecom store (Jio, Airtel, Vi, BSNL) with your Aadhar card for biometric e-KYC.\n` +
-        `4️⃣ Your new SIM activates under your own name in 3-5 business days! 🎉\n\n` +
-        `🛡️ *100% Money-Back Guarantee!* What kind of VIP number are you looking for today? 😊`;
+      return `Hello ${greeting}! 🙏 Here is the complete step-by-step activation process for your VIP mobile number:\n\n` +
+        `Your purchased VIP mobile number can be activated with any telecom operator (Jio, Airtel, Vi or BSNL; BSNL subject to availability) anywhere in India through Mobile Number Portability (MNP). A Unique Porting Code (UPC) is mandatory to activate your VIP mobile number through the MNP process.\n\n` +
+        `1️⃣ *Order Confirmation:* Once your payment is confirmed, the UPC generation process begins.\n` +
+        `2️⃣ *UPC Generation:* The UPC will be shared with you via SMS within 24 working hours. The UPC is valid for a limited period, so please submit your MNP request at least 1 day before expiration.\n` +
+        `3️⃣ *Visit a Store:* Carry your original Aadhaar Card and the UPC. Visit any official telecom operator store OR nearby local mobile store to complete the MNP request and collect your SIM. (For postpaid connections, please visit an official operator store).\n` +
+        `4️⃣ *Number Activation:* The number will be activated as per the operator's standard MNP timeline (typically 3 to 5 business days nationwide).\n\n` +
+        `🛡️ *One-Stop Solution:* If you encounter any issue during MNP, Numberwale is your one-stop solution. Contact us directly for a fresh UPC at zero cost or 100% money-back guarantee!\n\n` +
+        `What kind of VIP number are you looking for today? 😊`;
     }
   }
 
