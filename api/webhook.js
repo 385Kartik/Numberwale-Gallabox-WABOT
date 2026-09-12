@@ -84,16 +84,9 @@ function scheduleAgentInactivityTimer(customerPhone, channelID) {
       if (ctx.botState === 'PAUSED' && ctx.agentReplied && ctx.lastAgentReplyAt) {
         const timeSince = Date.now() - new Date(ctx.lastAgentReplyAt).getTime();
         if (timeSince >= 29 * 60 * 1000) {
-          console.log(`[Timer] ⏰ 30-min agent inactivity reached for ${customerPhone}. Reactivating bot (keeping assigned in Gallabox).`);
+          console.log(`[Timer] ⏰ 30-min agent inactivity reached for ${customerPhone}. Silently reactivating bot (agentReplied: false, no proactive follow-up).`);
           resumeBot(customerPhone);
           await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
-
-          const lang = ctx.language || 'English';
-          const greet = (lang === 'English')
-            ? "👋 Hello! I'm NM Assistant from Numberwale, back online to assist you while our team is occupied. 😊 How can I help you find your dream VIP number?"
-            : "👋 Namaste! Main NM Assistant, Numberwale se, wapas online aa gaya hun aapki help ke liye! 😊 Aap kaisa VIP mobile number dekhna chahte hain?";
-
-          await sendToGallabox(customerPhone, greet, channelID);
         }
       }
     } catch (err) {
@@ -325,23 +318,17 @@ export default async function handler(req, res) {
     let currentState = customerContext.botState;
 
     if (currentState === 'PAUSED') {
-      // 30-Minute Inactivity Check: If executive replied >30 mins ago, automatically reactivate bot
+      // 30-Minute Inactivity Check: If executive replied >30 mins ago, automatically reactivate bot silently
       if (customerContext.agentReplied && customerContext.lastAgentReplyAt) {
         const timeSinceAgent = Date.now() - new Date(customerContext.lastAgentReplyAt).getTime();
         const THIRTY_MINUTES = 30 * 60 * 1000;
         if (timeSinceAgent >= THIRTY_MINUTES) {
-          console.log(`[Webhook] Agent inactive for >30 mins (${Math.round(timeSinceAgent / 60000)}m) for ${customerPhone}. Reactivating bot (keeping assigned in Gallabox).`);
+          console.log(`[Webhook] Agent inactive for >30 mins (${Math.round(timeSinceAgent / 60000)}m) for ${customerPhone}. Silently reactivating bot (agentReplied: false).`);
           resumeBot(customerPhone);
           await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
           currentState = 'ACTIVE';
           customerContext.botState = 'ACTIVE';
           customerContext.agentReplied = false;
-
-          const lang = customerContext.language || 'English';
-          const resumeGreet = (lang === 'English')
-            ? "👋 Hello! I'm NM Assistant from Numberwale, back online to assist you while our team is occupied. 😊 How can I help you find your dream VIP number?"
-            : "👋 Namaste! Main NM Assistant, Numberwale se, wapas online aa gaya hun aapki help ke liye! 😊 Aap kaisa VIP mobile number dekhna chahte hain?";
-          await sendToGallabox(customerPhone, resumeGreet, channelID);
         }
       }
 
