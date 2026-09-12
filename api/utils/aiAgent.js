@@ -8,7 +8,7 @@
  * Returns: { reply, searchJSON, model, escalate, totalCount, totalPages, currentPage }
  */
 import { fetchNumbers } from './searchApi.js';
-import { fetchProductByNumber } from './paymentUtils.js';
+import { fetchProductByNumber, fetchActiveBotCoupon } from './paymentUtils.js';
 
 export function cleanCustomerName(rawName) {
   if (!rawName || typeof rawName !== 'string') return null;
@@ -158,7 +158,13 @@ export function buildSystemPrompt(ctx) {
   L.push('- Payment: UPI / Cards / NetBanking / Credit Card EMI | NO COD (UPC is digital delivery)');
   L.push('- Guarantee: 100% Money-Back if porting fails | Fresh UPC free if expired within 4 days');
   L.push('- Pricing: 18% GST included, official GST invoice provided | Business buyers can claim ITC');
-  L.push('- Discounts: Already up to 50% off on website. Bulk/family orders: connect to manager.');
+  if (ctx && ctx.activeCoupon) {
+    const ac = ctx.activeCoupon;
+    const discStr = ac.discountType === 'percentage' ? `${ac.discountValue}% OFF` : `₹${ac.discountValue} FLAT OFF`;
+    L.push(`- Discounts: Website prices are already up to 50% off. Additionally, exclusive coupon *${ac.code}* gives extra ${discStr} on checkout cart.`);
+  } else {
+    L.push('- Discounts: Already up to 50% off on website. Bulk/family orders: connect to manager.');
+  }
   L.push('');
   L.push('## OFFICIAL SOCIAL MEDIA LINKS');
   L.push('- Instagram: https://www.instagram.com/numberwale?stkn=MTlyNnlzaG1lMmwzeQ==');
@@ -282,11 +288,41 @@ export function buildSystemPrompt(ctx) {
       L.push('STRICT MANDATORY RULES FOR THIS INQUIRY:');
       L.push('1. THIS IS ONE SINGLE 10-DIGIT NUMBER. NEVER SPLIT IT INTO TWO NUMBERS (e.g. NEVER treat "8574 113322" as 8574 and 113322)! NEVER say "dono numbers" or "combined amount"!');
       L.push(`2. The price is EXACTLY ${priceGst} (including 18% GST). NEVER hallucinate, guess, or invent any other price!`);
-      L.push('3. If customer asks "kitna final hoga", "discount", "kam karo", or for the rate:');
-      L.push(`   Explain warmly that ${priceGst} is already our best direct discounted price on Numberwale, complete with 18% GST invoice and 100% money-back guarantee.`);
+      if (ctx && ctx.activeCoupon) {
+        const ac = ctx.activeCoupon;
+        const discountText = ac.discountType === 'percentage' ? `${ac.discountValue}% extra discount` : `₹${ac.discountValue} flat extra discount`;
+        const minNote = ac.minOrderValue > 0 ? ` (valid on cart value above ₹${ac.minOrderValue.toLocaleString('en-IN')})` : '';
+        L.push('3. If customer asks "kitna final hoga", "discount", "kam karo", or for the rate:');
+        L.push(`   - Explain that ${priceGst} is already up to 50% discounted on Numberwale.`);
+        L.push(`   - BUT warmly offer them our exclusive coupon code: *${ac.code}* for ${discountText}${minNote} on checkout cart!`);
+        L.push(`   - Tell them to click the booking link and enter coupon *${ac.code}* in cart to apply the discount.`);
+      } else {
+        L.push('3. If customer asks "kitna final hoga", "discount", "kam karo", or for the rate:');
+        L.push(`   Explain warmly that ${priceGst} is already our best direct discounted price on Numberwale, complete with 18% GST invoice and 100% money-back guarantee.`);
+      }
       L.push(`4. Share the direct reservation link to book the number: https://numberwale.com/cart-add/${tp.number}`);
       L.push('5. Do NOT output SEARCH_JSON when customer is asking about this specific number, unless they ask to see other numbers.');
     }
+  }
+
+  if (ctx && ctx.activeCoupon) {
+    const ac = ctx.activeCoupon;
+    const discountText = ac.discountType === 'percentage'
+      ? `${ac.discountValue}% OFF`
+      : `₹${ac.discountValue} FLAT OFF`;
+    const minText = ac.minOrderValue > 0 ? ` on cart value above ₹${ac.minOrderValue.toLocaleString('en-IN')}` : '';
+    const maxText = ac.maxDiscount ? ` (up to ₹${ac.maxDiscount.toLocaleString('en-IN')})` : '';
+
+    L.push('');
+    L.push('## ACTIVE EXCLUSIVE DISCOUNT COUPON (USE WHEN CUSTOMER ASKS FOR DISCOUNT / NEGOTIATION / OFFERS)');
+    L.push(`- Active Coupon Code: *${ac.code}*`);
+    L.push(`- Offer: ${discountText}${minText}${maxText}`);
+    L.push('- How it works: Applied in website cart during checkout');
+    L.push('');
+    L.push('WHEN CUSTOMER ASKS ABOUT DISCOUNT, "KAM KARO", "FINAL KITNA HOGA", "KOI OFFER HAI", "COUPON":');
+    L.push(`1. Warmly present this exclusive coupon code (*${ac.code}*) so they get extra direct savings (${discountText})!`);
+    L.push('2. Explain that website prices are already up to 50% discounted, but this coupon gives them an extra special discount.');
+    L.push(`3. Provide the booking / cart link and explain that they can enter coupon code *${ac.code}* in the cart to see the discounted total.`);
   }
 
   return L.join('\n');
@@ -681,6 +717,19 @@ export async function runAgent(opts) {
     } catch (fetchErr) {
       console.warn('[Agent] Could not fetch target number details:', fetchErr.message);
     }
+  }
+
+  // Fetch active promotional coupon for WhatsApp Bot (cached 5 min)
+  try {
+    const activeCoupon = await fetchActiveBotCoupon();
+    if (activeCoupon) {
+      customerContext.activeCoupon = activeCoupon;
+      console.log(`[Agent] Active bot coupon loaded: ${activeCoupon.code} (${activeCoupon.discountValue}${activeCoupon.discountType === 'percentage' ? '%' : ' INR'})`);
+    } else {
+      customerContext.activeCoupon = null;
+    }
+  } catch (couponErr) {
+    console.warn('[Agent] Could not load bot coupon:', couponErr.message);
   }
 
   // Build conversation history for LLM

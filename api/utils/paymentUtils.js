@@ -81,3 +81,44 @@ export async function fetchProductByNumber(mobileNumber) {
     return null;
   }
 }
+
+let cachedBotCoupon = null;
+let botCouponExpiry = 0;
+
+/**
+ * Fetch the active promotional coupon configured for WhatsApp Bot from main API.
+ * Uses a 5-minute in-memory cache to avoid repeated HTTP calls on every turn.
+ */
+export async function fetchActiveBotCoupon() {
+  const now = Date.now();
+  if (cachedBotCoupon !== null && now < botCouponExpiry) {
+    return cachedBotCoupon;
+  }
+
+  const API_URL = process.env.MAIN_API_URL || 'https://api.numberwale.com';
+  const { default: axios } = await import('axios');
+
+  try {
+    const response = await axios.get(`${API_URL}/api/v1/coupons/bot-active`, {
+      timeout: 3000
+    });
+    const coupon = response.data?.data;
+    if (coupon && coupon.code) {
+      cachedBotCoupon = {
+        code: coupon.code,
+        discountType: coupon.discountType, // "percentage" or "fixed"
+        discountValue: coupon.discountValue,
+        minOrderValue: coupon.minOrderValue || 0,
+        maxDiscount: coupon.maxDiscount || null,
+        description: coupon.description || ''
+      };
+    } else {
+      cachedBotCoupon = null;
+    }
+    botCouponExpiry = now + (5 * 60 * 1000); // Cache for 5 minutes
+    return cachedBotCoupon;
+  } catch (err) {
+    console.warn('[Payment] fetchActiveBotCoupon error:', err.message);
+    return cachedBotCoupon || null;
+  }
+}
