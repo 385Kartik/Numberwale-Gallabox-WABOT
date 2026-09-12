@@ -242,18 +242,18 @@ export default async function handler(req, res) {
         
         const customerContext = await getCustomerContext(customerPhone);
         const lang = customerContext.language || 'English';
-        let resumeMsg = "👋 Hi! I am the AI assistant, back online.\n\nWhat kind of VIP mobile numbers are you looking for?";
+        let resumeMsg = "👋 Hi! I'm Eva, Numberwale's assistant, back online. 😊\n\nWhat kind of VIP mobile numbers are you looking for?";
         
         if (lang === 'English') {
-          resumeMsg = "👋 Hi! I am the AI assistant, back online.\n\nWhat kind of VIP mobile numbers are you looking for?";
+          resumeMsg = "👋 Hi! I'm Eva, Numberwale's assistant, back online. 😊\n\nWhat kind of VIP mobile numbers are you looking for?";
         } else if (lang === 'Hindi') {
-          resumeMsg = "👋 नमस्ते! मैं AI असिस्टेंट वापस आ गया हूँ।\n\nआपको कैसा VIP मोबाइल नंबर चाहिए?";
+          resumeMsg = "👋 नमस्ते! मैं Eva, Numberwale की assistant, वापस ऑनलाइन आ गई हूँ। 😊\n\nआपको कैसा VIP मोबाइल नंबर चाहिए?";
         } else if (lang === 'Gujarati') {
-          resumeMsg = "👋 નમસ્તે! હું AI આસિસ્ટન્ટ પાછો આવી ગયો છું.\n\nતમારે કેવા VIP મોબાઈલ નંબર જોઈએ છે?";
+          resumeMsg = "👋 નમસ્તે! હું Eva, Numberwale ની assistant, પાછી ઓનલાઈન આવી ગઈ છું. 😊\n\nતમારે કેવા VIP મોબાઈલ નંબર જોઈએ છે?";
         } else if (lang === 'Marathi') {
-          resumeMsg = "👋 नमस्कार! मी AI सहाय्यक परत आलो आहे.\n\nतुम्हाला कसा VIP मोबाईल नंबर हवा आहे?";
+          resumeMsg = "👋 नमस्कार! मी Eva, Numberwale ची assistant, परत ऑनलाइन आले आहे. 😊\n\nतुम्हाला कसा VIP मोबाईल नंबर हवा आहे?";
         } else if (lang === 'Hinglish') {
-          resumeMsg = "👋 Hi! Main AI assistant wapas online aa gaya hun.\n\nAapko kis tarah ke VIP mobile numbers chahiye?";
+          resumeMsg = "👋 Hi! Main Eva, Numberwale ki assistant, wapas online aa gayi hoon. 😊\n\nAapko kis tarah ke VIP mobile numbers dekhne hain?";
         }
         
         await sendToGallabox(customerPhone, resumeMsg, channelID);
@@ -504,7 +504,7 @@ export default async function handler(req, res) {
           })
         }).catch(e => console.error(`[Webhook] Failed to sync lead to CRM:`, e.message));
 
-        const welcomeMsg = `Awesome, ${extractedName}! 🎉 Your Pincode ${extractedPin} has been saved.\n\nI am NM Assistant, your VIP Number Consultant at Numberwale. What kind of VIP mobile number are you looking for? (e.g. _9999 ending_, _mirror numbers_, _lucky total 5 or 6_, or share your budget) 😊`;
+        const welcomeMsg = `Awesome, ${extractedName}! 🎉 Your Pincode ${extractedPin} has been saved.\n\nHi, I'm Eva, Numberwale's assistant! What kind of VIP mobile number are you looking for? (e.g. _9999 ending_, _mirror numbers_, _lucky total 5 or 6_, or share your budget) 😊`;
         await sendToGallabox(customerPhone, welcomeMsg, channelID);
         return res.status(200).json({ success: true, reason: 'onboarded_direct' });
       }
@@ -513,7 +513,7 @@ export default async function handler(req, res) {
       await updateCustomerInfo(customerPhone, { botState: 'AWAITING_INFO', language: 'English' });
       customerContext.language = 'English';
       customerContext.botState = 'AWAITING_INFO';
-      const welcomeReply = "Welcome to Numberwale! 🎉\n\nI am NM Assistant, your VIP Number Consultant.\n\nTo check the best available VIP numbers and telecom circle availability for your area, please type your *Name* and *6-digit Pincode*.\n\nExample: _Rahul 400001_";
+      const welcomeReply = "Welcome to Numberwale! 🎉\n\nHi, I'm Eva, Numberwale's assistant! 😊\n\nTo check the best available VIP numbers and telecom circle availability for your area, please type your *Name* and *6-digit Pincode*.\n\nExample: _Rahul 400001_";
       await sendToGallabox(customerPhone, welcomeReply, channelID);
       return res.status(200).json({ success: true, reason: 'awaiting_info' });
     }
@@ -523,7 +523,7 @@ export default async function handler(req, res) {
       customerContext.language = 'English';
       customerContext.botState = 'AWAITING_INFO';
 
-      const welcomeReply = "Welcome to Numberwale! 🎉\n\nI am NM Assistant, your VIP Number Consultant.\n\nTo check the best available VIP numbers and telecom circle availability for your area, please type your *Name* and *6-digit Pincode*.\n\nExample: _Rahul 400001_";
+      const welcomeReply = "Welcome to Numberwale! 🎉\n\nHi, I'm Eva, Numberwale's assistant! 😊\n\nTo check the best available VIP numbers and telecom circle availability for your area, please type your *Name* and *6-digit Pincode*.\n\nExample: _Rahul 400001_";
       await sendToGallabox(customerPhone, welcomeReply, channelID);
       return res.status(200).json({ success: true, reason: 'awaiting_info' });
     }
