@@ -51,6 +51,12 @@ export const NUMBERWALE_KNOWLEDGE = {
     discounts: "Website listed prices already include maximum up to 50% discount. For high-value VIP numbers or bulk/family packs, a senior manager can assist with exclusive offers."
   },
 
+  // Downloads & Invoices
+  downloads: {
+    invoice: "To view or download your official 18% GST Invoice: Login to website (https://www.numberwale.com) -> My Account -> My Orders.",
+    numerologyReport: "To view or download your Numerology Report: Login to website (https://www.numberwale.com) -> My Account -> Numerology Report."
+  },
+
   // Numerology Meaning of Numbers (1-9)
   numerology: {
     1: { planet: "Sun (Surya)", traits: "Leadership, Government, Executive, Authority, High Ambition" },
@@ -211,6 +217,11 @@ export function detectCustomerIntent(rawMsg) {
     return { type: 'CONSULTATIVE_CHAT' };
   }
 
+  // 0b. FAQ: Downloads (Invoice, GST bill, Numerology Report)
+  if (/\b(invoice|bill|receipt|report)\b/i.test(text) && /\b(download|kaha|kahan|dekhe|dekhna|milega|milegi|access|bhejo|kaise|print|check)\b/i.test(text)) {
+    return { type: 'FAQ_DOWNLOAD' };
+  }
+
   // 1. Numerology Intent
   const numRegex = /\b(numerology|astro|astrology|moolank|mulank|bhagyank|kundali|rashi|lucky\s*number|kismat|date\s*of\s*birth|dob|tarikh|tithi|bday|birthday|janamdin|janam\s*tarikh)\b/i;
   const hasDatePattern = /\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b/.test(text) || 
@@ -232,7 +243,7 @@ export function detectCustomerIntent(rawMsg) {
     return { type: 'FAQ_NETWORK' };
   }
 
-  // 4. FAQ: Pricing, Discount, Negotiation, COD
+  // 5. FAQ: Pricing, Discount, Negotiation, COD
   if (/\b(discount|kam\s*karo|bargain|sasta|offer|cod|cash\s*on\s*delivery|installment|emi|gst|invoice)\b/i.test(text)) {
     return { type: 'FAQ_PRICING' };
   }
@@ -276,6 +287,9 @@ FACTS TO USE STRICTLY:
 - Guarantee: 100% Money Back Guarantee if porting fails. UPC is valid for limited days; if expired, Numberwale provides a fresh UPC free of cost.
 - Payments: 100% online & secure (UPI, Google Pay, PhonePe, Cards, Netbanking, Credit Card EMI). No COD because UPC is digital. Official GST invoice provided.
 - Office: Head office in Bhayandar East, Thane / Mumbai, Maharashtra. Helpline: +91 9222 222 007 (10am–7pm Mon–Sat).
+- Invoice & Report Access:
+  • Official GST Invoice: Customer can download anytime by logging into website (https://www.numberwale.com) -> My Account -> My Orders.
+  • Numerology Report: Customer can view/download by logging into website -> My Account -> Numerology Report (and invoice in My Orders).
 
 TONE & RULES:
 - STRICT LANGUAGE RULE: You must respond PURELY and STRICTLY in ${lang}. DO NOT mix languages. DO NOT append Hindi words if the language is English. Never output gibberish.
@@ -375,6 +389,35 @@ TONE & RULES:
         `✅ Choose Prepaid or Postpaid at the operator store\n` +
         `✅ Easily convertible to eSIM once activated\n\n` +
         `Which operator network do you prefer? 😊`;
+    }
+  }
+
+  if (intentType === 'FAQ_DOWNLOAD') {
+    if (lang === 'Hindi') {
+      return `नमस्ते ${greeting}! 📄 नंबरवाले पर अपनी खरीद की इनवॉइस या रिपोर्ट डाउनलोड करना बहुत आसान है:\n\n` +
+        `• *GST इनवॉइस:* वेबसाइट (https://www.numberwale.com) पर लॉगिन करें और *My Account > My Orders* में जाकर इनवॉइस डाउनलोड करें।\n` +
+        `• *न्यूमरोलॉजी रिपोर्ट:* वेबसाइट पर लॉगिन करके *My Account > Numerology Report* में जाकर अपनी रिपोर्ट डाउनलोड कर सकते हैं।\n\n` +
+        `क्या आपको किसी विशेष ऑर्डर या इनवॉइस में सहायता चाहिए? मैं आपकी पूरी मदद कर सकती हूँ! 😊`;
+    } else if (lang === 'Gujarati') {
+      return `નમસ્તે ${greeting}! 📄 નંબરવાલે પર તમારું ઇનવોઇસ અથવા રિપોર્ટ ડાઉનલોડ કરવું ખૂબ જ સરળ છે:\n\n` +
+        `• *GST ઇનવોઇસ:* વેબસાઇટ (https://www.numberwale.com) પર લૉગિન કરો અને *My Account > My Orders* માં જઈને ડાઉનલોડ કરો.\n` +
+        `• *ન્યૂમરોલોજી રિપોર્ટ:* વેબસાઇટ પર લૉગિન કરીને *My Account > Numerology Report* માં જઈને તમારો રિપોર્ટ ડાઉનલોડ કરી શકો છો.\n\n` +
+        `શું તમારે કોઈ ચોક્કસ ઓર્ડરમાં મદદ જોઈએ છે? હું મદદ કરવા માટે તૈયાર છું! 😊`;
+    } else if (lang === 'Marathi') {
+      return `नमस्कार ${greeting}! 📄 नंबरवालेवर तुमचे इनव्हॉइस किंवा रिपोर्ट डाउनलोड करणे अत्यंत सोपे आहे:\n\n` +
+        `• *GST इनव्हॉइस:* वेबसाइटवर (https://www.numberwale.com) लॉगिन करा आणि *My Account > My Orders* मध्ये जाऊन इनव्हॉइस डाउनलोड करा.\n` +
+        `• *न्यूमरोलॉजी रिपोर्ट:* वेबसाइटवर लॉगिन करून *My Account > Numerology Report* मध्ये जाऊन रिपोर्ट डाउनलोड करू शकता.\n\n` +
+        `तुम्हाला कोणत्याही विशिष्ट ऑर्डरबद्दल मदत हवी आहे का? मी नक्की मदत करू शकते! 😊`;
+    } else if (lang === 'Hinglish') {
+      return `Namaste ${greeting}! 📄 Numberwale par apna invoice ya report download karna bohot aasan hai:\n\n` +
+        `• *GST Invoice:* Website (https://www.numberwale.com) par login karein aur *My Account > My Orders* me jaa kar download karein.\n` +
+        `• *Numerology Report:* Website par login karke *My Account > Numerology Report* me jaa kar apni report download kar sakte hain.\n\n` +
+        `Kya aapko kisi specific order ya invoice ke liye help chahiye? Main assist kar sakti hoon! 😊`;
+    } else {
+      return `Hello ${greeting}! 📄 Accessing your invoice or numerology report on Numberwale is simple:\n\n` +
+        `• *GST Invoice:* Login to our website (https://www.numberwale.com) and visit *My Account > My Orders* to download your invoice.\n` +
+        `• *Numerology Report:* Login to the website and visit *My Account > Numerology Report* to view and download your report.\n\n` +
+        `Do you need assistance with a specific order? I'm happy to help! 😊`;
     }
   }
 

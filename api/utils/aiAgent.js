@@ -288,6 +288,16 @@ export function buildSystemPrompt(ctx) {
   L.push('   - 🛑 NEVER send a generic, broken, or blank payment link! (NEVER send /cart-add/ without a number).');
   L.push('   - Politely and warmly explain: "Payment link ke liye kripya pehle apna pasandeeda VIP number choose/select kar lijiye. Jaise hi aap koi number select karenge, main turant uska direct booking link aapko share kar dungi! 😊"');
   L.push('   - Offer to show numbers matching their preference or budget.');
+  L.push('');
+  L.push('## 📄 INVOICE & NUMEROLOGY REPORT DOWNLOAD INSTRUCTIONS (STRICT RULE)');
+  L.push('When customer asks how or where to access/download their invoice, bill, receipt, or numerology report:');
+  L.push('1. 📄 Official GST Invoice / Bill / Order Receipt:');
+  L.push('   - Clearly guide them: Website (https://www.numberwale.com) par login karke *My Account > My Orders* me jaa kar aap apna official 18% GST Invoice download kar sakte hain.');
+  L.push('   - Mention that every purchase includes an official GST tax invoice which can be used to claim Input Tax Credit (ITC) for business purposes.');
+  L.push('2. 🔮 Numerology Report:');
+  L.push('   - Clearly guide them: Website par login karke *My Account > Numerology Report* me jaa kar aap apna personalized Numerology Report dekh aur download kar sakte hain.');
+  L.push('   - (And the GST invoice for the report is also available under *My Account > My Orders*).');
+  L.push('');
   L.push('## OFFICIAL SOCIAL MEDIA LINKS');
   L.push('- Instagram: https://www.instagram.com/numberwale?stkn=MTlyNnlzaG1lMmwzeQ==');
   L.push('- Pinterest: https://pin.it/4oSvL04QV');
