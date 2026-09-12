@@ -190,7 +190,7 @@ export function buildSystemPrompt(ctx) {
       L.push('Guidelines for this response:');
       L.push(`1. Celebrate their numbers warmly in 2 lines (e.g. "Aapka Birth Number *${bNum}* (${bPlanet}) hai aur Life Path *${lpNum}* (${lpPlanet})! Dono hi bahut shubh vibrations hain.").`);
       L.push(`2. Present numbers matching Life Path total ${lpNum} (or Birth Number ${bNum}). If customer was discussing a specific category (e.g. ABC-ABC, mirror), COMBINE IT in SEARCH_JSON:{"category":"...","scoreSum":${lpNum}}!`);
-      L.push('3. Softly add: "Agar aapko detailed reading dekhni ho, toh report bhi check kar sakte hain: https://www.numberwale.com/numerology-report"');
+      L.push('3. Softly add: "Agar aapko detailed reading dekhni ho, toh report bhi check kar sakte hain: https://www.numberwale.com/numerology"');
     } else {
       L.push('⚠️ STRICT ANTI-REPETITION RULE:');
       L.push('- DO NOT re-calculate, DO NOT show addition steps (like "0+3+0+8=..."), and DO NOT repeat planet definitions!');
@@ -199,7 +199,7 @@ export function buildSystemPrompt(ctx) {
     }
   } else {
     L.push('Planets per scoreSum: 1=Sun (Leadership), 2=Moon (Harmony), 3=Jupiter (Wisdom/Growth), 4=Rahu (Innovation), 5=Mercury (Business/Sales), 6=Venus (Luxury/Fame), 7=Ketu (Spiritual), 8=Saturn (Stability), 9=Mars (Dynamic Energy/Action)');
-    L.push('When customer shares DOB (DD/MM/YYYY): calculate Birth Number (Day only) and Life Path Number (Full DOB sum). Explain warmly in 2 lines, search Life Path total in SEARCH_JSON:{"scoreSum":X}, and recommend https://www.numberwale.com/numerology-report.');
+    L.push('When customer shares DOB (DD/MM/YYYY): calculate Birth Number (Day only) and Life Path Number (Full DOB sum). Explain warmly in 2 lines, search Life Path total in SEARCH_JSON:{"scoreSum":X}, and recommend https://www.numberwale.com/numerology.');
   }
   L.push('');
   L.push('## HOW TO SEARCH NUMBERS (SEARCH_JSON)');
