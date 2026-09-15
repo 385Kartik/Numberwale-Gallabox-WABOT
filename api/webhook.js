@@ -371,15 +371,16 @@ export default async function handler(req, res) {
       pauseBot(customerPhone);
       await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: false });
 
+      const convId = body?.conversationId || body?.data?.conversationId || body?.request?.data?.conversationId || '';
       // Save conversationId so agentTimeout can unassign later
-      if (body?.conversationId) {
-        saveConversationId(customerPhone, body.conversationId).catch(() => {});
+      if (convId) {
+        saveConversationId(customerPhone, convId).catch(() => {});
       }
 
-      // 1. Tag in Gallabox → triggers 3-min Workflow timer
+      // 1. Tag in Gallabox → triggers 3-min Workflow timer & highlights in Gallabox inbox
       await addGallaboxTag(customerPhone, "REQUIRE_AGENT");
 
-      // 2. Notify Admin Panel in background → triggers round-robin assignment
+      // 2. Notify Admin Panel in background → triggers round-robin assignment & logs urgent internal note
       const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
       const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
       fetch(`${ADMIN_API}/api/v1/gallabox-bot/request-agent`, {
@@ -392,7 +393,8 @@ export default async function handler(req, res) {
           pinCode: customerContext.pinCode || '',
           language: customerContext.language || 'English',
           activeFilters: customerContext.activeFilters || {},
-          conversationId: body?.conversationId || ''
+          conversationId: convId,
+          isUrgent: true
         })
       }).then(r => console.log(`[Webhook] Admin notified for agent request: ${r.status}`))
         .catch(e => console.error(`[Webhook] Admin notification failed:`, e.message));
@@ -455,25 +457,32 @@ export default async function handler(req, res) {
     }
 
     if (currentState === 'NEW') {
-      // 1. Check if chat is already assigned in CRM
+      const incomingConvId = body?.conversationId || body?.data?.conversationId || body?.request?.data?.conversationId || '';
+      if (incomingConvId) {
+        saveConversationId(customerPhone, incomingConvId).catch(() => {});
+      }
+
+      // 1. Tag in Gallabox → BOT_ACTIVE (Visible to executives)
+      addGallaboxTag(customerPhone, "BOT_ACTIVE").catch(e => console.error('[Webhook] Failed to add BOT_ACTIVE tag:', e.message));
+
+      // 2. Auto-assign lead to Executive via Round-Robin in CRM (Ensures NO unassigned leads in Gallabox)
       try {
         const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
         const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
-        const t0Check = Date.now();
-        const checkRes = await fetch(`${ADMIN_API}/api/v1/gallabox-bot/check-assigned?phone=${customerPhone}`, {
-            headers: { 'x-bot-secret': ADMIN_SECRET },
-            signal: AbortSignal.timeout(2000)
-        });
-        const checkData = await checkRes.json();
-        console.log(`[Webhook] CRM check-assigned took ${Date.now() - t0Check}ms`);
-        
-        if (checkData?.isAssigned) {
-            console.log(`[Webhook] Chat ${customerPhone} is ALREADY assigned to ${checkData.assignedTo}. Pausing bot silently.`);
-            await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: false });
-            return res.status(200).json({ success: true, reason: 'already_assigned' });
-        }
+        fetch(`${ADMIN_API}/api/v1/gallabox-bot/sync-lead`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
+          body: JSON.stringify({
+            phone: customerPhone,
+            name: (customerContext.name && customerContext.name !== 'Unknown') ? customerContext.name : '',
+            conversationId: incomingConvId,
+            autoAssign: true,
+            language: 'English'
+          })
+        }).then(r => console.log(`[Webhook] Auto-assign sync-lead status: ${r.status}`))
+          .catch(e => console.error(`[Webhook] Auto-assign sync-lead failed:`, e.message));
       } catch (err) {
-        console.error(`[Webhook] Error checking if lead is assigned:`, err.message);
+        console.error(`[Webhook] Error initiating lead auto-assignment:`, err.message);
       }
     }
 
@@ -510,6 +519,7 @@ export default async function handler(req, res) {
         // Background sync to CRM
         const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
         const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
+        const convId = body?.conversationId || body?.data?.conversationId || body?.request?.data?.conversationId || '';
         fetch(`${ADMIN_API}/api/v1/gallabox-bot/sync-lead`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
@@ -519,7 +529,9 @@ export default async function handler(req, res) {
             pincode: extractedPin,
             pinCode: extractedPin,
             location: extractedPin,
-            language: defaultLang
+            language: defaultLang,
+            conversationId: convId,
+            autoAssign: true
           })
         }).catch(e => console.error(`[Webhook] Failed to sync lead to CRM:`, e.message));
 
@@ -567,6 +579,7 @@ export default async function handler(req, res) {
         // Background sync to CRM
         const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
         const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
+        const convId = body?.conversationId || body?.data?.conversationId || body?.request?.data?.conversationId || '';
         fetch(`${ADMIN_API}/api/v1/gallabox-bot/sync-lead`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
@@ -576,7 +589,9 @@ export default async function handler(req, res) {
             pincode: extractedPin,
             pinCode: extractedPin,
             location: extractedPin,
-            language: customerContext.language || 'Hinglish'
+            language: customerContext.language || 'Hinglish',
+            conversationId: convId,
+            autoAssign: true
           })
         }).catch(e => console.error(`[Webhook] Failed to sync lead to CRM:`, e.message));
 
