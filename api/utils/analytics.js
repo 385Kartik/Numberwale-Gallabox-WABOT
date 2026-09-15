@@ -42,7 +42,8 @@ const CustomerBotProfileSchema = new mongoose.Schema({
   lastPage: { type: Number, default: 1 },
   botState: { type: String, enum: ['NEW', 'AWAITING_LANGUAGE', 'AWAITING_INFO', 'ACTIVE', 'PAUSED'], default: 'NEW' },
   pinCode: { type: String },
-  name: { type: String },
+  name: { type: String, default: 'Unknown' },
+  selfProvidedName: { type: Boolean, default: false },
   language: { type: String, default: null },
   dob: { type: String, default: null },
   birthNumber: { type: Number, default: null },
@@ -86,6 +87,7 @@ function getMemoryProfile(phone) {
       lastPage: 1,
       botState: 'NEW',
       name: 'Unknown',
+      selfProvidedName: false,
       pinCode: null,
       language: null,
       dob: null,
@@ -110,7 +112,7 @@ export async function getCustomerContext(phone, name) {
 
     const profile = await CustomerProfile.findOneAndUpdate(
       { phone },
-      { $setOnInsert: { name, phone, successCount: 0, failureCount: 0, history: [], activeFilters: {}, lastPage: 1 } },
+      { $setOnInsert: { name: name || 'Unknown', phone, successCount: 0, failureCount: 0, history: [], activeFilters: {}, lastPage: 1 } },
       { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
@@ -119,6 +121,7 @@ export async function getCustomerContext(phone, name) {
       lastPage: profile.lastPage || 1,
       botState: profile.botState || 'NEW',
       name: profile.name,
+      selfProvidedName: profile.selfProvidedName || false,
       pinCode: profile.pinCode,
       language: profile.language || null,
       dob: profile.dob || null,
@@ -140,6 +143,7 @@ export async function getCustomerContext(phone, name) {
       lastPage: mem.lastPage || 1,
       botState: mem.botState || 'NEW',
       name: mem.name,
+      selfProvidedName: mem.selfProvidedName || false,
       pinCode: mem.pinCode,
       language: mem.language || null,
       dob: mem.dob || null,
@@ -272,8 +276,8 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
 
     const incCustomer = isFail ? { failureCount: 1 } : { successCount: 1 };
 
-    // Build $set — always update name; also save activeFilters + lastPage on success
-    const setFields = { name };
+    // Build $set — save activeFilters + lastPage on success
+    const setFields = {};
     if (!isFail && jsonQuery && Object.keys(jsonQuery).length > 0) {
       setFields.activeFilters = jsonQuery;
       setFields.lastPage = page;
@@ -281,6 +285,15 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
     if (dob) setFields.dob = dob;
     if (birthNumber != null) setFields.birthNumber = birthNumber;
     if (lifePathNumber != null) setFields.lifePathNumber = lifePathNumber;
+
+    // Only update name if customer has not self-provided their name
+    if (!mem.selfProvidedName && name && name !== 'Unknown') {
+      await CustomerProfile.updateOne(
+        { phone, selfProvidedName: { $ne: true } },
+        { $set: { name } }
+      );
+      mem.name = name;
+    }
 
     await CustomerProfile.findOneAndUpdate(
       { phone },

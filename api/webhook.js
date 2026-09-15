@@ -15,9 +15,20 @@ import {
 } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
 import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/gallabox.js';
-import { formatProducts, cleanCustomerName, extract10DigitNumber } from './utils/aiAgent.js';
+import { formatProducts, cleanCustomerName, extract10DigitNumber, stripThinkTags } from './utils/aiAgent.js';
 
+function extractNameAndPincode(userMessage) {
+  if (!userMessage || typeof userMessage !== 'string') return null;
+  const pinMatch = userMessage.match(/\b\d{6}\b/);
+  if (!pinMatch) return null;
+  const pin = pinMatch[0];
 
+  const textWithoutPin = userMessage.replace(/\b\d{6}\b/, '');
+  const cleanName = cleanCustomerName(textWithoutPin);
+  if (!cleanName || cleanName.length < 2) return null;
+
+  return { name: cleanName, pin };
+}
 
 // ── Intent Detectors ────────────────────────────────────────────────────────
 function extractBuyNumber(text) {
@@ -315,6 +326,12 @@ export default async function handler(req, res) {
     const t0Context = Date.now();
     const customerContext = await getCustomerContext(customerPhone, customerName);
     const tContext = Date.now() - t0Context;
+
+    // Self-provided name takes absolute precedence over Gallabox contact name!
+    const effectiveCustomerName = (customerContext.name && customerContext.name !== 'Unknown')
+      ? customerContext.name
+      : (customerName !== 'Unknown' ? customerName : 'Unknown');
+    customerContext.name = effectiveCustomerName;
     let currentState = customerContext.botState;
 
     if (currentState === 'PAUSED') {
@@ -471,20 +488,22 @@ export default async function handler(req, res) {
     // ── State Machine: Onboarding (Direct to Name & Pincode in English -> Active Sales Flow) ──
     if (currentState === 'NEW') {
       // Check if user already provided Name and 6-digit Pincode in first message
-      const pinMatch = userMessage.match(/\b\d{6}\b/);
-      const extractedName = userMessage.replace(/\b\d{6}\b/, '').replace(/[^\p{L}\s]/gu, '').replace(/\s+/g, ' ').trim();
+      const extracted = extractNameAndPincode(userMessage);
 
-      if (pinMatch && extractedName.length >= 2) {
-        const extractedPin = pinMatch[0];
+      if (extracted) {
+        const extractedPin = extracted.pin;
+        const extractedName = extracted.name;
         const defaultLang = 'English';
         await updateCustomerInfo(customerPhone, { 
           botState: 'ACTIVE', 
           language: defaultLang,
           pinCode: extractedPin, 
-          name: extractedName 
+          name: extractedName,
+          selfProvidedName: true
         });
         customerContext.pinCode = extractedPin;
         customerContext.name = extractedName;
+        customerContext.selfProvidedName = true;
         customerContext.language = defaultLang;
         customerContext.botState = 'ACTIVE';
 
@@ -529,18 +548,20 @@ export default async function handler(req, res) {
     }
 
     if (currentState === 'AWAITING_INFO') {
-      const pinMatch = userMessage.match(/\b\d{6}\b/);
-      let extractedName = userMessage.replace(/\b\d{6}\b/, '').replace(/[^\p{L}\s]/gu, '').replace(/\s+/g, ' ').trim();
+      const extracted = extractNameAndPincode(userMessage);
 
-      if (pinMatch && extractedName.length >= 2) {
-        const extractedPin = pinMatch[0];
+      if (extracted) {
+        const extractedPin = extracted.pin;
+        const extractedName = extracted.name;
         await updateCustomerInfo(customerPhone, { 
           botState: 'ACTIVE', 
           pinCode: extractedPin, 
-          name: extractedName 
+          name: extractedName,
+          selfProvidedName: true
         });
         customerContext.pinCode = extractedPin;
         customerContext.name = extractedName;
+        customerContext.selfProvidedName = true;
         customerContext.botState = 'ACTIVE';
 
         // Background sync to CRM
@@ -885,8 +906,12 @@ export default async function handler(req, res) {
       }
 
       const tAi = Date.now() - t0Ai;
-      const replyText = agentResult.reply;
+      let replyText = stripThinkTags(agentResult.reply || '');
       const searchJSON = agentResult.searchJSON;
+
+      if (!replyText || replyText.trim().length === 0) {
+        replyText = "Hi! How can I assist you with your VIP mobile number search today? 😊";
+      }
 
       // Send reply
       const t0Send = Date.now();
@@ -903,7 +928,7 @@ export default async function handler(req, res) {
         console.log(`[Webhook] 🔴 Bot PAUSED for ${customerPhone} — escalated to human agent`);
         await logInteraction({
           phone: customerPhone,
-          name: customerName,
+          name: effectiveCustomerName,
           userText: userMessage,
           botText: '🔴 ESCALATED to human agent',
           isFail: false,
@@ -916,12 +941,12 @@ export default async function handler(req, res) {
       }
 
       // Save genuine bot text into history so LLM knows what it said in previous turns
-      const conversationalLog = (agentResult.conversationalIntro || agentResult.reply || '').substring(0, 500);
+      const conversationalLog = stripThinkTags((agentResult.conversationalIntro || agentResult.reply || '').substring(0, 500));
 
       // Log interaction and save active filters + numerology profile
       await logInteraction({
         phone: customerPhone,
-        name: customerName,
+        name: effectiveCustomerName,
         userText: userMessage,
         botText: conversationalLog,
         isFail: false,

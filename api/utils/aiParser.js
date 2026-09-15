@@ -233,8 +233,17 @@ async function fetchWithTimeout(url, options, timeoutMs = 4_000) {
   }
 }
 
+export function stripThinkTags(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/(?:<think>[\s\S]*?<\/think>|<think>[\s\S]*$)/gi, '')
+    .replace(/<\/?think>/gi, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 function cleanResponse(text) {
-  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  let cleaned = stripThinkTags(text);
   cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
   const firstBrace = cleaned.indexOf('{');
   const lastBrace = cleaned.lastIndexOf('}');
@@ -329,11 +338,12 @@ async function callSlotForChat(slot, systemPrompt, messages, maxTokens = 350, te
   }
 
   const data = await response.json();
-  const text = data.choices?.[0]?.message?.content
-    || data.choices?.[0]?.message?.reasoning_content
-    || data.choices?.[0]?.message?.reasoning;
+  const rawContent = data.choices?.[0]?.message?.content;
+  let text = stripThinkTags(rawContent || '');
 
-  if (!text) throw new Error("Empty response from model");
+  if (!text) {
+    throw new Error("Empty response or response contained only internal thinking");
+  }
   return text.trim();
 }
 

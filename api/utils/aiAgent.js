@@ -16,18 +16,33 @@ export function cleanCustomerName(rawName) {
   let name = rawName.trim();
   if (!name || /^(unknown|null|undefined|none)$/i.test(name)) return null;
 
-  // Remove common brand/admin terms like "Numberwale", "Number Wale", "NW", "Admin", "VIP"
+  // 1. Remove common brand/admin terms
   name = name.replace(/\b(?:numberwale|number\s*wale|nw|admin|vip|store|shop)\b/gi, '');
-  // Replace punctuation/separators (-, _, |, :, etc.) with spaces
+
+  // 2. Remove common prefix labels like "Name", "Naam", "Mera naam", "My name is"
+  name = name.replace(/\b(?:mera\s*naam(?:\s*hai)?|my\s*name\s*is|this\s*is|i\s*am|im|name\s*is|naam|name|pincode|pin\s*code|pin)\b[:\s-]*/gi, '');
+
+  // 3. Remove common titles/honorifics if followed by a name
+  name = name.replace(/\b(?:mr|mrs|ms|shri|shree|dr)\b\.?\s+/gi, '');
+
+  // 4. Replace punctuation/separators with spaces
   name = name.replace(/[-_\|\:\,\.\(\)\[\]\/\\]+/g, ' ');
-  // Remove non-letter characters (preserve unicode letters for Hindi/Gujarati/Marathi names)
+
+  // 5. Remove non-letter characters (preserve unicode letters for Hindi/Gujarati/Marathi names)
   name = name.replace(/[^\p{L}\s]/gu, '');
-  // Collapse spaces
+
+  // 6. Collapse multiple spaces
   name = name.replace(/\s+/g, ' ').trim();
 
   if (!name || name.length < 2) return null;
-  const parts = name.split(' ');
-  return parts[0];
+
+  // Split into words, filter out any leftover common stop words
+  const parts = name.split(' ').filter(w => !/^(is|hai|am|ji|bhai|sir|madam)$/i.test(w) && w.length >= 2);
+  if (parts.length === 0) return null;
+
+  // Capitalize first letter of name
+  const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+  return cap(parts[0]);
 }
 
 export function extract10DigitNumber(text) {
@@ -407,8 +422,11 @@ export function buildSystemPrompt(ctx) {
   L.push('4. Auspicious 786 numbers & Quad endings (9999, 0000)');
   L.push('Search immediately with trending VIP options: SEARCH_JSON:{"category":"mirror-numbers"} or SEARCH_JSON:{"scoreSum":6} and enthusiastically explain why they are top-tier!');
   L.push('');
-  L.push('## SEARCH PROACTIVELY');
-  L.push('If customer gives ANY preference (digit, budget, pattern, use-case) -> search immediately, show results, refine after.');
+  L.push('## 🚨 SEARCH PROACTIVELY & MANDATORY SEARCH_JSON RULE (CRITICAL!)');
+  L.push('1. Whenever customer mentions ANY preference — digit (e.g. "9596 last", "007 end", "starting 98"), budget ("3k", "under 5000"), pattern ("mirror", "786"), or asks for numbers:');
+  L.push('   YOU MUST OUTPUT SEARCH_JSON:{...} ON ITS OWN SEPARATE LINE!');
+  L.push('2. 🛑 NEVER say "I will find numbers", "I have found numbers", "Let me pull up options", or "Which of these catches your eye" WITHOUT outputting SEARCH_JSON!');
+  L.push('3. NEVER promise numbers in conversation while forgetting to output SEARCH_JSON! All customer number options are loaded exclusively via SEARCH_JSON.');
   L.push('');
   L.push('## GREETING (First Message)');
   if (isFirst) {
@@ -544,20 +562,23 @@ async function getAvailableGroqModels(apiKey) {
                    !lower.includes('guard') &&
                    !lower.includes('tts') &&
                    !lower.includes('embed') &&
-                   !lower.includes('distil');
+                   !lower.includes('distil') &&
+                   !lower.includes('r1') &&
+                   !lower.includes('qwq') &&
+                   !lower.includes('reason') &&
+                   !lower.includes('deepseek');
           });
 
         if (textModels.length > 0) {
-          // Sort models: prioritize known strong conversational models
+          // Sort models: prioritize fast conversational models (llama-3.3-70b, llama-3.1-8b)
           textModels.sort((a, b) => {
             const score = (id) => {
               const l = id.toLowerCase();
-              if (l.includes('120b')) return 1;
-              if (l.includes('70b')) return 2;
-              if (l.includes('27b')) return 3;
-              if (l.includes('20b')) return 4;
-              if (l.includes('8b')) return 5;
-              if (l.includes('llama')) return 6;
+              if (l.includes('llama-3.3-70b-versatile')) return 1;
+              if (l.includes('llama-3.1-8b-instant')) return 2;
+              if (l.includes('70b')) return 3;
+              if (l.includes('8b')) return 4;
+              if (l.includes('llama')) return 5;
               return 10;
             };
             return score(a) - score(b);
@@ -575,7 +596,7 @@ async function getAvailableGroqModels(apiKey) {
   }
 
   // Fallbacks if discovery API fails
-  return ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+  return ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
 }
 
 async function callGroq(systemPrompt, messages) {
@@ -614,7 +635,11 @@ async function callGroq(systemPrompt, messages) {
       }
 
       const data = await response.json();
-      const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+      const rawText = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+      const text = stripThinkTags(rawText);
+      if (!text) {
+        throw new Error(`Groq model ${model} produced empty text or only internal thinking tags`);
+      }
       return { text: text.trim(), model: 'groq/' + model };
     } catch (err) {
       lastError = err;
@@ -662,7 +687,11 @@ async function callOpenAI(systemPrompt, messages, model) {
     }
 
     const data = await response.json();
-    const text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+    const rawText = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+    const text = stripThinkTags(rawText);
+    if (!text) {
+      throw new Error(`OpenAI model ${model || 'gpt-4o-mini'} produced empty text`);
+    }
     return { text: text.trim(), model: model || 'gpt-4o-mini' };
   } finally {
     clearTimeout(timer);
@@ -873,9 +902,152 @@ function cleanMarkdownTables(text) {
   return result.join('\n');
 }
 
+export function stripThinkTags(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/(?:<think>[\s\S]*?<\/think>|<think>[\s\S]*$)/gi, '')
+    .replace(/<\/?think>/gi, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+export function stripPhantomQuestions(text) {
+  if (!text || typeof text !== 'string') return '';
+  let cleaned = text
+    // English phantom closing questions
+    .replace(/(?:which\s*of\s*these[^\?\n]*\?|which\s*one[^\?\n]*\?|shall\s*i\s*reserve\s*one\s*of\s*these[^\?\n]*\?)/gi, '')
+    // Hinglish phantom closing questions
+    .replace(/(?:aapko\s*inme\s*se\s*kaun[^\?\n]*\?|inme\s*se\s*kaun[^\?\n]*\?|inme\s*se\s*kya[^\?\n]*\?|kaunsa\s*number\s*reserve\s*karein[^\?\n]*\?)/gi, '')
+    // Hindi phantom closing questions
+    .replace(/(?:इनमें\s*से\s*कौन[^\?\n]*\?|इनमें\s*से\s*कोई\s*नंबर[^\?\n]*\?)/gi, '')
+    // Gujarati phantom closing questions
+    .replace(/(?:આમાંથી\s*કયો[^\?\n]*\?|આમાંથી\s*કોઈ\s*નંબર[^\?\n]*\?)/gi, '')
+    // Marathi phantom closing questions
+    .replace(/(?:यापैकी\s*कोणता[^\?\n]*\?|यातला\s*कोणता\s*नंबर[^\?\n]*\?)/gi, '')
+    // Also remove empty hanging lead-ins like "Here are the top picks:" or "These patterns are highly memorable:" if no numbers follow
+    .replace(/(?:^|\n)[^\n]+(?:top picks|suggested numbers|picks|options|series|following numbers)[^\n]*:\s*(?=\n\s*\n|\s*$)/gi, '')
+    .replace(/\n\s*\n\s*\n+/g, '\n\n');
+  return cleaned.trim();
+}
+
+export function extractFallbackSearchJSON(text, activeFilters = {}) {
+  if (!text || typeof text !== 'string') return null;
+  const t = text.trim();
+  const lower = t.toLowerCase();
+
+  // Skip global meta commands or plain greetings
+  if (/^(hi|hello|hey|namaste|kem cho|kasa kay|good morning|good evening|agent|human|talk to|connect|menu|reset|restart)$/i.test(lower)) {
+    return null;
+  }
+
+  const query = {};
+  let detected = false;
+
+  // 1. Ending pattern: e.g. "End 007", "ending 007", "007 end number", "9596 last. Number", "last 9596", "last digit 007", "last me 007"
+  const endMatch1 = t.match(/\b(?:ends?\s*with|ending(?:\s*in)?|end(?:\s*no\.?|\s*number)?|last(?:\s*digit|\s*no\.?|\s*number|\s*digits)?|aakhri|aakhiri|last\s*me)\s*[:\-\s.]*\s*(\d{2,6})\b/i);
+  const endMatch2 = t.match(/\b(\d{2,6})\s*[:\-\s.]*\s*(?:ends?\s*with|ending|end(?:\s*no\.?|\s*number)?|last(?:\s*digit|\s*no\.?|\s*number|\s*digits)?|aakhri|aakhiri)\b/i);
+  if (endMatch1) {
+    query.endsWith = endMatch1[1];
+    detected = true;
+  } else if (endMatch2) {
+    query.endsWith = endMatch2[1];
+    detected = true;
+  }
+
+  // 2. Starting pattern: e.g. "start 98", "starting 98", "starts with 98", "shuru me 98"
+  const startMatch1 = t.match(/\b(?:starts?\s*with|starting(?:\s*in)?|start|shuru(?:\s*me)?)\s*[:\-\s.]*\s*(\d{2,5})\b/i);
+  const startMatch2 = t.match(/\b(\d{2,5})\s*[:\-\s.]*\s*(?:starts?\s*with|starting|start)\b/i);
+  if (startMatch1) {
+    query.startsWith = startMatch1[1];
+    detected = true;
+  } else if (startMatch2) {
+    query.startsWith = startMatch2[1];
+    detected = true;
+  }
+
+  // 3. Budget extraction: e.g. "3k", "under 3k", "budget 3000", "under 5000", "3000 budget", "3k budget", "15000 me"
+  let budgetVal = null;
+  const kMatch = t.match(/\b(?:under|below|budget|max|upto|tak|me)?\s*(?:₹|rs\.?|inr)?\s*(\d{1,3})\s*k\b/i);
+  if (kMatch) {
+    budgetVal = parseInt(kMatch[1], 10) * 1000;
+  } else {
+    const numBudgetMatch = t.match(/\b(?:under|below|budget|max|upto|tak)\s*(?:₹|rs\.?|inr)?\s*(\d{3,7})\b/i)
+      || t.match(/\b(\d{3,7})\s*(?:₹|rs\.?|inr)?\s*(?:budget|ke\s*andar|tak|me)\b/i);
+    if (numBudgetMatch) {
+      budgetVal = parseInt(numBudgetMatch[1], 10);
+    }
+  }
+
+  // If user simply entered a standalone 3-6 digit number and already has active filters (like endsWith), treat as budget
+  if (!budgetVal && activeFilters && (activeFilters.endsWith || activeFilters.category || activeFilters.startsWith || activeFilters.scoreSum)) {
+    const standaloneNum = t.match(/^\s*(?:₹|rs\.?|inr)?\s*(\d{3,7})\s*$/i);
+    if (standaloneNum) {
+      const val = parseInt(standaloneNum[1], 10);
+      if (val >= 500 && val <= 1000000) {
+        budgetVal = val;
+      }
+    }
+  }
+
+  if (budgetVal && budgetVal >= 500 && budgetVal <= 5000000) {
+    query.maxPrice = budgetVal;
+    detected = true;
+  }
+
+  // 4. Category keywords
+  if (/\b(?:mirror|mirror\s*numbers)\b/i.test(lower)) {
+    query.category = 'mirror-numbers';
+    detected = true;
+  } else if (/\b(?:786|bismillah)\b/i.test(lower)) {
+    query.category = '786-numbers';
+    detected = true;
+  } else if (/\b(?:doubling|doubling\s*numbers)\b/i.test(lower)) {
+    query.category = 'doubling-numbers';
+    detected = true;
+  } else if (/\b(?:counting|sequential|series)\b/i.test(lower)) {
+    query.category = 'counting-numbers';
+    detected = true;
+  } else if (/\b(?:without\s*248|bina\s*248|avoid\s*248)\b/i.test(lower)) {
+    query.category = 'without-248-numbers';
+    detected = true;
+  } else if (/\b(?:abc\s*abc\s*abc)\b/i.test(lower)) {
+    query.category = 'abc-abc-abc-numbers';
+    detected = true;
+  } else if (/\b(?:abc\s*abc)\b/i.test(lower)) {
+    query.category = 'abc-abc-numbers';
+    detected = true;
+  } else if (/\b(?:ab\s*ab\s*ab)\b/i.test(lower)) {
+    query.category = 'ab-ab-ab-numbers';
+    detected = true;
+  } else if (/\b(?:ab\s*ab)\b/i.test(lower)) {
+    query.category = 'ab-ab-numbers';
+    detected = true;
+  } else if (/\b(?:triple|triplet)\b/i.test(lower)) {
+    query.category = 'triple-numbers';
+    detected = true;
+  } else if (/\b(?:tetra|4\s*same)\b/i.test(lower)) {
+    query.category = 'tetra-numbers';
+    detected = true;
+  }
+
+  if (!detected) return null;
+
+  // Merge with existing activeFilters if refining
+  if (activeFilters && typeof activeFilters === 'object' && Object.keys(activeFilters).length > 0) {
+    const merged = { ...activeFilters, ...query };
+    // Conflict resolution: if budget is under 50k and category is luxury mirror, drop category
+    if (merged.maxPrice && merged.maxPrice < 50000 && merged.category === 'mirror-numbers') {
+      delete merged.category;
+    }
+    return merged;
+  }
+
+  return query;
+}
+
 function stripSearchJSON(text) {
   if (!text) return '';
-  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  let cleaned = stripThinkTags(text);
   return cleaned.replace(/SEARCH_JSON:\{[^]*?\}\s*\n?/g, '').trim();
 }
 
@@ -1041,12 +1213,20 @@ export async function runAgent(opts) {
   let conversationalText = sanitizeHallucinatedNumbers(cleanMarkdownTables(stripSearchJSON(agentText)));
   const conversationalIntro = conversationalText;
 
-  if (searchJSON !== undefined) {
-    console.log('[Agent] Searching with:', JSON.stringify(searchJSON));
+  let effectiveSearchJSON = searchJSON;
+  if (!effectiveSearchJSON) {
+    const fallbackJSON = extractFallbackSearchJSON(userMessage, customerContext.activeFilters);
+    if (fallbackJSON && Object.keys(fallbackJSON).length > 0) {
+      console.log('[Agent] ⚡ Intercepted missing SEARCH_JSON with fallback parser:', JSON.stringify(fallbackJSON));
+      effectiveSearchJSON = fallbackJSON;
+    }
+  }
+
+  if (effectiveSearchJSON !== undefined) {
+    console.log('[Agent] Searching with:', JSON.stringify(effectiveSearchJSON));
     try {
-      let result = await fetchNumbers(searchJSON, page);
+      let result = await fetchNumbers(effectiveSearchJSON, page);
       let fallbackNote = '';
-      let effectiveSearchJSON = searchJSON;
 
       // Smart multi-step search relaxation if 0 results
       if ((!result.products || result.products.length === 0) && page === 1) {
@@ -1176,6 +1356,7 @@ export async function runAgent(opts) {
             `🔹 Ya kisi specific category jaise Doubling, 786 series, ya apne Lucky Sum mein number dekhna chahenge?\n\n` +
             `Aap jo bataenge, main turant best options nikal ke dikhati hoon! 😊`;
         }
+        conversationalText = stripPhantomQuestions(conversationalText);
         conversationalText = conversationalText ? (conversationalText + engagingFollowUp) : engagingFollowUp.trim();
         return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: null, model: usedModel, escalate: false };
       }
@@ -1184,5 +1365,6 @@ export async function runAgent(opts) {
     }
   }
 
+  conversationalText = stripPhantomQuestions(conversationalText);
   return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: null, model: usedModel, escalate: false };
 }

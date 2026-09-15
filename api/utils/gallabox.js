@@ -65,6 +65,16 @@ export async function sendToGallabox(phone, text, channelId) {
     console.error('[Gallabox] storeBotMessageId failed:', e.message)
   );
 
+  const cleanBody = (text || '')
+    .replace(/(?:<think>[\s\S]*?<\/think>|<think>[\s\S]*$)/gi, '')
+    .replace(/<\/?think>/gi, '')
+    .trim();
+
+  if (!cleanBody) {
+    console.warn(`[Gallabox] ⚠️ Empty message text for ${phone} after think check — skipping send.`);
+    return;
+  }
+
   let retries = 3;
   const t0Send = Date.now();
   while (retries > 0) {
@@ -76,7 +86,7 @@ export async function sendToGallabox(phone, text, channelId) {
           localMessageId: botLocalMsgId,
           channelType: 'whatsapp',
           recipient: { name: phone, phone },
-          whatsapp: { type: 'text', text: { body: text } },
+          whatsapp: { type: 'text', text: { body: cleanBody } },
         },
         {
           headers: { apiKey, apiSecret, 'Content-Type': 'application/json' },
