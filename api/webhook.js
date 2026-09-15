@@ -14,7 +14,7 @@ import {
   getGlobalBotConfig
 } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
-import { sendToGallabox, unassignConversation, addGallaboxTag } from './utils/gallabox.js';
+import { sendToGallabox, unassignConversation, addGallaboxTag, removeGallaboxTag } from './utils/gallabox.js';
 import { formatProducts, cleanCustomerName, extract10DigitNumber, stripThinkTags } from './utils/aiAgent.js';
 
 function extractNameAndPincode(userMessage) {
@@ -250,6 +250,8 @@ export default async function handler(req, res) {
         console.log(`[Webhook] Employee resumed bot for ${customerPhone}.`);
         resumeBot(customerPhone);
         await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
+        addGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
+        removeGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
         
         const customerContext = await getCustomerContext(customerPhone);
         const lang = customerContext.language || 'English';
@@ -282,6 +284,8 @@ export default async function handler(req, res) {
         console.log(`[Webhook] Real agent manual message received for ${customerPhone}. Setting agentReplied = true.`);
         await updateCustomerInfo(customerPhone, { agentReplied: true, lastAgentReplyAt: agentNow });
       }
+      removeGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
+      removeGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
       scheduleAgentInactivityTimer(customerPhone, channelID);
       return res.status(200).json({ success: true, reason: 'outbound_agent_message' });
     }
@@ -379,6 +383,7 @@ export default async function handler(req, res) {
 
       // 1. Tag in Gallabox → triggers 3-min Workflow timer & highlights in Gallabox inbox
       await addGallaboxTag(customerPhone, "REQUIRE_AGENT");
+      removeGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
 
       // 2. Notify Admin Panel in background → triggers round-robin assignment & logs urgent internal note
       const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
@@ -408,6 +413,8 @@ export default async function handler(req, res) {
             // CRITICAL: DO NOT UNASSIGN in Gallabox! Prevents infinite 2-min loop & keeps executive ownership.
             resumeBot(customerPhone);
             await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
+            addGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
+            removeGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
             
             const lang = ctx.language || 'English';
             let timeoutMsg = '';
@@ -650,7 +657,10 @@ export default async function handler(req, res) {
     customerContext.language = detectedLang;
     updateCustomerInfo(customerPhone, { language: detectedLang }).catch(() => {});
 
-    // If state is ACTIVE, proceed normally
+    // If state is ACTIVE, proceed normally (ensure BOT_ACTIVE tag is on Gallabox)
+    addGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
+    removeGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
+
     let jsonQuery;
     let page = 1;
     let parsedTokens = 0;
@@ -938,7 +948,8 @@ export default async function handler(req, res) {
       // ── Escalation: pause bot + tag contact ─────────────────────────────
       if (agentResult.escalate) {
         pauseBot(customerPhone);
-        addGallaboxTag(customerPhone, 'Needs Agent').catch(() => {});
+        await addGallaboxTag(customerPhone, "REQUIRE_AGENT");
+        removeGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
         stopDrip(customerPhone).catch(() => {});
         console.log(`[Webhook] 🔴 Bot PAUSED for ${customerPhone} — escalated to human agent`);
         await logInteraction({

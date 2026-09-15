@@ -133,22 +133,70 @@ export async function unassignConversation(conversationId) {
 }
 
 /**
- * Add a tag to a Gallabox contact.
+ * Add a tag to a Gallabox contact via upsert API.
+ * @param {string} phone - E.164 phone string
+ * @param {string} tagName - Tag name (e.g. "BOT_ACTIVE", "REQUIRE_AGENT")
  */
 export async function addGallaboxTag(phone, tagName) {
   const { apiKey, apiSecret } = getCredentials();
-  if (!apiKey || !apiSecret) return;
+  if (!apiKey || !apiSecret || !phone || !tagName) return;
+
   try {
+    let cleanPhone = String(phone).replace(/\D/g, '');
+    if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+    const formattedPhone = `+${cleanPhone}`;
+
     await axios.post(
-      'https://server.gallabox.com/devapi/contacts/tags',
-      { phone, tags: [tagName] },
+      'https://server.gallabox.com/devapi/contacts/upsert',
+      {
+        phone: [formattedPhone],
+        tags: [{ name: tagName }]
+      },
       {
         headers: { apiKey, apiSecret, 'Content-Type': 'application/json' },
-        timeout: 5000,
+        timeout: 6000,
       }
     );
-    console.log(`[Gallabox] 🏷️ Tag '${tagName}' added to ${phone}.`);
+    console.log(`[Gallabox] 🏷️ Tag '${tagName}' successfully synced to ${formattedPhone}.`);
   } catch (err) {
     console.error('[Gallabox] ❌ Tag failed:', err.response?.data || err.message);
   }
 }
+
+/**
+ * Remove a tag from a Gallabox contact.
+ * @param {string} phone - E.164 phone string
+ * @param {string} tagName - Tag name to remove (e.g. "BOT_ACTIVE")
+ */
+export async function removeGallaboxTag(phone, tagName) {
+  const { apiKey, apiSecret, accountId } = getCredentials();
+  if (!apiKey || !apiSecret || !accountId || !phone || !tagName) return;
+
+  try {
+    let cleanPhone = String(phone).replace(/\D/g, '');
+    if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+    const formattedPhone = `+${cleanPhone}`;
+
+    const getRes = await axios.get(
+      `https://server.gallabox.com/devapi/accounts/${accountId}/contacts?phone=${encodeURIComponent(formattedPhone)}`,
+      { headers: { apiKey, apiSecret } }
+    );
+    const contacts = getRes.data?.contacts || getRes.data || [];
+    const contact = Array.isArray(contacts) && contacts.length > 0 ? contacts[0] : null;
+
+    if (contact && contact.id && Array.isArray(contact.tags)) {
+      const remainingTags = contact.tags.filter(t => t.name !== tagName);
+      if (remainingTags.length !== contact.tags.length) {
+        await axios.patch(
+          `https://server.gallabox.com/devapi/accounts/${accountId}/contacts/${contact.id}`,
+          { tags: remainingTags },
+          { headers: { apiKey, apiSecret, 'Content-Type': 'application/json' } }
+        );
+        console.log(`[Gallabox] 🏷️ Tag '${tagName}' removed from ${formattedPhone}.`);
+      }
+    }
+  } catch (err) {
+    console.error('[Gallabox] ❌ Remove tag failed:', err.response?.data || err.message);
+  }
+}
+
