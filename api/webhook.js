@@ -98,6 +98,8 @@ function scheduleAgentInactivityTimer(customerPhone, channelID) {
           console.log(`[Timer] ⏰ 30-min agent inactivity reached for ${customerPhone}. Silently reactivating bot (agentReplied: false, no proactive follow-up).`);
           resumeBot(customerPhone);
           await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
+          addGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
+          removeGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
         }
       }
     } catch (err) {
@@ -347,6 +349,8 @@ export default async function handler(req, res) {
           console.log(`[Webhook] Agent inactive for >30 mins (${Math.round(timeSinceAgent / 60000)}m) for ${customerPhone}. Silently reactivating bot (agentReplied: false).`);
           resumeBot(customerPhone);
           await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
+          addGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
+          removeGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
           currentState = 'ACTIVE';
           customerContext.botState = 'ACTIVE';
           customerContext.agentReplied = false;
