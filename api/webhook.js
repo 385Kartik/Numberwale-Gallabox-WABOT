@@ -14,7 +14,7 @@ import {
   getGlobalBotConfig
 } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber, fetchCustomerOrders } from './utils/paymentUtils.js';
-import { sendToGallabox, unassignConversation, addGallaboxTag, removeGallaboxTag, postGallaboxNote } from './utils/gallabox.js';
+import { sendToGallabox, sendGallaboxDocument, unassignConversation, addGallaboxTag, removeGallaboxTag, postGallaboxNote } from './utils/gallabox.js';
 import { formatProducts, cleanCustomerName, extract10DigitNumber, stripThinkTags } from './utils/aiAgent.js';
 
 function extractNameAndPincode(userMessage) {
@@ -969,6 +969,29 @@ export default async function handler(req, res) {
       const t0Send = Date.now();
       await sendToGallabox(customerPhone, replyText, channelID);
       const tSend = Date.now() - t0Send;
+
+      // Dispatch document if requested (Invoice PDF / Numerology Report PDF)
+      const documentsToSend = [];
+      if (agentResult.sendDocuments && Array.isArray(agentResult.sendDocuments)) {
+        documentsToSend.push(...agentResult.sendDocuments);
+      } else if (agentResult.sendDocument && agentResult.sendDocument.url) {
+        documentsToSend.push(agentResult.sendDocument);
+      }
+
+      for (const doc of documentsToSend) {
+        if (doc && doc.url) {
+          console.log(`[Webhook] 📄 Sending document to ${customerPhone}: ${doc.filename} (${doc.url})`);
+          await sendGallaboxDocument(
+            customerPhone,
+            doc.url,
+            doc.filename,
+            doc.caption || '',
+            channelID
+          ).catch(docErr => {
+            console.error('[Webhook] ❌ Failed to send document:', docErr.message);
+          });
+        }
+      }
 
       console.log(`⚡ [PERF] Agent response in ${Date.now() - reqStartTime}ms (AI [${agentResult.model}]: ${tAi}ms | Gallabox: ${tSend}ms)`);
 

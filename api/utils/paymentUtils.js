@@ -190,6 +190,8 @@ export async function fetchCustomerOrders(customerPhone) {
               number: raw10,
               orderNumber: ord.orderNumber,
               invoiceNumber: ord.invoiceNumber || prod.invoiceNumber || null,
+              pdfUrl: prod.pdfUrl || ord.pdfUrl || null,
+              pdfFilename: prod.pdfFilename || ord.pdfFilename || null,
               orderStatus: ord.orderStatus,
               createdAt: ord.createdAt
             });

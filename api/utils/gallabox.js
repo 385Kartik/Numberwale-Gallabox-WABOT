@@ -304,3 +304,92 @@ export async function removeGallaboxTag(phone, tagName) {
   }
 }
 
+/**
+ * Send a WhatsApp PDF/document message via Gallabox.
+ * @param {string} phone - E.164 format e.g. "919619410050"
+ * @param {string} documentUrl - Publicly accessible URL to the PDF/document
+ * @param {string} filename - Filename for the document e.g. "Invoice-NW-1001.pdf"
+ * @param {string} [caption] - Optional document caption
+ * @param {string} [channelId] - Gallabox channel ID
+ */
+export async function sendGallaboxDocument(phone, documentUrl, filename, caption = '', channelId) {
+  const globalConfig = await getGlobalBotConfig().catch(() => null);
+  if (globalConfig && (!globalConfig.isGlobalEnabled || globalConfig.botMode === 'OFF')) {
+    console.log(`[Gallabox] 🔴 Bot is GLOBALLY PAUSED via Admin CRM. Blocked sending document to ${phone}.`);
+    return;
+  }
+
+  let isWhitelistActive = false;
+  let allowedList = [];
+
+  if (process.env.ALLOWED_PHONES) {
+    isWhitelistActive = true;
+    allowedList.push(...process.env.ALLOWED_PHONES.split(',').map(p => p.trim().replace(/\D/g, '')));
+  }
+
+  if (globalConfig?.isWhitelistOnly && Array.isArray(globalConfig?.whitelistPhones) && globalConfig.whitelistPhones.length > 0) {
+    isWhitelistActive = true;
+    allowedList.push(...globalConfig.whitelistPhones.map(p => p.trim().replace(/\D/g, '')));
+  }
+
+  if (isWhitelistActive) {
+    const cleanPhone = String(phone || '').replace(/\D/g, '');
+    if (!allowedList.includes(cleanPhone)) {
+      console.log(`[Gallabox] 🔒 Whitelist active. Blocked sending document to non-whitelisted: ${phone}`);
+      return;
+    }
+  }
+
+  const { apiKey, apiSecret, channelId: defaultChannelId } = getCredentials();
+  const chId = channelId || defaultChannelId;
+
+  if (!apiKey || !apiSecret || !chId || !phone || !documentUrl) {
+    console.log('[Gallabox] ⚠️ Missing credentials, phone or documentUrl — skipping document send.');
+    return;
+  }
+
+  const botLocalMsgId = randomUUID();
+  storeBotMessageId(phone, botLocalMsgId).catch(e =>
+    console.error('[Gallabox] storeBotMessageId failed:', e.message)
+  );
+
+  let retries = 3;
+  const t0Send = Date.now();
+  while (retries > 0) {
+    try {
+      await axios.post(
+        'https://server.gallabox.com/devapi/messages/whatsapp',
+        {
+          channelId: chId,
+          localMessageId: botLocalMsgId,
+          channelType: 'whatsapp',
+          recipient: { name: phone, phone },
+          whatsapp: {
+            type: 'document',
+            document: {
+              link: documentUrl,
+              filename: filename || 'document.pdf',
+              caption: caption || ''
+            }
+          },
+        },
+        {
+          headers: { apiKey, apiSecret, 'Content-Type': 'application/json' },
+          timeout: 15000,
+        }
+      );
+      console.log(`[Gallabox] 📄 Document (${filename}) sent to ${phone} in ${Date.now() - t0Send}ms (msgId: ${botLocalMsgId})`);
+      return;
+    } catch (err) {
+      retries--;
+      if (retries === 0) {
+        console.error('[Gallabox] ❌ Send document failed:', err.response?.data || err.message);
+        return;
+      }
+      console.log(`[Gallabox] ⚠️ Retrying document send... (${retries} left)`);
+      await new Promise(r => setTimeout(r, 600));
+    }
+  }
+}
+
+

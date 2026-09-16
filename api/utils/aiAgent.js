@@ -323,15 +323,16 @@ export function buildSystemPrompt(ctx) {
   L.push('## 📄 INVOICE & NUMEROLOGY REPORT RULES (CRITICAL & STRICT)');
   L.push('When customer asks about invoice, bill, receipt, numerology report, or report invoice:');
   L.push('🛑 NEVER output SEARCH_JSON! All invoice/report answers are consultative.');
+  L.push('⚡ IMPORTANT: Our system will automatically dispatch the actual PDF document file directly into this WhatsApp chat!');
   L.push('');
   L.push('### 1. VIP NUMBER INVOICE REQUEST:');
   L.push('A. IF CUSTOMER SPECIFIED A NUMBER (e.g., "9999982227 ka invoice", "invoice for 9999982227"):');
   L.push('   • If the number was PURCHASED by customer:');
-  L.push('     - Confirm Order ID (e.g. #NW-9812) and Invoice Number (if available).');
-  L.push('     - State that their official 18% GST tax invoice is generated.');
-  L.push('     - 🚨 MANDATORY AT THE END: Provide the step-by-step website navigation steps:');
+  L.push('     - Warmly confirm Order ID (e.g. #NW-9812) and Invoice Number (if available).');
+  L.push('     - Enthusiastically announce: "Main aapka official 18% GST Tax Invoice PDF document yahan WhatsApp par send kar rahi hoon! 📄✨"');
+  L.push('     - 🚨 MANDATORY AT THE END: Provide the step-by-step website navigation steps so they know how to access it anytime:');
   L.push('       "Aap is invoice ko hamari website se kabhi bhi direct download kar sakte hain:');
-  L.push('       1️⃣ Website (https://www.numberwale.com) par login karein');
+  L.push('       1️⃣ Hamari website (https://www.numberwale.com) par login karein');
   L.push('       2️⃣ **My Account > My Orders** me jayein');
   L.push('       3️⃣ Apne order par click karke official 18% GST Tax Invoice PDF download kar lijiye (business ITC ke liye 100% valid)! 😊"');
   L.push('   • If the number was NOT purchased by customer:');
@@ -342,26 +343,26 @@ export function buildSystemPrompt(ctx) {
   L.push('B. IF CUSTOMER DID NOT SPECIFY A NUMBER (e.g. "invoice chahiye", "send invoice", "bill bhejo"):');
   L.push('   • IF CUSTOMER HAS MULTIPLE PURCHASED NUMBERS:');
   L.push('     - 🚨 YOU MUST ASK THEM WHICH NUMBER THEY WANT THE INVOICE FOR:');
-  L.push('       "Aapke account mein multiple VIP numbers booked hain. Aapko konse number ka invoice chahiye?');
+  L.push('       "Aapke account mein multiple VIP numbers booked hain. Aapko konse number ka invoice PDF chahiye?');
   L.push('       1. *[Number 1]* (Order: #[OrderID])');
   L.push('       2. *[Number 2]* (Order: #[OrderID])');
-  L.push('       Kripya number batayein! 😊"');
+  L.push('       Kripya number ya option batayein, main turant PDF bhej deti hoon! 😊"');
   L.push('     - 🚨 AND ALWAYS EXPLAIN THE WEBSITE STEPS AT THE END:');
   L.push('       "Waise aap ye sabhi invoices website se directly download kar sakte hain:');
   L.push('       1️⃣ Hamari website: https://www.numberwale.com par login karein');
   L.push('       2️⃣ **My Account > My Orders** me jayein');
   L.push('       3️⃣ Kisi bhi order par click karke GST Invoice PDF download kar lijiye!"');
   L.push('   • IF CUSTOMER HAS EXACTLY 1 PURCHASED NUMBER:');
-  L.push('     - Automatically provide the invoice details for that 1 number (Number, Order ID, Invoice Number).');
+  L.push('     - Automatically announce that you are sending the official GST Tax Invoice PDF for that 1 number on WhatsApp right now: "Main aapke VIP number [Number] ka official GST Invoice PDF document yahan send kar rahi hoon! 📄✨"');
   L.push('     - Provide the website steps (https://www.numberwale.com -> My Account > My Orders -> Download).');
   L.push('   • IF CUSTOMER HAS 0 PURCHASED NUMBERS:');
   L.push('     - Inform them that no orders were found under this mobile number.');
   L.push('');
   L.push('### 2. NUMEROLOGY REPORT REQUEST (e.g., "numerology report chahiye", "send report", "meri report"):');
   L.push('   • IF CUSTOMER HAS A PAID NUMEROLOGY REPORT IN ACCOUNT:');
-  L.push('     - Enthusiastically confirm: "Aapka personalized Numerology Report ready hai! ✨"');
+  L.push('     - Enthusiastically announce: "Aapka personalized Numerology Report ready hai! Main complete Numerology Report PDF document yahan WhatsApp par send kar rahi hoon! 📄🔮✨"');
   L.push('     - 🚨 MANDATORY AT THE END: Provide website download steps:');
-  L.push('       "Aap apna detailed Numerology Report website se direct download kar sakte hain:');
+  L.push('       "Aap apna detailed Numerology Report website se bhi direct download kar sakte hain:');
   L.push('       1️⃣ Hamari website: https://www.numberwale.com par login karein');
   L.push('       2️⃣ **My Account > Numerology Report** section me jayein');
   L.push('       3️⃣ Wahan se apna detailed personal report PDF download kar lijiye! 🔮"');
@@ -371,9 +372,9 @@ export function buildSystemPrompt(ctx) {
   L.push('');
   L.push('### 3. NUMEROLOGY REPORT KA INVOICE REQUEST (e.g., "numerology report ka invoice", "report ka bill"):');
   L.push('   • IF CUSTOMER HAS PURCHASED NUMEROLOGY REPORT:');
-  L.push('     - Confirm: "Aapke Numerology Report ka official 18% GST invoice ready hai! (Invoice: [InvoiceNumber])"');
+  L.push('     - Enthusiastically announce: "Aapke Numerology Report ka official 18% GST Invoice PDF document main WhatsApp par send kar rahi hoon! 📄✨ (Invoice: [InvoiceNumber])"');
   L.push('     - 🚨 MANDATORY AT THE END: Provide website steps:');
-  L.push('       "Aap is invoice ko website se aasaani se download kar sakte hain:');
+  L.push('       "Aap is invoice ko website se bhi aasaani se download kar sakte hain:');
   L.push('       1️⃣ Hamari website: https://www.numberwale.com par login karein');
   L.push('       2️⃣ **My Account > My Orders** me jayein');
   L.push('       3️⃣ Apne Numerology Report order par click karke official GST Invoice PDF download kar lijiye!"');
@@ -1272,6 +1273,115 @@ export function sanitizeHallucinatedNumbers(text, allowedNumbers = []) {
   return res.trim();
 }
 
+/**
+ * Detect if customer message requests an Invoice or Numerology Report PDF document,
+ * and return the document metadata object { url, filename, caption } if available.
+ */
+export function detectDocumentToSend(userMessage, customerContext) {
+  if (!userMessage || typeof userMessage !== 'string') return null;
+  const cleanUserMsg = userMessage.trim();
+  const lowerMsg = cleanUserMsg.toLowerCase();
+
+  const isInvoiceWord = /\b(invoice|bill|receipt|tax\s*invoice|challan)\b/i.test(lowerMsg);
+  const isReportWord = /\b(numerology\s*report|astro\s*report|kundli\s*report|meri\s*report|apni\s*report|analysis\s*report)\b/i.test(lowerMsg) || (/\b(numerology|kundli|report)\b/i.test(lowerMsg) && !isInvoiceWord);
+  const isNumerologyWord = /\b(numerology|kundli|astro)\b/i.test(lowerMsg);
+
+  const activeProducts = customerContext?.activeProducts || [];
+  const numerologyReports = customerContext?.numerologyReports || [];
+  const history = customerContext?.history || [];
+
+  // 1. Numerology Report PDF request
+  if (isReportWord && !isInvoiceWord) {
+    if (numerologyReports.length > 0) {
+      const rep = numerologyReports[0];
+      if (rep.reportPdfUrl) {
+        return {
+          url: rep.reportPdfUrl,
+          filename: rep.reportPdfFilename || `Numerology-Report-${rep.invoiceNumber || rep.id}.pdf`,
+          caption: `🔮 Numerology Report - ${rep.name || 'Numberwale'}`
+        };
+      }
+    }
+    return null;
+  }
+
+  // 2. Numerology Report Invoice PDF request
+  if (isNumerologyWord && isInvoiceWord) {
+    if (numerologyReports.length > 0) {
+      const rep = numerologyReports[0];
+      if (rep.invoicePdfUrl) {
+        return {
+          url: rep.invoicePdfUrl,
+          filename: rep.invoicePdfFilename || `Invoice-Numerology-${rep.invoiceNumber || rep.id}.pdf`,
+          caption: `📄 GST Invoice #${rep.invoiceNumber || rep.id} - Numberwale`
+        };
+      }
+    }
+    return null;
+  }
+
+  // 3. VIP Number Invoice PDF request
+  if (isInvoiceWord) {
+    const explicit10 = extract10DigitNumber(cleanUserMsg);
+    if (explicit10) {
+      const matchProd = activeProducts.find(p => p.number === explicit10 || p.formattedNumber?.replace(/\D/g, '').endsWith(explicit10));
+      if (matchProd && matchProd.pdfUrl) {
+        return {
+          url: matchProd.pdfUrl,
+          filename: matchProd.pdfFilename || `Invoice-${matchProd.invoiceNumber || matchProd.orderNumber || matchProd.number}.pdf`,
+          caption: `📄 GST Invoice #${matchProd.invoiceNumber || matchProd.orderNumber || matchProd.number} - Numberwale`
+        };
+      }
+    } else if (activeProducts.length === 1) {
+      const singleProd = activeProducts[0];
+      if (singleProd.pdfUrl) {
+        return {
+          url: singleProd.pdfUrl,
+          filename: singleProd.pdfFilename || `Invoice-${singleProd.invoiceNumber || singleProd.orderNumber || singleProd.number}.pdf`,
+          caption: `📄 GST Invoice #${singleProd.invoiceNumber || singleProd.orderNumber || singleProd.number} - Numberwale`
+        };
+      }
+    }
+    return null;
+  }
+
+  // 4. Customer replying to a disambiguation prompt (e.g. "1", "2", "pehla", "second" or explicit 10-digit number)
+  if (activeProducts.length > 1) {
+    const explicit10 = extract10DigitNumber(cleanUserMsg);
+    if (explicit10) {
+      const matchProd = activeProducts.find(p => p.number === explicit10 || p.formattedNumber?.replace(/\D/g, '').endsWith(explicit10));
+      if (matchProd && matchProd.pdfUrl) {
+        return {
+          url: matchProd.pdfUrl,
+          filename: matchProd.pdfFilename || `Invoice-${matchProd.invoiceNumber || matchProd.orderNumber || matchProd.number}.pdf`,
+          caption: `📄 GST Invoice #${matchProd.invoiceNumber || matchProd.orderNumber || matchProd.number} - Numberwale`
+        };
+      }
+    }
+
+    if (/\b(1|2|3|4|5|pehla|first|second|doosra|teesra|third|chautha|fourth|1st|2nd|3rd|4th|option\s*[1-5]|number\s*[1-5])\b/i.test(cleanUserMsg)) {
+      const lastBotMsg = (history || []).slice().reverse().find(h => h.role === 'bot');
+      if (lastBotMsg && /\b(invoice|bill|konse number|which number)\b/i.test(lastBotMsg.text)) {
+        let selectedIdx = 0;
+        if (/\b(2|second|doosra|2nd)\b/i.test(cleanUserMsg)) selectedIdx = 1;
+        else if (/\b(3|third|teesra|3rd)\b/i.test(cleanUserMsg)) selectedIdx = 2;
+        else if (/\b(4|fourth|chautha|4th)\b/i.test(cleanUserMsg)) selectedIdx = 3;
+
+        if (activeProducts[selectedIdx] && activeProducts[selectedIdx].pdfUrl) {
+          const chosen = activeProducts[selectedIdx];
+          return {
+            url: chosen.pdfUrl,
+            filename: chosen.pdfFilename || `Invoice-${chosen.invoiceNumber || chosen.orderNumber || chosen.number}.pdf`,
+            caption: `📄 GST Invoice #${chosen.invoiceNumber || chosen.orderNumber || chosen.number} - Numberwale`
+          };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────────
 // MAIN EXPORT
 // ─────────────────────────────────────────────────────────────────
@@ -1334,6 +1444,8 @@ export async function runAgent(opts) {
         isPurchasedByCustomer: true,
         orderNumber: purchasedProd.orderNumber || null,
         invoiceNumber: purchasedProd.invoiceNumber || null,
+        pdfUrl: purchasedProd.pdfUrl || null,
+        pdfFilename: purchasedProd.pdfFilename || null,
         upcStatus: purchasedProd.upcStatus || 'pending',
         upcCode: purchasedProd.upcCode || null,
         elapsedHours: purchasedProd.elapsedHours != null ? purchasedProd.elapsedHours : null,
@@ -1409,6 +1521,8 @@ export async function runAgent(opts) {
         isPurchasedByCustomer: true,
         orderNumber: purchasedProd.orderNumber || null,
         invoiceNumber: purchasedProd.invoiceNumber || null,
+        pdfUrl: purchasedProd.pdfUrl || null,
+        pdfFilename: purchasedProd.pdfFilename || null,
         upcStatus: purchasedProd.upcStatus || 'pending',
         upcCode: purchasedProd.upcCode || null,
         elapsedHours: purchasedProd.elapsedHours != null ? purchasedProd.elapsedHours : null,
@@ -1526,6 +1640,11 @@ export async function runAgent(opts) {
     effectiveSearchJSON = undefined;
   }
 
+  const docToSend = detectDocumentToSend(userMessage, customerContext);
+  if (docToSend) {
+    console.log(`[Agent] 📄 Matched document to send: ${docToSend.filename} (${docToSend.url})`);
+  }
+
   // Guard: If customer is inquiring about an unavailable/unpurchased number
   if (customerContext.targetProduct && (customerContext.targetProduct.notFound || customerContext.targetProduct.isUnpurchasedByCustomer)) {
     // If we have pre-fetched classified matching alternatives, format and return them directly!
@@ -1546,6 +1665,8 @@ export async function runAgent(opts) {
           searchJSON: customerContext.targetProduct.alternativeSearchJSON,
           model: usedModel,
           escalate: false,
+          sendDocument: docToSend,
+          sendDocuments: docToSend ? [docToSend] : [],
           totalCount: customerContext.targetProduct.alternativeTotalCount,
           totalPages: 1,
           currentPage: 1
@@ -1654,6 +1775,8 @@ export async function runAgent(opts) {
           searchJSON: effectiveSearchJSON,
           model: usedModel,
           escalate: false,
+          sendDocument: docToSend,
+          sendDocuments: docToSend ? [docToSend] : [],
           totalCount: result.totalCount,
           totalPages: result.totalPages,
           currentPage: result.currentPage,
@@ -1694,7 +1817,7 @@ export async function runAgent(opts) {
         }
         conversationalText = stripPhantomQuestions(conversationalText);
         conversationalText = conversationalText ? (conversationalText + engagingFollowUp) : engagingFollowUp.trim();
-        return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: null, model: usedModel, escalate: false };
+        return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: null, model: usedModel, escalate: false, sendDocument: docToSend, sendDocuments: docToSend ? [docToSend] : [] };
       }
     } catch (searchErr) {
       console.error('[Agent] Search failed:', searchErr.message);
@@ -1702,5 +1825,5 @@ export async function runAgent(opts) {
   }
 
   conversationalText = stripPhantomQuestions(conversationalText);
-  return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: null, model: usedModel, escalate: false };
+  return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: null, model: usedModel, escalate: false, sendDocument: docToSend, sendDocuments: docToSend ? [docToSend] : [] };
 }
