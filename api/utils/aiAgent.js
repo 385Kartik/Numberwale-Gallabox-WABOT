@@ -214,7 +214,7 @@ export function buildSystemPrompt(ctx) {
   L.push('3. NEVER repeat brand introductory welcomes ("Welcome to Numberwale since 2010...") on continuing conversations.');
   L.push('4. NEVER ignore the customer\'s requested pattern or category (e.g. "abc abc", "mirror", "786"). Always map and search it!');
   L.push('5. NEVER use markdown tables (no pipes `|` or `|---|`). WhatsApp does NOT render tables! Always use bullet points with • or emojis.');
-  L.push('6. 🚨 NEVER invent, generate, hallucinate, or write phone numbers in your conversational text (e.g. NEVER write "• 112 112 – ₹19,980" or "• 334 334" or "• 98765 43210")! All numbers and prices come exclusively from live inventory and are attached by the system via SEARCH_JSON.');
+  L.push('6. 🚨 For VIP catalog searches: NEVER invent, generate, hallucinate, or write phone numbers in your conversational text! All catalog browse numbers come exclusively from live inventory and are attached by the system via SEARCH_JSON. (EXCEPTION: You MUST write the customer\'s own purchased orders and the specific target number the customer is discussing).');
   L.push('7. 🚨 NEVER mention coupons, promo codes, or extra discounts UNLESS the customer specifically and explicitly asks for a discount, offer, concession, cheaper price, or best price!');
   L.push('');
   L.push('## IDENTITY & CREATOR');
@@ -499,6 +499,12 @@ export function buildSystemPrompt(ctx) {
     L.push('     - Explain: "Aapke number [Number] ki porting request initiate ho chuki hai! Number 5 working days mein activate ho jayega. Tab tak kripya apna existing SIM card active rakhein. 😊"');
     L.push('   • IF `activated`:');
     L.push('     - Congratulate warmly: "Congratulations! 🎉 Aapka VIP number [Number] successfully activate ho chuka hai! Numberwale ko chunne ke liye thank you! 😊"');
+    L.push('4. 📋 LISTING PURCHASED NUMBERS (WHEN CUSTOMER ASKS FOR THEIR NUMBERS OR STATUS):');
+    L.push('   - If the customer asks "Which numbers are in pending?", "Which numbers do I have?", "Mere kaunse number hain?", or asks for their order/UPC status:');
+    L.push('   - You MUST explicitly list each of their purchased numbers with bullet points:');
+    L.push('     • *[Formatted Number]* — Order: [Order ID] | Status: [Status] | Remaining SLA: ~[Remaining] working hrs');
+    L.push('   - Reassure them that UPC generation is in progress and codes will be sent via SMS within 24 working hours.');
+    L.push('   - 🛑 Do NOT output SEARCH_JSON when customer is asking about their own purchased orders, pending status, UPC delivery, or invoices.');
   } else {
     L.push('');
     L.push('## CUSTOMER ORDER STATUS: NO PURCHASED NUMBERS FOUND');
@@ -1153,11 +1159,25 @@ export function formatCategoryName(cat) {
   return cat.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-export function sanitizeHallucinatedNumbers(text) {
+export function sanitizeHallucinatedNumbers(text, allowedNumbers = []) {
   if (!text) return text;
+
+  // Normalize allowed numbers to digit strings of length >= 8
+  const cleanAllowed = (allowedNumbers || [])
+    .map(n => String(n).replace(/\D/g, '').slice(-10))
+    .filter(n => n.length >= 8);
+
   const lines = text.split('\n');
   const filtered = lines.filter(line => {
     const trimmed = line.trim();
+    // If the line contains any allowed legitimate number (e.g. customer's purchased orders or target number or helpline), ALWAYS KEEP IT!
+    const lineDigits = trimmed.replace(/\D/g, '');
+    for (const allowed of cleanAllowed) {
+      if (lineDigits.includes(allowed)) {
+        return true;
+      }
+    }
+
     // Match bullet or numbered list prefix: e.g. "• ", "- ", "* ", "1. ", "1) "
     const bulletMatch = trimmed.match(/^[\s\u2022\u25aa\u25b6\u25c6\u25cf•\-\*]+|^\s*\d{1,2}[\.\)]\s*/u);
     if (!bulletMatch) return true;
@@ -1387,8 +1407,16 @@ export async function runAgent(opts) {
 
   console.log('[Agent] Raw (' + usedModel + '):', agentText.substring(0, 500));
 
+  const allowedNumbers = [
+    ...(customerContext.activeProducts || []).map(p => p.number),
+    ...(customerContext.purchasedNumbers || []),
+    customerContext.targetProduct?.number,
+    '9222222007',
+    '919222222007'
+  ].filter(Boolean);
+
   const searchJSON = extractSearchJSON(agentText);
-  let conversationalText = sanitizeHallucinatedNumbers(cleanMarkdownTables(stripSearchJSON(agentText)));
+  let conversationalText = sanitizeHallucinatedNumbers(cleanMarkdownTables(stripSearchJSON(agentText)), allowedNumbers);
   const conversationalIntro = conversationalText;
 
   let effectiveSearchJSON = searchJSON;
