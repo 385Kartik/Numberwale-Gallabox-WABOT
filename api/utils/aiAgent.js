@@ -10,6 +10,7 @@
 import { fetchNumbers } from './searchApi.js';
 import { fetchProductByNumber, fetchActiveBotCoupon, fetchActiveBotCoupons } from './paymentUtils.js';
 import { detectLanguage } from './agentEngine.js';
+import { findAlternativeNumbers } from './numberClassifier.js';
 
 export function cleanCustomerName(rawName) {
   if (!rawName || typeof rawName !== 'string') return null;
@@ -47,13 +48,14 @@ export function cleanCustomerName(rawName) {
 
 export function extract10DigitNumber(text) {
   if (!text) return null;
-  // Match any chunk of digits with optional spaces or hyphens between them (starting with Indian mobile 6-9)
-  const regex = /(?:(?:\+?91[\s-]*)?([6-9][\d\s-]{8,14}\d))/g;
+  // Match 10 consecutive digits (with optional spaces or dashes, and optional +91 prefix)
+  const regex = /(?:(?:\+?91[\s-]*)?(\b\d[\d\s-]{8,14}\d\b))/g;
   let m;
   while ((m = regex.exec(text)) !== null) {
     const raw = m[1];
     const digitsOnly = raw.replace(/\D/g, '');
-    if (digitsOnly.length === 10 && /^[6-9]/.test(digitsOnly)) {
+    // Exclude Numberwale helpline numbers (e.g. 9222222007)
+    if (digitsOnly.length === 10 && !/^922222200\d$/.test(digitsOnly)) {
       return digitsOnly;
     }
   }
@@ -515,13 +517,19 @@ export function buildSystemPrompt(ctx) {
       L.push('Follow the ACTIVE CUSTOMER ORDERS rules above. NEVER say sold out or unavailable!');
     } else if (tp.isUnpurchasedByCustomer || tp.notFound) {
       const numFmt = tp.formattedNumber || tp.number;
+      const catName = tp.categoryName || 'VIP Fancy Numbers';
+      const hasAlts = tp.alternativeProducts && tp.alternativeProducts.length > 0;
       L.push('');
       L.push('## 🛑 TARGET NUMBER INQUIRY: NUMBER UNAVAILABLE / NOT IN STOCK (STRICT RULE)');
       L.push(`Customer is asking about the 10-digit number: *${numFmt}* (Raw digits: ${tp.number})`);
       L.push(`FACT: This number is NOT in our inventory/stock (unavailable / not with Numberwale), AND was NOT purchased by this customer.`);
+      L.push(`Pattern Classification: Classified by Product Classifier as: *${catName}*.`);
+      if (hasAlts) {
+        L.push(`Live Alternative Stock: Found ${tp.alternativeProducts.length} matching *${catName}* VIP numbers in live stock with similar pattern / ending digits, which the system will automatically attach below your message!`);
+      }
       L.push('');
       L.push('STRICT MANDATORY RULES FOR THIS UNAVAILABLE NUMBER:');
-      L.push('1. 🛑 DIRECT CLARIFICATION FIRST: Clearly state that this exact number is NOT in our stock/inventory right now.');
+      L.push('1. 🛑 DIRECT CLARIFICATION FIRST: Clearly and politely state that this exact number is NOT in our stock right now.');
       L.push('   - 🛑 NEVER say "I am checking availability", "let me check availability", or pretend you are looking for it! You ALREADY know it is NOT in stock!');
       L.push('   - 🛑 NEVER ask operator preferences (Jio/Airtel/Vi/BSNL) or DFO preferences for an unavailable number!');
       L.push('   - 🛑 NEVER offer to book this number or send a booking link for it!');
@@ -529,10 +537,14 @@ export function buildSystemPrompt(ctx) {
       L.push(`     - State clearly: "Aapne number *${numFmt}* Numberwale se purchase nahi kiya hai (humare paas iska koi order record nahi hai), aur yeh number abhi hamare active stock mein bhi nahi hai."`);
       L.push('   • IF customer asks for availability / to buy / to book ("do you have this number", "available hai?", "book karna hai"):');
       L.push(`     - State clearly and directly: "Sorry, number *${numFmt}* abhi hamare collection/stock mein available nahi hai."`);
-      L.push('2. 🛑 NEVER OUTPUT BLANK/EMPTY `SEARCH_JSON:{}` FOR AN UNAVAILABLE NUMBER INQUIRY!');
-      L.push('   - Outputting empty SEARCH_JSON:{} dumps completely unrelated expensive Penta numbers which confuses the customer!');
-      L.push(`   - If suggesting alternatives, ONLY output SEARCH_JSON if you can search specifically for that ending (e.g. SEARCH_JSON:{"endsWith":"${tp.number.slice(-4)}"}) or specific digits (e.g. SEARCH_JSON:{"anywhere":"${tp.number.slice(0, 4)}"}).`);
-      L.push('   - If you do not have a specific digit/pattern search, DO NOT output SEARCH_JSON at all! Simply tell the customer that this exact number is unavailable, and ask what pattern, favourite digits, or budget they would like to explore.');
+      if (hasAlts) {
+        L.push('2. RECOMMEND SAME-TYPE ALTERNATIVES:');
+        L.push(`   - Tell the customer warmly: "Lekin isi *${catName}* pattern ke matching VIP numbers hamare stock mein available hain, jo aap neeche dekh sakte hain:"`);
+        L.push('   - 🛑 DO NOT OUTPUT SEARCH_JSON! The system will automatically attach the verified matching numbers directly below your reply!');
+      } else {
+        L.push('2. 🛑 DO NOT OUTPUT SEARCH_JSON AT ALL. Simply ask what budget or favourite digits they prefer so you can help them find an alternative.');
+      }
+      L.push('3. End with an engaging question asking which alternative number they like best or if they have a specific budget in mind.');
       L.push('⚠️ NEVER invent or make up a price for an unavailable number!');
     } else {
       const formatted = tp.formattedNumber || tp.number;
@@ -1189,7 +1201,35 @@ export async function runAgent(opts) {
   }
 
   // Check if message inquires about a specific 10-digit mobile number
-  const detected10Digit = extract10DigitNumber(userMessage);
+  let detected10Digit = extract10DigitNumber(userMessage);
+  if (!detected10Digit && history.length > 0) {
+    const isRefToNum = /\b(book|buy|kharidna|price|rate|cost|available|upc|order|yes|haan|ha|bhejo|link|this|yeh|ye)\b/i.test(userMessage);
+    if (isRefToNum) {
+      // First scan previous user messages
+      for (let i = history.length - 1; i >= 0; i--) {
+        if (history[i].role === 'user') {
+          const pastNum = extract10DigitNumber(history[i].text);
+          if (pastNum) {
+            detected10Digit = pastNum;
+            console.log(`[Agent] Carried forward 10-digit number ${detected10Digit} from user history.`);
+            break;
+          }
+        }
+      }
+      // If not in user history, check bot history
+      if (!detected10Digit) {
+        for (let i = history.length - 1; i >= Math.max(0, history.length - 3); i--) {
+          const pastNum = extract10DigitNumber(history[i].text);
+          if (pastNum) {
+            detected10Digit = pastNum;
+            console.log(`[Agent] Carried forward 10-digit number ${detected10Digit} from bot history.`);
+            break;
+          }
+        }
+      }
+    }
+  }
+
   const activeOrders = customerContext.activeProducts || [];
 
   if (detected10Digit) {
@@ -1226,13 +1266,26 @@ export async function runAgent(opts) {
           };
           console.log(`[Agent] Injected targetProduct: ${prod.number} (Price with GST: ₹${totalWithGst})`);
         } else {
+          // Number unavailable: run Classifier and Website Similarity Finder to locate genuine alternatives
+          let alts = { category: { name: 'VIP Fancy Numbers', slug: 'unique-numbers' }, products: [], totalCount: 0, searchJSON: null };
+          try {
+            alts = await findAlternativeNumbers(detected10Digit, 5);
+          } catch (altErr) {
+            console.warn('[Agent] Error finding alternative numbers:', altErr.message);
+          }
+
           customerContext.targetProduct = {
             number: detected10Digit,
             notFound: true,
             isUnpurchasedByCustomer: true,
-            formattedNumber: `${detected10Digit.slice(0, 5)} ${detected10Digit.slice(5)}`
+            formattedNumber: `${detected10Digit.slice(0, 5)} ${detected10Digit.slice(5)}`,
+            categoryName: alts.category?.name || 'VIP Fancy Numbers',
+            categorySlug: alts.category?.slug || 'unique-numbers',
+            alternativeProducts: alts.products || [],
+            alternativeTotalCount: alts.totalCount || (alts.products?.length || 0),
+            alternativeSearchJSON: alts.searchJSON || null
           };
-          console.log(`[Agent] Target number ${detected10Digit} not found in inventory and NOT purchased by customer.`);
+          console.log(`[Agent] Target number ${detected10Digit} unavailable. Category: ${alts.category?.name}, Alternatives found: ${alts.products?.length || 0}`);
         }
       } catch (fetchErr) {
         console.warn('[Agent] Could not fetch target number details:', fetchErr.message);
@@ -1347,8 +1400,32 @@ export async function runAgent(opts) {
     }
   }
 
-  // Guard: If customer is inquiring about an unavailable/unpurchased number, NEVER dump default penta numbers!
+  // Guard: If customer is inquiring about an unavailable/unpurchased number
   if (customerContext.targetProduct && (customerContext.targetProduct.notFound || customerContext.targetProduct.isUnpurchasedByCustomer)) {
+    // If we have pre-fetched classified matching alternatives, format and return them directly!
+    if (customerContext.targetProduct.alternativeProducts && customerContext.targetProduct.alternativeProducts.length > 0) {
+      console.log(`[Agent] Attaching ${customerContext.targetProduct.alternativeProducts.length} classified matching alternatives for unavailable number ${customerContext.targetProduct.number}`);
+      const altProductsBlock = formatProducts(
+        customerContext.targetProduct.alternativeProducts,
+        customerContext.targetProduct.alternativeTotalCount || customerContext.targetProduct.alternativeProducts.length,
+        1,
+        1,
+        lang
+      );
+      if (altProductsBlock) {
+        conversationalText = conversationalText ? (conversationalText + '\n\n' + altProductsBlock) : altProductsBlock;
+        return {
+          reply: conversationalText,
+          conversationalIntro: conversationalIntro,
+          searchJSON: customerContext.targetProduct.alternativeSearchJSON,
+          model: usedModel,
+          escalate: false,
+          totalCount: customerContext.targetProduct.alternativeTotalCount,
+          totalPages: 1,
+          currentPage: 1
+        };
+      }
+    }
     if (effectiveSearchJSON && Object.keys(effectiveSearchJSON).length === 0) {
       console.log('[Agent] 🛑 Suppressed empty SEARCH_JSON:{} for unavailable number inquiry to prevent dumping random penta numbers.');
       effectiveSearchJSON = undefined;
