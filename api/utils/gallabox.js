@@ -132,6 +132,31 @@ export async function unassignConversation(conversationId) {
   }
 }
 
+/**
+ * Post an internal note to a Gallabox conversation.
+ * Visible to executives under the "Notes" tab in Gallabox inbox.
+ * @param {string} conversationId - Gallabox conversation ID
+ * @param {string} note - Note text (supports markdown-like formatting)
+ */
+export async function postGallaboxNote(conversationId, note) {
+  const { apiKey, apiSecret, accountId } = getCredentials();
+  if (!apiKey || !apiSecret || !accountId || !conversationId || !note) return;
+
+  try {
+    await axios.post(
+      `https://server.gallabox.com/devapi/accounts/${accountId}/conversations/${conversationId}/notes`,
+      { note },
+      {
+        headers: { apiKey, apiSecret, 'Content-Type': 'application/json' },
+        timeout: 5000,
+      }
+    );
+    console.log(`[Gallabox] 📝 Internal note posted to conversation ${conversationId}.`);
+  } catch (err) {
+    console.error('[Gallabox] ❌ Post note failed:', err.response?.data || err.message);
+  }
+}
+
 // ── Known Gallabox Tag Registry ────────────────────────────────────────────────
 // These IDs are permanent in the Numberwale Gallabox account.
 const GALLABOX_TAGS = {

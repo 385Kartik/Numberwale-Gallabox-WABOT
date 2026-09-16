@@ -14,7 +14,7 @@ import {
   getGlobalBotConfig
 } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
-import { sendToGallabox, unassignConversation, addGallaboxTag, removeGallaboxTag } from './utils/gallabox.js';
+import { sendToGallabox, unassignConversation, addGallaboxTag, removeGallaboxTag, postGallaboxNote } from './utils/gallabox.js';
 import { formatProducts, cleanCustomerName, extract10DigitNumber, stripThinkTags } from './utils/aiAgent.js';
 
 function extractNameAndPincode(userMessage) {
@@ -467,12 +467,12 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true });
     }
 
-    if (currentState === 'NEW') {
-      const incomingConvId = body?.conversationId || body?.data?.conversationId || body?.request?.data?.conversationId || '';
-      if (incomingConvId) {
-        saveConversationId(customerPhone, incomingConvId).catch(() => {});
-      }
+    const incomingConvId = body?.conversationId || body?.data?.conversationId || body?.request?.data?.conversationId || '';
+    if (incomingConvId) {
+      saveConversationId(customerPhone, incomingConvId).catch(() => {});
+    }
 
+    if (currentState === 'NEW' || !customerContext.leadSynced) {
       // 1. Tag in Gallabox → BOT_ACTIVE (Visible to executives)
       addGallaboxTag(customerPhone, "BOT_ACTIVE").catch(e => console.error('[Webhook] Failed to add BOT_ACTIVE tag:', e.message));
 
@@ -488,10 +488,14 @@ export default async function handler(req, res) {
             name: (customerContext.name && customerContext.name !== 'Unknown') ? customerContext.name : '',
             conversationId: incomingConvId,
             autoAssign: true,
-            language: 'English'
+            language: customerContext.language || 'English'
           })
-        }).then(r => console.log(`[Webhook] Auto-assign sync-lead status: ${r.status}`))
-          .catch(e => console.error(`[Webhook] Auto-assign sync-lead failed:`, e.message));
+        }).then(r => {
+          console.log(`[Webhook] Auto-assign sync-lead status: ${r.status}`);
+          if (r.ok) {
+            updateCustomerInfo(customerPhone, { leadSynced: true }).catch(() => {});
+          }
+        }).catch(e => console.error(`[Webhook] Auto-assign sync-lead failed:`, e.message));
       } catch (err) {
         console.error(`[Webhook] Error initiating lead auto-assignment:`, err.message);
       }
