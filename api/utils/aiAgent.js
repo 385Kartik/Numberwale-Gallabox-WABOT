@@ -320,14 +320,65 @@ export function buildSystemPrompt(ctx) {
   L.push('   - Politely and warmly explain: "Payment link ke liye kripya pehle apna pasandeeda VIP number choose/select kar lijiye. Jaise hi aap koi number select karenge, main turant uska direct booking link aapko share kar dungi! 😊"');
   L.push('   - Offer to show numbers matching their preference or budget.');
   L.push('');
-  L.push('## 📄 INVOICE & NUMEROLOGY REPORT DOWNLOAD INSTRUCTIONS (STRICT RULE)');
-  L.push('When customer asks how or where to access/download their invoice, bill, receipt, or numerology report:');
-  L.push('1. 📄 Official GST Invoice / Bill / Order Receipt:');
-  L.push('   - Clearly guide them: Website (https://www.numberwale.com) par login karke *My Account > My Orders* me jaa kar aap apna official 18% GST Invoice download kar sakte hain.');
-  L.push('   - Mention that every purchase includes an official GST tax invoice which can be used to claim Input Tax Credit (ITC) for business purposes.');
-  L.push('2. 🔮 Numerology Report:');
-  L.push('   - Clearly guide them: Website par login karke *My Account > Numerology Report* me jaa kar aap apna personalized Numerology Report dekh aur download kar sakte hain.');
-  L.push('   - (And the GST invoice for the report is also available under *My Account > My Orders*).');
+  L.push('## 📄 INVOICE & NUMEROLOGY REPORT RULES (CRITICAL & STRICT)');
+  L.push('When customer asks about invoice, bill, receipt, numerology report, or report invoice:');
+  L.push('🛑 NEVER output SEARCH_JSON! All invoice/report answers are consultative.');
+  L.push('');
+  L.push('### 1. VIP NUMBER INVOICE REQUEST:');
+  L.push('A. IF CUSTOMER SPECIFIED A NUMBER (e.g., "9999982227 ka invoice", "invoice for 9999982227"):');
+  L.push('   • If the number was PURCHASED by customer:');
+  L.push('     - Confirm Order ID (e.g. #NW-9812) and Invoice Number (if available).');
+  L.push('     - State that their official 18% GST tax invoice is generated.');
+  L.push('     - 🚨 MANDATORY AT THE END: Provide the step-by-step website navigation steps:');
+  L.push('       "Aap is invoice ko hamari website se kabhi bhi direct download kar sakte hain:');
+  L.push('       1️⃣ Website (https://www.numberwale.com) par login karein');
+  L.push('       2️⃣ **My Account > My Orders** me jayein');
+  L.push('       3️⃣ Apne order par click karke official 18% GST Tax Invoice PDF download kar lijiye (business ITC ke liye 100% valid)! 😊"');
+  L.push('   • If the number was NOT purchased by customer:');
+  L.push('     - Politely explain that this number was not found in their account\'s purchased orders.');
+  L.push('     - If they have other purchased numbers in their account, list them warmly: "Aapke account mein ye number registered hain: [Numbers]".');
+  L.push('     - Mention helpline +91 9222 222 007 if purchased using a different phone.');
+  L.push('');
+  L.push('B. IF CUSTOMER DID NOT SPECIFY A NUMBER (e.g. "invoice chahiye", "send invoice", "bill bhejo"):');
+  L.push('   • IF CUSTOMER HAS MULTIPLE PURCHASED NUMBERS:');
+  L.push('     - 🚨 YOU MUST ASK THEM WHICH NUMBER THEY WANT THE INVOICE FOR:');
+  L.push('       "Aapke account mein multiple VIP numbers booked hain. Aapko konse number ka invoice chahiye?');
+  L.push('       1. *[Number 1]* (Order: #[OrderID])');
+  L.push('       2. *[Number 2]* (Order: #[OrderID])');
+  L.push('       Kripya number batayein! 😊"');
+  L.push('     - 🚨 AND ALWAYS EXPLAIN THE WEBSITE STEPS AT THE END:');
+  L.push('       "Waise aap ye sabhi invoices website se directly download kar sakte hain:');
+  L.push('       1️⃣ Hamari website: https://www.numberwale.com par login karein');
+  L.push('       2️⃣ **My Account > My Orders** me jayein');
+  L.push('       3️⃣ Kisi bhi order par click karke GST Invoice PDF download kar lijiye!"');
+  L.push('   • IF CUSTOMER HAS EXACTLY 1 PURCHASED NUMBER:');
+  L.push('     - Automatically provide the invoice details for that 1 number (Number, Order ID, Invoice Number).');
+  L.push('     - Provide the website steps (https://www.numberwale.com -> My Account > My Orders -> Download).');
+  L.push('   • IF CUSTOMER HAS 0 PURCHASED NUMBERS:');
+  L.push('     - Inform them that no orders were found under this mobile number.');
+  L.push('');
+  L.push('### 2. NUMEROLOGY REPORT REQUEST (e.g., "numerology report chahiye", "send report", "meri report"):');
+  L.push('   • IF CUSTOMER HAS A PAID NUMEROLOGY REPORT IN ACCOUNT:');
+  L.push('     - Enthusiastically confirm: "Aapka personalized Numerology Report ready hai! ✨"');
+  L.push('     - 🚨 MANDATORY AT THE END: Provide website download steps:');
+  L.push('       "Aap apna detailed Numerology Report website se direct download kar sakte hain:');
+  L.push('       1️⃣ Hamari website: https://www.numberwale.com par login karein');
+  L.push('       2️⃣ **My Account > Numerology Report** section me jayein');
+  L.push('       3️⃣ Wahan se apna detailed personal report PDF download kar lijiye! 🔮"');
+  L.push('   • IF CUSTOMER HAS NO PAID NUMEROLOGY REPORT IN ACCOUNT:');
+  L.push('     - Inform them warmly: "Aapke is mobile number par abhi koi paid Numerology Report generate nahi hui hai.');
+  L.push('       Agar aap apna complete detailed Numerology analysis lena chahte hain, toh yahan se report book kar sakte hain: https://www.numberwale.com/numerology ✨"');
+  L.push('');
+  L.push('### 3. NUMEROLOGY REPORT KA INVOICE REQUEST (e.g., "numerology report ka invoice", "report ka bill"):');
+  L.push('   • IF CUSTOMER HAS PURCHASED NUMEROLOGY REPORT:');
+  L.push('     - Confirm: "Aapke Numerology Report ka official 18% GST invoice ready hai! (Invoice: [InvoiceNumber])"');
+  L.push('     - 🚨 MANDATORY AT THE END: Provide website steps:');
+  L.push('       "Aap is invoice ko website se aasaani se download kar sakte hain:');
+  L.push('       1️⃣ Hamari website: https://www.numberwale.com par login karein');
+  L.push('       2️⃣ **My Account > My Orders** me jayein');
+  L.push('       3️⃣ Apne Numerology Report order par click karke official GST Invoice PDF download kar lijiye!"');
+  L.push('   • IF CUSTOMER HAS NOT PURCHASED NUMEROLOGY REPORT:');
+  L.push('     - Inform them that no numerology purchase is registered on this account.');
   L.push('');
   L.push('## OFFICIAL SOCIAL MEDIA LINKS');
   L.push('- Instagram: https://www.instagram.com/numberwale?stkn=MTlyNnlzaG1lMmwzeQ==');
@@ -468,6 +519,7 @@ export function buildSystemPrompt(ctx) {
       const elapsed = (p.elapsedHours != null) ? p.elapsedHours : 0;
       L.push(`${idx + 1}. Number: *${p.formattedNumber || p.number}* (Raw: ${p.number})`);
       L.push(`   - Order ID: ${p.orderNumber || 'N/A'}`);
+      if (p.invoiceNumber) L.push(`   - Invoice Number: ${p.invoiceNumber}`);
       L.push(`   - Current Status: ${p.upcStatus || 'pending'}`);
       if (p.upcCode) L.push(`   - UPC Code: ${p.upcCode}`);
       if (p.operator) L.push(`   - Operator: ${p.operator}`);
@@ -511,12 +563,33 @@ export function buildSystemPrompt(ctx) {
     L.push('This customer has not purchased any VIP numbers yet under this phone number.');
   }
 
+  // ── CUSTOMER NUMEROLOGY REPORT PURCHASES ──
+  const numReports = (ctx && ctx.numerologyReports && ctx.numerologyReports.length > 0) ? ctx.numerologyReports : [];
+  if (numReports.length > 0) {
+    L.push('');
+    L.push('## 🔮 CUSTOMER NUMEROLOGY REPORT PURCHASES');
+    L.push('This customer has purchased personalized Numerology Report(s) with Numberwale:');
+    numReports.forEach((nr, idx) => {
+      L.push(`${idx + 1}. Report ID: ${nr.id || 'N/A'}`);
+      L.push(`   - Type: ${nr.serviceType || 'Personal Numerology Report'}`);
+      L.push(`   - Status: ${nr.status || 'completed'}`);
+      if (nr.invoiceNumber) L.push(`   - Official Invoice Number: ${nr.invoiceNumber}`);
+      if (nr.purchaseNumber) L.push(`   - VIP Number Analyzed: ${nr.purchaseNumber}`);
+      if (nr.amount) L.push(`   - Amount Paid: ₹${nr.amount}`);
+    });
+  } else {
+    L.push('');
+    L.push('## 🔮 CUSTOMER NUMEROLOGY REPORT: NO PAID REPORT FOUND IN THIS ACCOUNT');
+  }
+
   if (ctx && ctx.targetProduct) {
     const tp = ctx.targetProduct;
     if (tp.isPurchasedByCustomer) {
       L.push('');
       L.push('## TARGET NUMBER INQUIRY: CUSTOMER\'S OWN PURCHASED NUMBER!');
       L.push(`Customer is inquiring about *${tp.formattedNumber || tp.number}*, which THEY PURCHASED!`);
+      L.push(`- Order ID: ${tp.orderNumber || 'N/A'}`);
+      if (tp.invoiceNumber) L.push(`- Invoice Number: ${tp.invoiceNumber}`);
       L.push(`- Current Status: ${tp.upcStatus}`);
       L.push(`- Remaining Working Hours for Delivery: ~${tp.remainingWorkingHours || 24} working hrs`);
       if (tp.upcCode) L.push(`- UPC Code: ${tp.upcCode}`);
@@ -1259,6 +1332,8 @@ export async function runAgent(opts) {
       customerContext.targetProduct = {
         number: detected10Digit,
         isPurchasedByCustomer: true,
+        orderNumber: purchasedProd.orderNumber || null,
+        invoiceNumber: purchasedProd.invoiceNumber || null,
         upcStatus: purchasedProd.upcStatus || 'pending',
         upcCode: purchasedProd.upcCode || null,
         elapsedHours: purchasedProd.elapsedHours != null ? purchasedProd.elapsedHours : null,
@@ -1270,55 +1345,70 @@ export async function runAgent(opts) {
       };
       console.log(`[Agent] Detected 10-digit number ${detected10Digit} is PURCHASED by customer! Status: ${purchasedProd.upcStatus}`);
     } else {
-      try {
-        const prod = await fetchProductByNumber(detected10Digit);
-        if (prod) {
-          const subtotal = prod.price || prod.basePrice || 0;
-          const totalWithGst = subtotal ? subtotal + Math.round(subtotal * 0.18) : null;
-          customerContext.targetProduct = {
-            number: prod.number,
-            price: prod.price,
-            basePrice: prod.basePrice,
-            category: prod.category,
-            totalWithGst: totalWithGst,
-            formattedNumber: formatProductNumberForWhatsApp({ productMobileNumber: prod.number }),
-            cartLink: `https://numberwale.com/cart-add/${prod.number}`
-          };
-          console.log(`[Agent] Injected targetProduct: ${prod.number} (Price with GST: ₹${totalWithGst})`);
-        } else {
-          // Number unavailable: run Classifier and Website Similarity Finder to locate genuine alternatives
-          let alts = { category: { name: 'VIP Fancy Numbers', slug: 'unique-numbers' }, products: [], totalCount: 0, searchJSON: null };
-          try {
-            alts = await findAlternativeNumbers(detected10Digit, 5);
-          } catch (altErr) {
-            console.warn('[Agent] Error finding alternative numbers:', altErr.message);
-          }
+      const isInvoiceQuery = /\b(invoice|bill|receipt)\b/i.test(userMessage);
+      if (isInvoiceQuery) {
+        // Customer is asking for invoice of an unpurchased number: do not fetch catalog alternatives
+        customerContext.targetProduct = {
+          number: detected10Digit,
+          notFound: true,
+          isUnpurchasedByCustomer: true,
+          formattedNumber: `${detected10Digit.slice(0, 5)} ${detected10Digit.slice(5)}`,
+          alternativeProducts: []
+        };
+        console.log(`[Agent] Target number ${detected10Digit} for invoice inquiry is unpurchased by customer.`);
+      } else {
+        try {
+          const prod = await fetchProductByNumber(detected10Digit);
+          if (prod) {
+            const subtotal = prod.price || prod.basePrice || 0;
+            const totalWithGst = subtotal ? subtotal + Math.round(subtotal * 0.18) : null;
+            customerContext.targetProduct = {
+              number: prod.number,
+              price: prod.price,
+              basePrice: prod.basePrice,
+              category: prod.category,
+              totalWithGst: totalWithGst,
+              formattedNumber: formatProductNumberForWhatsApp({ productMobileNumber: prod.number }),
+              cartLink: `https://numberwale.com/cart-add/${prod.number}`
+            };
+            console.log(`[Agent] Injected targetProduct: ${prod.number} (Price with GST: ₹${totalWithGst})`);
+          } else {
+            // Number unavailable: run Classifier and Website Similarity Finder to locate genuine alternatives
+            let alts = { category: { name: 'VIP Fancy Numbers', slug: 'unique-numbers' }, products: [], totalCount: 0, searchJSON: null };
+            try {
+              alts = await findAlternativeNumbers(detected10Digit, 5);
+            } catch (altErr) {
+              console.warn('[Agent] Error finding alternative numbers:', altErr.message);
+            }
 
-          customerContext.targetProduct = {
-            number: detected10Digit,
-            notFound: true,
-            isUnpurchasedByCustomer: true,
-            formattedNumber: `${detected10Digit.slice(0, 5)} ${detected10Digit.slice(5)}`,
-            categoryName: alts.category?.name || 'VIP Fancy Numbers',
-            categorySlug: alts.category?.slug || 'unique-numbers',
-            alternativeProducts: alts.products || [],
-            alternativeTotalCount: alts.totalCount || (alts.products?.length || 0),
-            alternativeSearchJSON: alts.searchJSON || null
-          };
-          console.log(`[Agent] Target number ${detected10Digit} unavailable. Category: ${alts.category?.name}, Alternatives found: ${alts.products?.length || 0}`);
+            customerContext.targetProduct = {
+              number: detected10Digit,
+              notFound: true,
+              isUnpurchasedByCustomer: true,
+              formattedNumber: `${detected10Digit.slice(0, 5)} ${detected10Digit.slice(5)}`,
+              categoryName: alts.category?.name || 'VIP Fancy Numbers',
+              categorySlug: alts.category?.slug || 'unique-numbers',
+              alternativeProducts: alts.products || [],
+              alternativeTotalCount: alts.totalCount || (alts.products?.length || 0),
+              alternativeSearchJSON: alts.searchJSON || null
+            };
+            console.log(`[Agent] Target number ${detected10Digit} unavailable. Category: ${alts.category?.name}, Alternatives found: ${alts.products?.length || 0}`);
+          }
+        } catch (fetchErr) {
+          console.warn('[Agent] Could not fetch target number details:', fetchErr.message);
         }
-      } catch (fetchErr) {
-        console.warn('[Agent] Could not fetch target number details:', fetchErr.message);
       }
     }
   } else if (activeOrders.length === 1) {
-    // If customer didn't specify a 10-digit number but asks about UPC/order/status
-    const isUpcOrOrderInquiry = /\b(upc|order|delivery|deliver|status|port|porting|kab\s*aayega|kab\s*milega|code)\b/i.test(userMessage);
+    // If customer didn't specify a 10-digit number but asks about UPC/order/status/invoice/bill/receipt/report
+    const isUpcOrOrderInquiry = /\b(upc|order|delivery|deliver|status|port|porting|kab\s*aayega|kab\s*milega|code|invoice|bill|receipt|report)\b/i.test(userMessage);
     if (isUpcOrOrderInquiry) {
       const purchasedProd = activeOrders[0];
       customerContext.targetProduct = {
         number: purchasedProd.number,
         isPurchasedByCustomer: true,
+        orderNumber: purchasedProd.orderNumber || null,
+        invoiceNumber: purchasedProd.invoiceNumber || null,
         upcStatus: purchasedProd.upcStatus || 'pending',
         upcCode: purchasedProd.upcCode || null,
         elapsedHours: purchasedProd.elapsedHours != null ? purchasedProd.elapsedHours : null,
@@ -1328,7 +1418,7 @@ export async function runAgent(opts) {
         operator: purchasedProd.operator || null,
         formattedNumber: `${purchasedProd.number.slice(0, 5)} ${purchasedProd.number.slice(5)}`
       };
-      console.log(`[Agent] Implicit UPC query linked to customer's purchased number: ${purchasedProd.number}`);
+      console.log(`[Agent] Auto-selected single purchased number ${purchasedProd.number} for customer inquiry.`);
     }
   }
 
@@ -1410,6 +1500,7 @@ export async function runAgent(opts) {
   const allowedNumbers = [
     ...(customerContext.activeProducts || []).map(p => p.number),
     ...(customerContext.purchasedNumbers || []),
+    ...(customerContext.numerologyReports || []).map(nr => nr.purchaseNumber),
     customerContext.targetProduct?.number,
     '9222222007',
     '919222222007'
@@ -1426,6 +1517,13 @@ export async function runAgent(opts) {
       console.log('[Agent] ⚡ Intercepted missing SEARCH_JSON with fallback parser:', JSON.stringify(fallbackJSON));
       effectiveSearchJSON = fallbackJSON;
     }
+  }
+
+  // Suppress catalog search on invoice, bill, receipt, or numerology report queries
+  const isInvoiceOrReportInquiry = /\b(invoice|bill|receipt|numerology\s*report|astro\s*report)\b/i.test(userMessage);
+  if (isInvoiceOrReportInquiry) {
+    console.log('[Agent] 📄 Suppressed SEARCH_JSON for invoice/report inquiry.');
+    effectiveSearchJSON = undefined;
   }
 
   // Guard: If customer is inquiring about an unavailable/unpurchased number

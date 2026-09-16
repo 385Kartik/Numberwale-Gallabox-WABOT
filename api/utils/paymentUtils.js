@@ -176,6 +176,7 @@ export async function fetchCustomerOrders(customerPhone) {
 
     if (response.data && response.data.status === 'success') {
       const orders = response.data.orders || [];
+      const numerologyReports = response.data.numerologyReports || [];
       const purchasedNumbers = [];
       const activeProducts = [];
 
@@ -188,6 +189,7 @@ export async function fetchCustomerOrders(customerPhone) {
               ...prod,
               number: raw10,
               orderNumber: ord.orderNumber,
+              invoiceNumber: ord.invoiceNumber || prod.invoiceNumber || null,
               orderStatus: ord.orderStatus,
               createdAt: ord.createdAt
             });
@@ -196,17 +198,18 @@ export async function fetchCustomerOrders(customerPhone) {
       }
 
       return {
-        hasOrders: response.data.hasOrders || orders.length > 0,
+        hasOrders: response.data.hasOrders || orders.length > 0 || numerologyReports.length > 0,
         customerName: response.data.customerName || null,
         orders,
         purchasedNumbers: [...new Set(purchasedNumbers)],
-        activeProducts
+        activeProducts,
+        numerologyReports
       };
     }
-    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] };
+    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], numerologyReports: [] };
   } catch (err) {
     console.warn('[Orders] fetchCustomerOrders warning:', err.response?.data?.message || err.message);
-    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] };
+    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], numerologyReports: [] };
   }
 }
 

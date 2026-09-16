@@ -347,6 +347,7 @@ export default async function handler(req, res) {
     customerContext.orders = customerOrdersData?.orders || [];
     customerContext.purchasedNumbers = customerOrdersData?.purchasedNumbers || [];
     customerContext.activeProducts = customerOrdersData?.activeProducts || [];
+    customerContext.numerologyReports = customerOrdersData?.numerologyReports || [];
     if (customerOrdersData?.customerName && (!customerContext.name || customerContext.name === 'Unknown')) {
       customerContext.name = cleanCustomerName(customerOrdersData.customerName) || customerContext.name;
     }
