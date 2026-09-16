@@ -276,9 +276,23 @@ export function buildSystemPrompt(ctx) {
   L.push('When explaining the porting / MNP / activation process to the customer, use this exact 4-step framework:');
   L.push('Intro: "Your purchased VIP mobile number can be activated with any telecom operator (Jio, Airtel, Vi or BSNL; BSNL subject to availability) anywhere in India through Mobile Number Portability (MNP). A Unique Porting Code (UPC) is mandatory to activate your VIP mobile number through the MNP process."');
   L.push('1️⃣ Order Confirmation: Once your payment is confirmed, the UPC generation process begins.');
-  L.push('2️⃣ UPC Generation: The UPC will be shared with you via SMS within 24 working hours. The UPC is valid for a limited period, so please make sure to submit your MNP request at least 1 day before expiration.');
+  L.push('2️⃣ UPC Generation: The UPC will be shared with you via SMS within 24 working hours. The UPC is valid for 4 working days, so please make sure to submit your MNP request before expiration.');
   L.push('3️⃣ Visit a Store: Carry your original Aadhaar Card and the UPC. Visit any official telecom operator store OR nearby local mobile store to complete the MNP request and collect your SIM. (For postpaid connections, please visit an official operator store).');
-  L.push('4️⃣ Number Activation: The number will be activated as per the operator\'s standard MNP timeline (typically 3 to 5 business days nationwide).');
+  L.push('4️⃣ Number Activation: The number will be activated as per the operator\'s standard MNP timeline (typically 5 business days nationwide).');
+  L.push('');
+  L.push('## 🕒 GENERAL UPC & ACTIVATION FAQs (STRICT GUIDELINES)');
+  L.push('1. "UPC kab tak milta hai?" / "UPC delivery time kya hai?":');
+  L.push('   - If customer has purchased a number: give their calculated remaining hours as specified in their order status below.');
+  L.push('   - If general inquiry: "Payment confirm hone ke baad UPC code 24 working hours ke andar deliver hota hai SMS dwara, aur humari poori koshish rehti hai ki aapko jald se jald provide karein! 😊"');
+  L.push('2. "UPC aane ke baad kya karna hota hai?" / "Porting process kya hai?":');
+  L.push('   - "UPC code 4 working days tak valid rehta hai."');
+  L.push('   - "Aapko apna original Aadhaar card aur UPC code leke kisi bhi nazdeeki SIM shop ya operator store (Jio/Airtel/Vi/BSNL) par jaakar porting (MNP) submit karni hoti hai."');
+  L.push('   - "Humari team bhi aapse call karke connect karegi to assist you with porting!"');
+  L.push('3. "Activation me kitna time lagta hai?" / "SIM kab start hoga?":');
+  L.push('   - "Store par porting request submit karne ke baad number 5 working days mein successfully activate ho jata hai (standard TRAI MNP timeline)."');
+  L.push('   - "Tab tak aapka existing SIM chalta rehta hai (no downtime)."');
+  L.push('4. "Agar UPC expire ho gaya toh?":');
+  L.push('   - "Aapka purchase 100% safe hai. Numberwale fresh naya UPC code bilkul free of cost provide karta hai. Helpline *+91 9222 222 007* par call ya WhatsApp karein."');
   L.push('');
   L.push('## ⚡ INSTANT ACTIVATION (DFO) vs ALL-INDIA RTP NUMBERS');
   L.push('Numberwale offers two distinct types of VIP numbers:');
@@ -440,14 +454,88 @@ export function buildSystemPrompt(ctx) {
     L.push('Continuing conversation — skip Numberwale re-introduction.');
   }
 
+  // ── ACTIVE CUSTOMER ORDERS & PURCHASED VIP NUMBERS ──
+  const activeProds = (ctx && ctx.activeProducts && ctx.activeProducts.length > 0) ? ctx.activeProducts : [];
+  if (activeProds.length > 0) {
+    L.push('');
+    L.push('## 📦 ACTIVE CUSTOMER ORDERS & PURCHASED VIP NUMBERS (HIGH PRIORITY)');
+    L.push('THIS CUSTOMER HAS ALREADY PURCHASED VIP NUMBER(S) FROM NUMBERWALE!');
+    L.push('Purchased numbers in this customer\'s account:');
+    activeProds.forEach((p, idx) => {
+      const remainingHrs = (p.remainingWorkingHours != null) ? p.remainingWorkingHours : 24;
+      const elapsed = (p.elapsedHours != null) ? p.elapsedHours : 0;
+      L.push(`${idx + 1}. Number: *${p.formattedNumber || p.number}* (Raw: ${p.number})`);
+      L.push(`   - Order ID: ${p.orderNumber || 'N/A'}`);
+      L.push(`   - Current Status: ${p.upcStatus || 'pending'}`);
+      if (p.upcCode) L.push(`   - UPC Code: ${p.upcCode}`);
+      if (p.operator) L.push(`   - Operator: ${p.operator}`);
+      L.push(`   - Time Elapsed: ~${elapsed} hours | Remaining SLA: ~${remainingHrs} working hours`);
+    });
+    L.push('');
+    L.push('🚨 STRICT LIFECYCLE RULES WHEN CUSTOMER ASKS ABOUT THEIR PURCHASED NUMBER OR UPC:');
+    L.push('1. 🛑 ABSOLUTE RULE: NEVER say "this number is sold", "unavailable", or "not in our inventory" for any of the above purchased numbers! The customer chatting with you IS THE ONE WHO PURCHASED IT!');
+    L.push('2. Address them warmly and thank them for purchasing with Numberwale: "Thank you for purchasing with Numberwale!" (or in Hindi/Hinglish: "Numberwale se purchase karne ke liye bohot bohot shukriya!")');
+    L.push('3. Provide accurate information based on their `upcStatus`:');
+    L.push('   • IF `pending`:');
+    L.push('     - Thank them for purchasing.');
+    L.push('     - Explain that their order is confirmed and UPC generation has started.');
+    L.push('     - Inform them that UPC will be delivered for their number within 24 working hours via SMS.');
+    L.push('     - Reassure: "We will try our best to provide you as soon as possible. Thank you for your patience! 😊"');
+    L.push('   • IF `upc_in_process`:');
+    L.push('     - Thank them for purchasing.');
+    L.push('     - Calculate and state the remaining working hours explicitly!');
+    L.push('     - Example: "Aapke number [Number] ka UPC generation process mein hai. UPC will be provided within ~[remainingWorkingHours] working hrs, but we are trying our best to provide you as soon as possible. Thank you for your patience! 😊"');
+    L.push('   • IF `upc_delivered`:');
+    L.push('     - Inform them that UPC is delivered! Share the code if present: "Aapke number [Number] ka UPC code hai: *[upcCode]* (SMS par bhi bheja gaya hai)."');
+    L.push('     - State clearly: "Yeh UPC code 4 working days tak valid rehta hai."');
+    L.push('     - Next Step: "Kripya apna original Aadhaar card aur UPC code leke kisi bhi nazdeeki SIM shop ya operator store par visit karke porting (MNP) karwa lijiye."');
+    L.push('     - Add reassurance: "Hamari team bhi aapse call karke porting process mein help karne ke liye connect karegi! 😊"');
+    L.push('   • IF `upc_expired`:');
+    L.push('     - Reassure them with full confidence: "Aapke number [Number] ka UPC expire ho gaya hai, par bilkul chinta na karein! Aapka purchase 100% safe hai."');
+    L.push('     - Action: "Aap hamare helpline *+91 9222 222 007* par connect kijiye ya yahan reply kijiye, hum aapko fresh UPC bilkul FREE of cost provide karenge! 😊"');
+    L.push('   • IF `activation_in_process`:');
+    L.push('     - Explain: "Aapke number [Number] ki porting request initiate ho chuki hai! Number 5 working days mein activate ho jayega. Tab tak kripya apna existing SIM card active rakhein. 😊"');
+    L.push('   • IF `activated`:');
+    L.push('     - Congratulate warmly: "Congratulations! 🎉 Aapka VIP number [Number] successfully activate ho chuka hai! Numberwale ko chunne ke liye thank you! 😊"');
+  } else {
+    L.push('');
+    L.push('## CUSTOMER ORDER STATUS: NO PURCHASED NUMBERS FOUND');
+    L.push('This customer has not purchased any VIP numbers yet under this phone number.');
+  }
+
   if (ctx && ctx.targetProduct) {
     const tp = ctx.targetProduct;
-    if (tp.notFound) {
+    if (tp.isPurchasedByCustomer) {
       L.push('');
-      L.push('## TARGET NUMBER INQUIRY (SINGLE NUMBER):');
+      L.push('## TARGET NUMBER INQUIRY: CUSTOMER\'S OWN PURCHASED NUMBER!');
+      L.push(`Customer is inquiring about *${tp.formattedNumber || tp.number}*, which THEY PURCHASED!`);
+      L.push(`- Current Status: ${tp.upcStatus}`);
+      L.push(`- Remaining Working Hours for Delivery: ~${tp.remainingWorkingHours || 24} working hrs`);
+      if (tp.upcCode) L.push(`- UPC Code: ${tp.upcCode}`);
+      L.push('Follow the ACTIVE CUSTOMER ORDERS rules above. NEVER say sold out or unavailable!');
+    } else if (tp.isUnpurchasedByCustomer || tp.notFound) {
+      L.push('');
+      L.push('## TARGET NUMBER INQUIRY: UNPURCHASED / UNAVAILABLE NUMBER');
       L.push(`Customer is asking about the 10-digit number: *${tp.formattedNumber || tp.number}*`);
-      L.push('This number is NOT currently available in our active inventory (might be sold out or unlisted).');
-      L.push('Politely inform the customer that this specific number is currently unavailable or sold out, but offer to search similar patterns or suggest other numbers.');
+      L.push('This specific number was NOT purchased by this customer and is not in our available stock.');
+      L.push('STRICT INSTRUCTION FROM MANAGEMENT:');
+      if (lang === 'English') {
+        L.push('- Politely inform the customer: "Sorry, you did not purchase this number."');
+        L.push('- Offer recommendations: "If you are looking for this type or pattern of VIP number, here are the best matching choices for you:"');
+      } else if (lang === 'Hindi') {
+        L.push('- Politely inform the customer: "माफ़ कीजिए, आपने यह नंबर purchase नहीं किया है।"');
+        L.push('- Offer recommendations: "यदि आप इस तरह का VIP नंबर देख रहे हैं, तो ये रहे आपके लिए सबसे बेहतरीन विकल्प:"');
+      } else if (lang === 'Gujarati') {
+        L.push('- Politely inform the customer: "માફ કરશો, તમે આ નંબર ખરીદ્યો નથી."');
+        L.push('- Offer recommendations: "જો તમે આ પ્રકારનો VIP નંબર શોધી રહ્યા છો, તો આ રહ્યા તમારા માટે શ્રેષ્ઠ વિકલ્પો:"');
+      } else if (lang === 'Marathi') {
+        L.push('- Politely inform the customer: "माफ करा, तुम्ही हा नंबर खरेदी केलेला नाही."');
+        L.push('- Offer recommendations: "जर तुम्ही या प्रकारचा VIP नंबर शोधत असाल, तर हे आहेत तुमच्यासाठी सर्वोत्तम पर्याय:"');
+      } else {
+        L.push('- Politely inform the customer: "Sorry ji, aapne yeh number purchase nahi kiya hai."');
+        L.push('- Offer recommendations: "Agar aap is type ya pattern ka VIP number dhoondh rahe hain, toh yeh rahe aapke liye best matching choices:"');
+      }
+      L.push('- ALWAYS output SEARCH_JSON matching this number\'s pattern or ending digits to show them great alternatives!');
       L.push('⚠️ NEVER invent or make up a price for an unavailable number!');
     } else {
       const formatted = tp.formattedNumber || tp.number;
@@ -1105,32 +1193,72 @@ export async function runAgent(opts) {
 
   // Check if message inquires about a specific 10-digit mobile number
   const detected10Digit = extract10DigitNumber(userMessage);
+  const activeOrders = customerContext.activeProducts || [];
+
   if (detected10Digit) {
-    try {
-      const prod = await fetchProductByNumber(detected10Digit);
-      if (prod) {
-        const subtotal = prod.price || prod.basePrice || 0;
-        const totalWithGst = subtotal ? subtotal + Math.round(subtotal * 0.18) : null;
-        customerContext.targetProduct = {
-          number: prod.number,
-          price: prod.price,
-          basePrice: prod.basePrice,
-          category: prod.category,
-          totalWithGst: totalWithGst,
-          formattedNumber: formatProductNumberForWhatsApp({ productMobileNumber: prod.number }),
-          cartLink: `https://numberwale.com/cart-add/${prod.number}`
-        };
-        console.log(`[Agent] Injected targetProduct: ${prod.number} (Price with GST: ₹${totalWithGst})`);
-      } else {
-        customerContext.targetProduct = {
-          number: detected10Digit,
-          notFound: true,
-          formattedNumber: `${detected10Digit.slice(0, 5)} ${detected10Digit.slice(5)}`
-        };
-        console.log(`[Agent] Target number ${detected10Digit} not found in inventory.`);
+    const purchasedProd = activeOrders.find(p => p.number === detected10Digit);
+
+    if (purchasedProd) {
+      customerContext.targetProduct = {
+        number: detected10Digit,
+        isPurchasedByCustomer: true,
+        upcStatus: purchasedProd.upcStatus || 'pending',
+        upcCode: purchasedProd.upcCode || null,
+        elapsedHours: purchasedProd.elapsedHours != null ? purchasedProd.elapsedHours : null,
+        remainingWorkingHours: purchasedProd.remainingWorkingHours != null ? purchasedProd.remainingWorkingHours : 24,
+        processedAt: purchasedProd.processedAt || null,
+        deliveredAt: purchasedProd.deliveredAt || null,
+        operator: purchasedProd.operator || null,
+        formattedNumber: `${detected10Digit.slice(0, 5)} ${detected10Digit.slice(5)}`
+      };
+      console.log(`[Agent] Detected 10-digit number ${detected10Digit} is PURCHASED by customer! Status: ${purchasedProd.upcStatus}`);
+    } else {
+      try {
+        const prod = await fetchProductByNumber(detected10Digit);
+        if (prod) {
+          const subtotal = prod.price || prod.basePrice || 0;
+          const totalWithGst = subtotal ? subtotal + Math.round(subtotal * 0.18) : null;
+          customerContext.targetProduct = {
+            number: prod.number,
+            price: prod.price,
+            basePrice: prod.basePrice,
+            category: prod.category,
+            totalWithGst: totalWithGst,
+            formattedNumber: formatProductNumberForWhatsApp({ productMobileNumber: prod.number }),
+            cartLink: `https://numberwale.com/cart-add/${prod.number}`
+          };
+          console.log(`[Agent] Injected targetProduct: ${prod.number} (Price with GST: ₹${totalWithGst})`);
+        } else {
+          customerContext.targetProduct = {
+            number: detected10Digit,
+            notFound: true,
+            isUnpurchasedByCustomer: true,
+            formattedNumber: `${detected10Digit.slice(0, 5)} ${detected10Digit.slice(5)}`
+          };
+          console.log(`[Agent] Target number ${detected10Digit} not found in inventory and NOT purchased by customer.`);
+        }
+      } catch (fetchErr) {
+        console.warn('[Agent] Could not fetch target number details:', fetchErr.message);
       }
-    } catch (fetchErr) {
-      console.warn('[Agent] Could not fetch target number details:', fetchErr.message);
+    }
+  } else if (activeOrders.length === 1) {
+    // If customer didn't specify a 10-digit number but asks about UPC/order/status
+    const isUpcOrOrderInquiry = /\b(upc|order|delivery|deliver|status|port|porting|kab\s*aayega|kab\s*milega|code)\b/i.test(userMessage);
+    if (isUpcOrOrderInquiry) {
+      const purchasedProd = activeOrders[0];
+      customerContext.targetProduct = {
+        number: purchasedProd.number,
+        isPurchasedByCustomer: true,
+        upcStatus: purchasedProd.upcStatus || 'pending',
+        upcCode: purchasedProd.upcCode || null,
+        elapsedHours: purchasedProd.elapsedHours != null ? purchasedProd.elapsedHours : null,
+        remainingWorkingHours: purchasedProd.remainingWorkingHours != null ? purchasedProd.remainingWorkingHours : 24,
+        processedAt: purchasedProd.processedAt || null,
+        deliveredAt: purchasedProd.deliveredAt || null,
+        operator: purchasedProd.operator || null,
+        formattedNumber: `${purchasedProd.number.slice(0, 5)} ${purchasedProd.number.slice(5)}`
+      };
+      console.log(`[Agent] Implicit UPC query linked to customer's purchased number: ${purchasedProd.number}`);
     }
   }
 
@@ -1153,7 +1281,7 @@ export async function runAgent(opts) {
 
   // Fast Intercept: Customer asking for payment link without selecting a number
   const isAskingPaymentLink = /\b(payment\s*link|pay\s*link|link\s*(?:do|bhejo|dijiye|send|bhej)|kaise\s*pay\s*(?:kare|karein|karu)|pay\s*kaise\s*(?:kare|karein|karu)|checkout\s*link)\b/i.test(userMessage);
-  const hasTargetProduct = customerContext.targetProduct && !customerContext.targetProduct.notFound;
+  const hasTargetProduct = customerContext.targetProduct && !customerContext.targetProduct.notFound && !customerContext.targetProduct.isPurchasedByCustomer;
   if (isAskingPaymentLink && !hasTargetProduct && !detected10Digit) {
     let noNumReply;
     if (lang === 'English') {

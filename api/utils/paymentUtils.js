@@ -153,3 +153,60 @@ export async function fetchActiveBotCoupon() {
   return (all && all.length > 0) ? all[0] : null;
 }
 
+/**
+ * Fetch customer's active orders and purchased VIP numbers from CRM.
+ */
+export async function fetchCustomerOrders(customerPhone) {
+  if (!customerPhone) return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] };
+  const cleanPhone = String(customerPhone).replace(/\D/g, '');
+  if (!cleanPhone) return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] };
+
+  const API_URL = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
+  const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
+  const { default: axios } = await import('axios');
+
+  try {
+    const response = await axios.get(`${API_URL}/api/v1/gallabox-bot/customer-orders`, {
+      params: { phone: cleanPhone },
+      headers: {
+        'x-bot-secret': ADMIN_SECRET
+      },
+      timeout: 4000
+    });
+
+    if (response.data && response.data.status === 'success') {
+      const orders = response.data.orders || [];
+      const purchasedNumbers = [];
+      const activeProducts = [];
+
+      for (const ord of orders) {
+        for (const prod of (ord.products || [])) {
+          if (prod.number) {
+            const raw10 = String(prod.number).replace(/\D/g, '').slice(-10);
+            purchasedNumbers.push(raw10);
+            activeProducts.push({
+              ...prod,
+              number: raw10,
+              orderNumber: ord.orderNumber,
+              orderStatus: ord.orderStatus,
+              createdAt: ord.createdAt
+            });
+          }
+        }
+      }
+
+      return {
+        hasOrders: response.data.hasOrders || orders.length > 0,
+        customerName: response.data.customerName || null,
+        orders,
+        purchasedNumbers: [...new Set(purchasedNumbers)],
+        activeProducts
+      };
+    }
+    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] };
+  } catch (err) {
+    console.warn('[Orders] fetchCustomerOrders warning:', err.response?.data?.message || err.message);
+    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] };
+  }
+}
+

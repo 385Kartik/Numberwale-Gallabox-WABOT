@@ -13,7 +13,7 @@ import {
   stopDrip,
   getGlobalBotConfig
 } from './utils/analytics.js';
-import { createRazorpayPaymentLink, fetchProductByNumber } from './utils/paymentUtils.js';
+import { createRazorpayPaymentLink, fetchProductByNumber, fetchCustomerOrders } from './utils/paymentUtils.js';
 import { sendToGallabox, unassignConversation, addGallaboxTag, removeGallaboxTag, postGallaboxNote } from './utils/gallabox.js';
 import { formatProducts, cleanCustomerName, extract10DigitNumber, stripThinkTags } from './utils/aiAgent.js';
 
@@ -38,6 +38,10 @@ function extractBuyNumber(text) {
 
   const trimmed = text.trim();
   const lower = trimmed.toLowerCase();
+
+  // If user mentions UPC, porting, activation, or order status, do NOT treat as buy intent
+  const isOrderOrUpcQuery = /\b(upc|port|porting|mnp|status|track|tracking|deliver|delivery|activation|activate|expire|expired)\b/i.test(lower);
+  if (isOrderOrUpcQuery) return null;
 
   // Direct buy command: e.g. "buy 8574113322", "book 8574 113322", "b 8574113322"
   if (/^\s*(?:buy|book|b)\s+/i.test(trimmed)) return num;
@@ -326,12 +330,26 @@ export default async function handler(req, res) {
 
     const lowerMsg = userMessage.toLowerCase().trim();
 
-    // Fetch state from MongoDB early
+    // Fetch state from MongoDB early alongside active customer orders
     const rawCustomerName = body?.contact?.name || 'Unknown';
     const customerName = cleanCustomerName(rawCustomerName) || 'Unknown';
     const t0Context = Date.now();
-    const customerContext = await getCustomerContext(customerPhone, customerName);
+    const [customerContext, customerOrdersData] = await Promise.all([
+      getCustomerContext(customerPhone, customerName),
+      customerPhone ? fetchCustomerOrders(customerPhone).catch(err => {
+        console.warn('[Webhook] Error fetching customer orders:', err.message);
+        return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] };
+      }) : Promise.resolve({ hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] })
+    ]);
     const tContext = Date.now() - t0Context;
+
+    customerContext.phone = customerPhone;
+    customerContext.orders = customerOrdersData?.orders || [];
+    customerContext.purchasedNumbers = customerOrdersData?.purchasedNumbers || [];
+    customerContext.activeProducts = customerOrdersData?.activeProducts || [];
+    if (customerOrdersData?.customerName && (!customerContext.name || customerContext.name === 'Unknown')) {
+      customerContext.name = cleanCustomerName(customerOrdersData.customerName) || customerContext.name;
+    }
 
     // Self-provided name takes absolute precedence over Gallabox contact name!
     const effectiveCustomerName = (customerContext.name && customerContext.name !== 'Unknown')
