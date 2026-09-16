@@ -514,28 +514,25 @@ export function buildSystemPrompt(ctx) {
       if (tp.upcCode) L.push(`- UPC Code: ${tp.upcCode}`);
       L.push('Follow the ACTIVE CUSTOMER ORDERS rules above. NEVER say sold out or unavailable!');
     } else if (tp.isUnpurchasedByCustomer || tp.notFound) {
+      const numFmt = tp.formattedNumber || tp.number;
       L.push('');
-      L.push('## TARGET NUMBER INQUIRY: UNPURCHASED / UNAVAILABLE NUMBER');
-      L.push(`Customer is asking about the 10-digit number: *${tp.formattedNumber || tp.number}*`);
-      L.push('This specific number was NOT purchased by this customer and is not in our available stock.');
-      L.push('STRICT INSTRUCTION FROM MANAGEMENT:');
-      if (lang === 'English') {
-        L.push('- Politely inform the customer: "Sorry, you did not purchase this number."');
-        L.push('- Offer recommendations: "If you are looking for this type or pattern of VIP number, here are the best matching choices for you:"');
-      } else if (lang === 'Hindi') {
-        L.push('- Politely inform the customer: "माफ़ कीजिए, आपने यह नंबर purchase नहीं किया है।"');
-        L.push('- Offer recommendations: "यदि आप इस तरह का VIP नंबर देख रहे हैं, तो ये रहे आपके लिए सबसे बेहतरीन विकल्प:"');
-      } else if (lang === 'Gujarati') {
-        L.push('- Politely inform the customer: "માફ કરશો, તમે આ નંબર ખરીદ્યો નથી."');
-        L.push('- Offer recommendations: "જો તમે આ પ્રકારનો VIP નંબર શોધી રહ્યા છો, તો આ રહ્યા તમારા માટે શ્રેષ્ઠ વિકલ્પો:"');
-      } else if (lang === 'Marathi') {
-        L.push('- Politely inform the customer: "माफ करा, तुम्ही हा नंबर खरेदी केलेला नाही."');
-        L.push('- Offer recommendations: "जर तुम्ही या प्रकारचा VIP नंबर शोधत असाल, तर हे आहेत तुमच्यासाठी सर्वोत्तम पर्याय:"');
-      } else {
-        L.push('- Politely inform the customer: "Sorry ji, aapne yeh number purchase nahi kiya hai."');
-        L.push('- Offer recommendations: "Agar aap is type ya pattern ka VIP number dhoondh rahe hain, toh yeh rahe aapke liye best matching choices:"');
-      }
-      L.push('- ALWAYS output SEARCH_JSON matching this number\'s pattern or ending digits to show them great alternatives!');
+      L.push('## 🛑 TARGET NUMBER INQUIRY: NUMBER UNAVAILABLE / NOT IN STOCK (STRICT RULE)');
+      L.push(`Customer is asking about the 10-digit number: *${numFmt}* (Raw digits: ${tp.number})`);
+      L.push(`FACT: This number is NOT in our inventory/stock (unavailable / not with Numberwale), AND was NOT purchased by this customer.`);
+      L.push('');
+      L.push('STRICT MANDATORY RULES FOR THIS UNAVAILABLE NUMBER:');
+      L.push('1. 🛑 DIRECT CLARIFICATION FIRST: Clearly state that this exact number is NOT in our stock/inventory right now.');
+      L.push('   - 🛑 NEVER say "I am checking availability", "let me check availability", or pretend you are looking for it! You ALREADY know it is NOT in stock!');
+      L.push('   - 🛑 NEVER ask operator preferences (Jio/Airtel/Vi/BSNL) or DFO preferences for an unavailable number!');
+      L.push('   - 🛑 NEVER offer to book this number or send a booking link for it!');
+      L.push('   • IF customer asks for UPC / delivery / order status ("when will I get UPC", "mera upc do"):');
+      L.push(`     - State clearly: "Aapne number *${numFmt}* Numberwale se purchase nahi kiya hai (humare paas iska koi order record nahi hai), aur yeh number abhi hamare active stock mein bhi nahi hai."`);
+      L.push('   • IF customer asks for availability / to buy / to book ("do you have this number", "available hai?", "book karna hai"):');
+      L.push(`     - State clearly and directly: "Sorry, number *${numFmt}* abhi hamare collection/stock mein available nahi hai."`);
+      L.push('2. 🛑 NEVER OUTPUT BLANK/EMPTY `SEARCH_JSON:{}` FOR AN UNAVAILABLE NUMBER INQUIRY!');
+      L.push('   - Outputting empty SEARCH_JSON:{} dumps completely unrelated expensive Penta numbers which confuses the customer!');
+      L.push(`   - If suggesting alternatives, ONLY output SEARCH_JSON if you can search specifically for that ending (e.g. SEARCH_JSON:{"endsWith":"${tp.number.slice(-4)}"}) or specific digits (e.g. SEARCH_JSON:{"anywhere":"${tp.number.slice(0, 4)}"}).`);
+      L.push('   - If you do not have a specific digit/pattern search, DO NOT output SEARCH_JSON at all! Simply tell the customer that this exact number is unavailable, and ask what pattern, favourite digits, or budget they would like to explore.');
       L.push('⚠️ NEVER invent or make up a price for an unavailable number!');
     } else {
       const formatted = tp.formattedNumber || tp.number;
@@ -1347,6 +1344,14 @@ export async function runAgent(opts) {
     if (fallbackJSON && Object.keys(fallbackJSON).length > 0) {
       console.log('[Agent] ⚡ Intercepted missing SEARCH_JSON with fallback parser:', JSON.stringify(fallbackJSON));
       effectiveSearchJSON = fallbackJSON;
+    }
+  }
+
+  // Guard: If customer is inquiring about an unavailable/unpurchased number, NEVER dump default penta numbers!
+  if (customerContext.targetProduct && (customerContext.targetProduct.notFound || customerContext.targetProduct.isUnpurchasedByCustomer)) {
+    if (effectiveSearchJSON && Object.keys(effectiveSearchJSON).length === 0) {
+      console.log('[Agent] 🛑 Suppressed empty SEARCH_JSON:{} for unavailable number inquiry to prevent dumping random penta numbers.');
+      effectiveSearchJSON = undefined;
     }
   }
 
