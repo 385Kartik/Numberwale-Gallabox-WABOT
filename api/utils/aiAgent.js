@@ -524,8 +524,8 @@ export function buildSystemPrompt(ctx) {
       L.push(`   - Current Status: ${p.upcStatus || 'pending'}`);
       if (p.upcCode) L.push(`   - UPC Code: ${p.upcCode}`);
       if (p.operator) L.push(`   - Operator: ${p.operator}`);
-      if (p.creditNote) {
-        L.push(`   - 💳 Official Credit Note: #${p.creditNote.creditNoteNumber} (Amount: ₹${p.creditNote.amount || 'N/A'}, Status: ${p.creditNote.status}${p.creditNote.refundMethod ? ', Method: ' + p.creditNote.refundMethod : ''})`);
+      if (p.creditNote || p.upcStatus === 'creditnote' || p.upcStatus === 'activation_failed') {
+        L.push(`   - UPC Status: FAILED (UPC generation fail ho gaya hai, number nahi milega). Payment 100% safe.`);
       }
       L.push(`   - Time Elapsed: ~${elapsed} hours | Remaining SLA: ~${remainingHrs} working hours`);
     });
@@ -533,7 +533,7 @@ export function buildSystemPrompt(ctx) {
     L.push('🚨 STRICT LIFECYCLE RULES WHEN CUSTOMER ASKS ABOUT THEIR PURCHASED NUMBER OR UPC:');
     L.push('1. 🛑 ABSOLUTE RULE: NEVER say "this number is sold", "unavailable", or "not in our inventory" for any of the above purchased numbers! The customer chatting with you IS THE ONE WHO PURCHASED IT!');
     L.push('2. Address them warmly and thank them for purchasing with Numberwale: "Thank you for purchasing with Numberwale!" (or in Hindi/Hinglish: "Numberwale se purchase karne ke liye bohot bohot shukriya!")');
-    L.push('3. Provide accurate information based on their `upcStatus` & `creditNote`:');
+    L.push('3. Provide accurate information based on their `upcStatus`:');
     L.push('   • IF `pending`:');
     L.push('     - Thank them for purchasing.');
     L.push('     - Explain that their order is confirmed and UPC generation has started.');
@@ -559,13 +559,17 @@ export function buildSystemPrompt(ctx) {
     L.push('     - Explain: "Aapke number [Number] ki porting request initiate ho chuki hai! Number 5 working days mein activate ho jayega. Tab tak kripya apna existing SIM card active rakhein. 😊"');
     L.push('   • IF `activated`:');
     L.push('     - Congratulate warmly: "Congratulations! 🎉 Aapka VIP number [Number] successfully activate ho chuka hai! Numberwale ko chunne ke liye thank you! 😊"');
-    L.push('   • 🛑 IF `activation_failed` OR `creditnote` (CRITICAL CREDIT NOTE RESOLUTION):');
-    L.push('     - 🛑 NEVER tell the customer to re-apply, re-generate, or wait for UPC for this number!');
-    L.push('     - IF Credit Note is present (e.g. Credit Note #[Number]):');
-    L.push('       • State clearly and reassuringly: "Aapke number [Number] ka activation/porting telecom/vendor side se complete nahi ho saka, isiliye hamari accounts team ne aapke payment ko 100% secure rakhte hue official **Credit Note #[CreditNoteNumber]** (₹[Amount]) issue kar diya hai! ✨"');
-    L.push('       • Emphasize the store credit benefit: "Aapka 100% paisa bilkul safe hai! Aap is credit balance se Numberwale par koi bhi naya VIP number choose kar sakte hain ya support team se connect karke adjustment karwa sakte hain. Is number ke liye ab UPC generate karne ki zarurat nahi hai."');
-    L.push('     - IF Credit Note is NOT present yet (or still in progress):');
-    L.push('       • Explain: "Aapke number [Number] ki activation request operator/vendor issue ki wajah se complete nahi ho saki. Hamari senior support aur accounts team is par active hai aur aapke liye Credit Note / replacement number process kar rahi hai. Aapka payment 100% safe hai aur team jald hi aapse connect karegi. Is number ke liye UPC dobara apply karne ki zarurat nahi hai."');
+    L.push('   • 🛑 IF `activation_failed`, `creditnote`, OR UPC FAILED (CRITICAL RESOLUTION):');
+    L.push('     - CORE MEANING: UPC generation / activation fail ho gaya hai aur WOH NUMBER NAHI MILEGA (this number cannot be provided).');
+    L.push('     - 🛑 100% STRICT RULE: NEVER MENTION CREDIT NOTE NUMBER OR TECHNICAL CODES (NEVER say "Credit Note #CN...", "Credit Note number", etc.)! Credit note numbers are strictly internal and must never be told to the customer!');
+    L.push('     - 🛑 100% STRICT RULE: NEVER tell the customer to re-apply, re-generate, or wait for UPC for this number! That number is not possible.');
+    L.push('     - EXACT REQUIRED RESPONSE (Bas itna hi bolna hai):');
+    L.push('       1. State clearly and politely: "Aapke number [Number] ka UPC generate nahi ho paya / fail ho gaya hai aur yeh number ab provide nahi ho payega."');
+    L.push('       2. Reassure payment safety: "Par aap bilkul chinta na karein, aapka 100% payment bilkul safe hai!"');
+    L.push('       3. Offer the two customer choices:');
+    L.push('          • "Aap chahein toh is amount se koi doosra naya VIP number select kar sakte hain,"');
+    L.push('          • "Ya fir aap chahein toh apna full refund process karwa sakte hain."');
+    L.push('       4. Warm question: "Aap koi naya number pasand karna chahenge ya refund proceed karna chahenge? 😊"');
     L.push('   • IF `refunded` OR `partially_refunded`:');
     L.push('     - Explain: "Aapke number [Number] ka refund successfully process ho chuka hai. Kisi bhi sahayata ke liye helpline *+91 9222 222 007* par connect karein."');
     L.push('   • IF `adjustment` OR `partially_adjustment`:');
@@ -573,12 +577,12 @@ export function buildSystemPrompt(ctx) {
     L.push('   • IF `to_be_refunded`:');
     L.push('     - Explain: "Aapke number [Number] ka refund accounts team dwara approve ho chuka hai aur bank processing queue mein hai. Jald hi aapke source account me credit ho jayega."');
     L.push('   • IF `cancelled`:');
-    L.push('     - Explain: "Aapka order cancel ho chuka hai aur Credit Note / refund process initiate kar diya gaya hai. Aapka payment 100% safe hai."');
+    L.push('     - Explain: "Aapka order cancel ho chuka hai aur refund / replacement process initiate kar diya gaya hai. Aapka payment 100% safe hai."');
     L.push('4. 📋 LISTING PURCHASED NUMBERS (WHEN CUSTOMER ASKS FOR THEIR NUMBERS OR STATUS):');
     L.push('   - If the customer asks "Which numbers are in pending?", "Which numbers do I have?", "Mere kaunse number hain?", or asks for their order/UPC status:');
     L.push('   - You MUST explicitly list each of their purchased numbers with bullet points:');
     L.push('     • *[Formatted Number]* — Order: [Order ID] | Status: [Status] | Remaining SLA: ~[Remaining] working hrs');
-    L.push('   - Reassure them that UPC generation is in progress and codes will be sent via SMS within 24 working hours (or explain Credit Note if activation failed).');
+    L.push('   - Reassure them that UPC generation is in progress and codes will be sent via SMS within 24 working hours (or if UPC failed, explain number nahi milega, payment safe hai, and offer new number or refund).');
     L.push('   - 🛑 Do NOT output SEARCH_JSON when customer is asking about their own purchased orders, pending status, UPC delivery, or invoices.');
   } else {
     L.push('');
@@ -616,10 +620,12 @@ export function buildSystemPrompt(ctx) {
       L.push(`- Current Status: ${tp.upcStatus}`);
       L.push(`- Remaining Working Hours for Delivery: ~${tp.remainingWorkingHours || 24} working hrs`);
       if (tp.upcCode) L.push(`- UPC Code: ${tp.upcCode}`);
-      if (tp.creditNote) {
-        L.push(`- 💳 Official Credit Note: #${tp.creditNote.creditNoteNumber} (Amount: ₹${tp.creditNote.amount || 'N/A'}, Status: ${tp.creditNote.status})`);
+      if (tp.creditNote || tp.upcStatus === 'creditnote' || tp.upcStatus === 'activation_failed') {
+        L.push('- Current Status: FAILED (UPC fail ho gaya hai aur number nahi milega). Payment 100% safe.');
+        L.push('  Follow rule: Inform UPC fail ho gaya hai aur yeh number nahi milega. Payment 100% safe hai. Option dein: aap koi doosra naya VIP number select kar sakte hain ya refund process karwa sakte hain. 🛑 NEVER mention credit note number or tell to re-apply UPC!');
+      } else {
+        L.push('Follow the ACTIVE CUSTOMER ORDERS rules above. NEVER say sold out or unavailable!');
       }
-      L.push('Follow the ACTIVE CUSTOMER ORDERS rules above. NEVER say sold out or unavailable! NEVER tell customer to re-apply for UPC if credit note exists or activation failed!');
     } else if (tp.isUnpurchasedByCustomer || tp.notFound) {
       const numFmt = tp.formattedNumber || tp.number;
       const catName = tp.categoryName || 'VIP Fancy Numbers';
