@@ -466,10 +466,14 @@ export function buildSystemPrompt(ctx) {
   L.push('CONSECUTIVE vs FREQUENCY:');
   L.push('- Consecutive digits together in a row: "anywhere":"555", "endsWith":"9999", "startsWith":"98"');
   L.push('- Digit frequency (appears N times anywhere): "digitFreq1Digit":"9","digitFreq1Count":3');
-  L.push('BUDGET vs LUXURY CATEGORY CONFLICT:');
-  L.push('- High-end patterns like "mirror-numbers", "hexa-numbers", "penta-numbers", "octa-numbers" start at ₹1,00,000+.');
-  L.push('- If customer specifies a budget under ₹50,000 (e.g. "20000 me", "budget 15000", "under 30k"), NEVER combine narrow luxury categories like "mirror-numbers" into SEARCH_JSON!');
-  L.push('- Instead, search within budget: SEARCH_JSON:{"maxPrice":20000} or recommend accessible categories like SEARCH_JSON:{"category":"doubling-numbers","maxPrice":20000}.');
+  L.push('BUDGET + CATEGORY: ALWAYS SEARCH FIRST — NEVER ASSUME OUT OF RANGE!');
+  L.push('🛑 CRITICAL RULE: NEVER pre-reject a category just because you THINK it is out of the customer\'s budget. Actual live prices change. ALWAYS search with BOTH category AND budget together and let the results speak!');
+  L.push('- Customer asks for "penta numbers budget 10000" → SEARCH_JSON:{"category":"penta-numbers","maxPrice":10000}');
+  L.push('- Customer asks for "hexa numbers under 50000" → SEARCH_JSON:{"category":"hexa-numbers","maxPrice":50000}');
+  L.push('- Customer asks for "mirror numbers 30k budget" → SEARCH_JSON:{"category":"mirror-numbers","maxPrice":30000}');
+  L.push('- ONLY if the search returns 0 results, THEN say: "Is budget mein [category] available nahi hain, lekin aap budget thoda badhayein ya koi aur category try karein. Yeh categories try kar sakte hain: ..." and suggest an alternate SEARCH_JSON.');
+  L.push('- 🛑 DO NOT say "penta/hexa/mirror numbers ₹1 lakh se aate hain" or any hardcoded minimum price — live inventory has numbers starting from ₹10,000 in penta, ₹44,000 in hexa, ₹59,000 in mirror. Prices keep changing!');
+  L.push('- ALWAYS add "sortPrice":"lowToHigh" automatically when customer mentions a budget, so cheapest options appear first.');
   L.push('');
   L.push('INSTANT ACTIVATION & STATE-SPECIFIC (DFO) FILTERS:');
   L.push('- "isDirectFromOperator": "true" (use when customer specifically asks for instant 5-10 min activation numbers)');
@@ -477,8 +481,8 @@ export function buildSystemPrompt(ctx) {
   L.push('');
   if (af) {
     L.push('CURRENT ACTIVE SEARCH FILTERS: ' + af);
-    L.push('- REFINEMENT: Merge new constraint with active filters UNLESS there is a conflict (e.g. customer specifies a budget under 50k like "20000 me" after a luxury category like mirror-numbers -> DISCARD the luxury category and search within requested budget).');
-    L.push('- NEW SEARCH (different pattern/category or broad budget request): DISCARD active filters, output only new JSON.');
+    L.push('- REFINEMENT: Merge new constraint with active filters. When customer adds a budget to an existing category search, ALWAYS combine both: e.g. {"category":"penta-numbers","maxPrice":10000,"sortPrice":"lowToHigh"}. NEVER discard the category just because of budget!');
+    L.push('- NEW SEARCH (completely different pattern/category): DISCARD active filters, output only new JSON.');
     L.push('');
   }
   L.push('## BEST NUMBERS / RECOMMENDATIONS');

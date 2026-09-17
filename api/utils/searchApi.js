@@ -119,7 +119,9 @@ export async function fetchNumbers(jsonQuery, page = 1) {
     const finalQuery = { search: searchParams, page, limit: PAGE_SIZE };
     if (jsonQuery.category) finalQuery.category = jsonQuery.category;
     if (priceRangeStr) finalQuery.priceRange = priceRangeStr;
-    if (jsonQuery.sortPrice) finalQuery.sortPrice = jsonQuery.sortPrice;
+    // Auto sort by price ascending when budget is provided (so cheapest options surface first)
+    const sortPrice = jsonQuery.sortPrice || (jsonQuery.maxPrice ? 'lowToHigh' : null);
+    if (sortPrice) finalQuery.sortPrice = sortPrice;
     if (jsonQuery.sortBy) finalQuery.sortBy = jsonQuery.sortBy;
     if (jsonQuery.isDirectFromOperator !== undefined) {
       finalQuery.isDirectFromOperator = String(jsonQuery.isDirectFromOperator);
