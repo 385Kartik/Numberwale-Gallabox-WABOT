@@ -192,6 +192,9 @@ export async function fetchCustomerOrders(customerPhone) {
               invoiceNumber: ord.invoiceNumber || prod.invoiceNumber || null,
               pdfUrl: prod.pdfUrl || ord.pdfUrl || null,
               pdfFilename: prod.pdfFilename || ord.pdfFilename || null,
+              creditNote: prod.creditNote || null,
+              creditNotePdfUrl: prod.creditNotePdfUrl || prod.creditNote?.pdfUrl || null,
+              creditNotePdfFilename: prod.creditNotePdfFilename || prod.creditNote?.pdfFilename || null,
               orderStatus: ord.orderStatus,
               createdAt: ord.createdAt
             });

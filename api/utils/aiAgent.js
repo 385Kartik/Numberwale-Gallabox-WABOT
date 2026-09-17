@@ -524,13 +524,16 @@ export function buildSystemPrompt(ctx) {
       L.push(`   - Current Status: ${p.upcStatus || 'pending'}`);
       if (p.upcCode) L.push(`   - UPC Code: ${p.upcCode}`);
       if (p.operator) L.push(`   - Operator: ${p.operator}`);
+      if (p.creditNote) {
+        L.push(`   - 💳 Official Credit Note: #${p.creditNote.creditNoteNumber} (Amount: ₹${p.creditNote.amount || 'N/A'}, Status: ${p.creditNote.status}${p.creditNote.refundMethod ? ', Method: ' + p.creditNote.refundMethod : ''})`);
+      }
       L.push(`   - Time Elapsed: ~${elapsed} hours | Remaining SLA: ~${remainingHrs} working hours`);
     });
     L.push('');
     L.push('🚨 STRICT LIFECYCLE RULES WHEN CUSTOMER ASKS ABOUT THEIR PURCHASED NUMBER OR UPC:');
     L.push('1. 🛑 ABSOLUTE RULE: NEVER say "this number is sold", "unavailable", or "not in our inventory" for any of the above purchased numbers! The customer chatting with you IS THE ONE WHO PURCHASED IT!');
     L.push('2. Address them warmly and thank them for purchasing with Numberwale: "Thank you for purchasing with Numberwale!" (or in Hindi/Hinglish: "Numberwale se purchase karne ke liye bohot bohot shukriya!")');
-    L.push('3. Provide accurate information based on their `upcStatus`:');
+    L.push('3. Provide accurate information based on their `upcStatus` & `creditNote`:');
     L.push('   • IF `pending`:');
     L.push('     - Thank them for purchasing.');
     L.push('     - Explain that their order is confirmed and UPC generation has started.');
@@ -545,6 +548,10 @@ export function buildSystemPrompt(ctx) {
     L.push('     - State clearly: "Yeh UPC code 4 working days tak valid rehta hai."');
     L.push('     - Next Step: "Kripya apna original Aadhaar card aur UPC code leke kisi bhi nazdeeki SIM shop ya operator store par visit karke porting (MNP) karwa lijiye."');
     L.push('     - Add reassurance: "Hamari team bhi aapse call karke porting process mein help karne ke liye connect karegi! 😊"');
+    L.push('   • IF `re-upc_in_process`:');
+    L.push('     - Explain: "Aapke number [Number] ke liye fresh Re-UPC generation process chal raha hai. Jald hi SMS dwara share kiya jayega. 😊"');
+    L.push('   • IF `re-upc_delivered`:');
+    L.push('     - Share: "Aapke number [Number] ka fresh UPC code delivered ho gaya hai: *[upcCode]*. Yeh agle 4 working days tak valid hai."');
     L.push('   • IF `upc_expired`:');
     L.push('     - Reassure them with full confidence: "Aapke number [Number] ka UPC expire ho gaya hai, par bilkul chinta na karein! Aapka purchase 100% safe hai."');
     L.push('     - Action: "Aap hamare helpline *+91 9222 222 007* par connect kijiye ya yahan reply kijiye, hum aapko fresh UPC bilkul FREE of cost provide karenge! 😊"');
@@ -552,11 +559,26 @@ export function buildSystemPrompt(ctx) {
     L.push('     - Explain: "Aapke number [Number] ki porting request initiate ho chuki hai! Number 5 working days mein activate ho jayega. Tab tak kripya apna existing SIM card active rakhein. 😊"');
     L.push('   • IF `activated`:');
     L.push('     - Congratulate warmly: "Congratulations! 🎉 Aapka VIP number [Number] successfully activate ho chuka hai! Numberwale ko chunne ke liye thank you! 😊"');
+    L.push('   • 🛑 IF `activation_failed` OR `creditnote` (CRITICAL CREDIT NOTE RESOLUTION):');
+    L.push('     - 🛑 NEVER tell the customer to re-apply, re-generate, or wait for UPC for this number!');
+    L.push('     - IF Credit Note is present (e.g. Credit Note #[Number]):');
+    L.push('       • State clearly and reassuringly: "Aapke number [Number] ka activation/porting telecom/vendor side se complete nahi ho saka, isiliye hamari accounts team ne aapke payment ko 100% secure rakhte hue official **Credit Note #[CreditNoteNumber]** (₹[Amount]) issue kar diya hai! ✨"');
+    L.push('       • Emphasize the store credit benefit: "Aapka 100% paisa bilkul safe hai! Aap is credit balance se Numberwale par koi bhi naya VIP number choose kar sakte hain ya support team se connect karke adjustment karwa sakte hain. Is number ke liye ab UPC generate karne ki zarurat nahi hai."');
+    L.push('     - IF Credit Note is NOT present yet (or still in progress):');
+    L.push('       • Explain: "Aapke number [Number] ki activation request operator/vendor issue ki wajah se complete nahi ho saki. Hamari senior support aur accounts team is par active hai aur aapke liye Credit Note / replacement number process kar rahi hai. Aapka payment 100% safe hai aur team jald hi aapse connect karegi. Is number ke liye UPC dobara apply karne ki zarurat nahi hai."');
+    L.push('   • IF `refunded` OR `partially_refunded`:');
+    L.push('     - Explain: "Aapke number [Number] ka refund successfully process ho chuka hai. Kisi bhi sahayata ke liye helpline *+91 9222 222 007* par connect karein."');
+    L.push('   • IF `adjustment` OR `partially_adjustment`:');
+    L.push('     - Explain: "Aapke number [Number] ka amount aapke replacement VIP number purchase me adjust kar diya gaya hai."');
+    L.push('   • IF `to_be_refunded`:');
+    L.push('     - Explain: "Aapke number [Number] ka refund accounts team dwara approve ho chuka hai aur bank processing queue mein hai. Jald hi aapke source account me credit ho jayega."');
+    L.push('   • IF `cancelled`:');
+    L.push('     - Explain: "Aapka order cancel ho chuka hai aur Credit Note / refund process initiate kar diya gaya hai. Aapka payment 100% safe hai."');
     L.push('4. 📋 LISTING PURCHASED NUMBERS (WHEN CUSTOMER ASKS FOR THEIR NUMBERS OR STATUS):');
     L.push('   - If the customer asks "Which numbers are in pending?", "Which numbers do I have?", "Mere kaunse number hain?", or asks for their order/UPC status:');
     L.push('   - You MUST explicitly list each of their purchased numbers with bullet points:');
     L.push('     • *[Formatted Number]* — Order: [Order ID] | Status: [Status] | Remaining SLA: ~[Remaining] working hrs');
-    L.push('   - Reassure them that UPC generation is in progress and codes will be sent via SMS within 24 working hours.');
+    L.push('   - Reassure them that UPC generation is in progress and codes will be sent via SMS within 24 working hours (or explain Credit Note if activation failed).');
     L.push('   - 🛑 Do NOT output SEARCH_JSON when customer is asking about their own purchased orders, pending status, UPC delivery, or invoices.');
   } else {
     L.push('');
@@ -594,7 +616,10 @@ export function buildSystemPrompt(ctx) {
       L.push(`- Current Status: ${tp.upcStatus}`);
       L.push(`- Remaining Working Hours for Delivery: ~${tp.remainingWorkingHours || 24} working hrs`);
       if (tp.upcCode) L.push(`- UPC Code: ${tp.upcCode}`);
-      L.push('Follow the ACTIVE CUSTOMER ORDERS rules above. NEVER say sold out or unavailable!');
+      if (tp.creditNote) {
+        L.push(`- 💳 Official Credit Note: #${tp.creditNote.creditNoteNumber} (Amount: ₹${tp.creditNote.amount || 'N/A'}, Status: ${tp.creditNote.status})`);
+      }
+      L.push('Follow the ACTIVE CUSTOMER ORDERS rules above. NEVER say sold out or unavailable! NEVER tell customer to re-apply for UPC if credit note exists or activation failed!');
     } else if (tp.isUnpurchasedByCustomer || tp.notFound) {
       const numFmt = tp.formattedNumber || tp.number;
       const catName = tp.categoryName || 'VIP Fancy Numbers';
@@ -743,7 +768,10 @@ async function getAvailableGroqModels(apiKey) {
                    !lower.includes('r1') &&
                    !lower.includes('qwq') &&
                    !lower.includes('reason') &&
-                   !lower.includes('deepseek');
+                   !lower.includes('deepseek') &&
+                   !lower.includes('allam') &&
+                   !lower.includes('orpheus') &&
+                   !lower.includes('compound');
           });
 
         if (textModels.length > 0) {
@@ -777,56 +805,65 @@ async function getAvailableGroqModels(apiKey) {
 }
 
 async function callGroq(systemPrompt, messages) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error('NO_GROQ_KEY');
+  const keys = [
+    process.env.GROQ_API_KEY,
+    process.env.GROQ_API_KEY_2,
+    process.env.GROQ_API_KEY_3,
+    process.env.GROQ_API_KEY_4
+  ].filter(Boolean);
 
-  const models = await getAvailableGroqModels(apiKey);
+  if (keys.length === 0) throw new Error('NO_GROQ_KEY');
+
   let lastError = null;
 
-  // Try top 4 available models in sequence
-  for (const model of models.slice(0, 4)) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 9000);
+  for (const apiKey of keys) {
+    const models = await getAvailableGroqModels(apiKey);
 
-    try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + apiKey,
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [{ role: 'system', content: systemPrompt }, ...messages],
-          temperature: 0.4,
-          max_tokens: 900,
-        }),
-        signal: controller.signal,
-      });
+    // Try top 4 available models for this key
+    for (const model of models.slice(0, 4)) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 9000);
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        const error = new Error((errData && errData.error && errData.error.message) || response.statusText);
-        error.status = response.status;
-        throw error;
+      try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + apiKey,
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [{ role: 'system', content: systemPrompt }, ...messages],
+            temperature: 0.4,
+            max_tokens: 1800,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const error = new Error((errData && errData.error && errData.error.message) || response.statusText);
+          error.status = response.status;
+          throw error;
+        }
+
+        const data = await response.json();
+        const rawText = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+        const text = stripThinkTags(rawText);
+        if (!text) {
+          throw new Error(`Groq model ${model} produced empty text or only internal thinking tags`);
+        }
+        return { text: text.trim(), model: 'groq/' + model };
+      } catch (err) {
+        lastError = err;
+        console.warn(`[Agent] Groq model ${model} on key ${apiKey.substring(0, 8)}... failed (${err.message}). Trying next...`);
+      } finally {
+        clearTimeout(timer);
       }
-
-      const data = await response.json();
-      const rawText = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
-      const text = stripThinkTags(rawText);
-      if (!text) {
-        throw new Error(`Groq model ${model} produced empty text or only internal thinking tags`);
-      }
-      return { text: text.trim(), model: 'groq/' + model };
-    } catch (err) {
-      lastError = err;
-      console.warn(`[Agent] Groq model ${model} failed (${err.message}). Trying next available model...`);
-    } finally {
-      clearTimeout(timer);
     }
   }
 
-  throw lastError || new Error('All Groq models failed');
+  throw lastError || new Error('All Groq models and keys failed');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1258,6 +1295,11 @@ export function sanitizeHallucinatedNumbers(text, allowedNumbers = []) {
     
     const afterBullet = trimmed.slice(bulletMatch[0].length).trim();
     // Check if after bullet there is a sequence of digits like "112 112" or "9876543210" or "786 110" or a fake price
+    const isOrderOrCreditNoteLine = /(?:credit\s*note|creditnote|क्रेडिट\s*नोट|cn[-\/]|invoice|order|upc|status|refund)/i.test(trimmed);
+    if (isOrderOrCreditNoteLine) {
+      return true;
+    }
+
     const hasNumberListing = /^\*?[0-9]{2,5}[\s\-]?[0-9]{2,5}/.test(afterBullet) || 
                              /^\*?[6-9]\d{9}/.test(afterBullet) ||
                              /(?:₹|rs\.?|inr)\s*[\d,]+/i.test(afterBullet);
@@ -1285,10 +1327,42 @@ export function detectDocumentToSend(userMessage, customerContext) {
   const isInvoiceWord = /\b(invoice|bill|receipt|tax\s*invoice|challan)\b/i.test(lowerMsg);
   const isReportWord = /\b(numerology\s*report|astro\s*report|kundli\s*report|meri\s*report|apni\s*report|analysis\s*report)\b/i.test(lowerMsg) || (/\b(numerology|kundli|report)\b/i.test(lowerMsg) && !isInvoiceWord);
   const isNumerologyWord = /\b(numerology|kundli|astro)\b/i.test(lowerMsg);
+  const isCreditNoteWord = /\b(credit\s*note|creditnote|credit\s*memo|cn\s*pdf|cn\s*receipt|credit\s*slip)\b/i.test(lowerMsg);
 
   const activeProducts = customerContext?.activeProducts || [];
   const numerologyReports = customerContext?.numerologyReports || [];
   const history = customerContext?.history || [];
+
+  // 0. Credit Note PDF request
+  if (isCreditNoteWord) {
+    const explicit10 = extract10DigitNumber(cleanUserMsg);
+    if (explicit10) {
+      const matchProd = activeProducts.find(p => (p.number === explicit10 || p.formattedNumber?.replace(/\D/g, '').endsWith(explicit10)) && (p.creditNotePdfUrl || p.creditNote?.pdfUrl));
+      if (matchProd) {
+        const cn = matchProd.creditNote;
+        const cnUrl = matchProd.creditNotePdfUrl || cn?.pdfUrl;
+        const cnNum = cn?.creditNoteNumber || matchProd.number;
+        return {
+          url: cnUrl,
+          filename: matchProd.creditNotePdfFilename || cn?.pdfFilename || `CreditNote-${cnNum}.pdf`,
+          caption: `💳 Official Credit Note #${cnNum} - Numberwale (₹${cn?.amount || ''})`
+        };
+      }
+    } else {
+      const prodWithCn = activeProducts.find(p => p.creditNotePdfUrl || p.creditNote?.pdfUrl);
+      if (prodWithCn) {
+        const cn = prodWithCn.creditNote;
+        const cnUrl = prodWithCn.creditNotePdfUrl || cn?.pdfUrl;
+        const cnNum = cn?.creditNoteNumber || prodWithCn.number;
+        return {
+          url: cnUrl,
+          filename: prodWithCn.creditNotePdfFilename || cn?.pdfFilename || `CreditNote-${cnNum}.pdf`,
+          caption: `💳 Official Credit Note #${cnNum} - Numberwale (₹${cn?.amount || ''})`
+        };
+      }
+    }
+    return null;
+  }
 
   // 1. Numerology Report PDF request
   if (isReportWord && !isInvoiceWord) {
