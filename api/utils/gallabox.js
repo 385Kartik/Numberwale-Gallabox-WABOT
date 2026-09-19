@@ -353,6 +353,8 @@ export async function sendGallaboxDocument(phone, documentUrl, filename, caption
     console.error('[Gallabox] storeBotMessageId failed:', e.message)
   );
 
+  const safeFilename = String(filename || 'document.pdf').replace(/[\/\\]/g, '-');
+
   let retries = 3;
   const t0Send = Date.now();
   while (retries > 0) {
@@ -368,7 +370,7 @@ export async function sendGallaboxDocument(phone, documentUrl, filename, caption
             type: 'document',
             document: {
               link: documentUrl,
-              filename: filename || 'document.pdf',
+              filename: safeFilename,
               caption: caption || ''
             }
           },
@@ -378,7 +380,7 @@ export async function sendGallaboxDocument(phone, documentUrl, filename, caption
           timeout: 15000,
         }
       );
-      console.log(`[Gallabox] 📄 Document (${filename}) sent to ${phone} in ${Date.now() - t0Send}ms (msgId: ${botLocalMsgId})`);
+      console.log(`[Gallabox] 📄 Document (${safeFilename}) sent to ${phone} in ${Date.now() - t0Send}ms (msgId: ${botLocalMsgId})`);
       return;
     } catch (err) {
       retries--;

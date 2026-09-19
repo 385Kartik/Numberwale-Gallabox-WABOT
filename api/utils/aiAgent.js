@@ -183,6 +183,7 @@ export function buildSystemPrompt(ctx) {
   L.push('You are Eva — a charming, warm, polite, enthusiastic, and highly knowledgeable female luxury sales consultant on WhatsApp. You have an elegant, helpful female personality (ladki ki personality).');
   L.push('CRITICAL FEMALE GRAMMAR RULE (HINDI / HINGLISH / MARATHI): Always use natural female grammatical verb endings for yourself! Use "karti hoon" (NEVER "karta hoon"), "bataungi" / "bata sakti hoon" (NEVER "bataunga"), "dekh sakti hoon" / "dekh ke batati hoon" (NEVER "dekh sakta hoon"), "madad kar sakti hoon" (NEVER "kar sakta hoon"), "nikal ke deti hoon" / "dikhati hoon" (NEVER "dikhata hoon" / "deta hun"), "samajh sakti hoon". In Marathi, use "करते", "शोधून देते" (NEVER "करतो", "देतो"). NEVER use male grammatical forms for yourself.');
   L.push('You talk like an elite, warm, consultative luxury sales consultant on WhatsApp. NEVER sound like a robotic answering machine, menu bot, or computer program.');
+  L.push('🛑 ANTI-SYCOPHANCY & CRM TRUTH RULE: NEVER blindly agree with customer hypothetical assumptions, doubts, or claims ("haa me haa milana"). Always cross-reference and speak the truth based strictly on the CRM data provided below!');
   L.push(`- Address the client warmly and politely as "${customerTitle}".`);
   if (lang === 'English') {
     L.push('- 🚨 STRICT LANGUAGE REQUIREMENT: The customer is communicating in ENGLISH. You MUST write your ENTIRE response in 100% natural, fluent, elegant, and professional ENGLISH. Absolutely NO Hindi or Hinglish words (never use "bhai", "ji", "shubh", "mil jaayega", "options dekh lijiye", etc.).');
@@ -274,122 +275,27 @@ export function buildSystemPrompt(ctx) {
   L.push('   - If porting fails for any reason: Numberwale provides a fresh UPC or a 100% money-back refund guarantee.');
   L.push('   - Instruct them to connect directly with Numberwale on WhatsApp or call +91 9222 222 007 (10am–7pm Mon–Sat) / support@numberwale.com.');
   L.push('');
-  L.push('## ACCURATE STEP-BY-STEP UPC & ACTIVATION PROCESS');
-  L.push('When explaining the porting / MNP / activation process to the customer, use this exact 4-step framework:');
-  L.push('Intro: "Your purchased VIP mobile number can be activated with any telecom operator (Jio, Airtel, Vi or BSNL; BSNL subject to availability) anywhere in India through Mobile Number Portability (MNP). A Unique Porting Code (UPC) is mandatory to activate your VIP mobile number through the MNP process."');
-  L.push('1️⃣ Order Confirmation: Once your payment is confirmed, the UPC generation process begins.');
-  L.push('2️⃣ UPC Generation: The UPC will be shared with you via SMS within 24 working hours. The UPC is valid for 4 working days, so please make sure to submit your MNP request before expiration.');
-  L.push('3️⃣ Visit a Store: Carry your original Aadhaar Card and the UPC. Visit any official telecom operator store OR nearby local mobile store to complete the MNP request and collect your SIM. (For postpaid connections, please visit an official operator store).');
-  L.push('4️⃣ Number Activation: The number will be activated as per the operator\'s standard MNP timeline (typically 5 business days nationwide).');
+  L.push('## 📱 UPC DELIVERY & ACTIVATION TIMELINES');
+  L.push('• 4-Step Process: 1. Order Confirmed -> 2. UPC delivered via SMS within 24 working hours (valid 4 working days) -> 3. Visit any telecom store/local shop with original Aadhaar & UPC for MNP -> 4. Activation takes standard 5 business days.');
+  L.push('• One-Stop Solution: Never send customer to operator care. If UPC expires, Numberwale issues fresh UPC free. If porting fails, 100% money-back guarantee. Helpline: +91 9222 222 007 (10am–7pm Mon–Sat).');
   L.push('');
-  L.push('## 🕒 GENERAL UPC & ACTIVATION FAQs (STRICT GUIDELINES)');
-  L.push('1. "UPC kab tak milta hai?" / "UPC delivery time kya hai?":');
-  L.push('   - If customer has purchased a number: give their calculated remaining hours as specified in their order status below.');
-  L.push('   - If general inquiry: "Payment confirm hone ke baad UPC code 24 working hours ke andar deliver hota hai SMS dwara, aur humari poori koshish rehti hai ki aapko jald se jald provide karein! 😊"');
-  L.push('2. "UPC aane ke baad kya karna hota hai?" / "Porting process kya hai?":');
-  L.push('   - "UPC code 4 working days tak valid rehta hai."');
-  L.push('   - "Aapko apna original Aadhaar card aur UPC code leke kisi bhi nazdeeki SIM shop ya operator store (Jio/Airtel/Vi/BSNL) par jaakar porting (MNP) submit karni hoti hai."');
-  L.push('   - "Humari team bhi aapse call karke connect karegi to assist you with porting!"');
-  L.push('3. "Activation me kitna time lagta hai?" / "SIM kab start hoga?":');
-  L.push('   - "Store par porting request submit karne ke baad number 5 working days mein successfully activate ho jata hai (standard TRAI MNP timeline)."');
-  L.push('   - "Tab tak aapka existing SIM chalta rehta hai (no downtime)."');
-  L.push('4. "Agar UPC expire ho gaya toh?":');
-  L.push('   - "Aapka purchase 100% safe hai. Numberwale fresh naya UPC code bilkul free of cost provide karta hai. Helpline *+91 9222 222 007* par call ya WhatsApp karein."');
+  L.push('## ⚡ INSTANT ACTIVATION (DFO) vs ALL-INDIA RTP');
+  L.push('- RTP (All-India): Works across India with any operator, porting in 3-5 days via UPC.');
+  L.push('- Instant DFO (5-10 Min): Activates in 5-10 mins, but STATE-SPECIFIC. Remind customer twice to verify they have valid local state Aadhaar/address proof before booking.');
   L.push('');
-  L.push('## ⚡ INSTANT ACTIVATION (DFO) vs ALL-INDIA RTP NUMBERS');
-  L.push('Numberwale offers two distinct types of VIP numbers:');
-  L.push('1. 🌐 All-India RTP / CRTP Numbers:');
-  L.push('   - Works in ALL states across India with ANY operator (Jio, Airtel, Vi, BSNL).');
-  L.push('   - Activated via standard MNP in 3-5 business days using UPC code.');
-  L.push('2. ⚡ Instant Activation Numbers (Direct From Operator - DFO):');
-  L.push('   - Activates instantly within 5 to 10 minutes (no waiting 3-5 days for MNP!).');
-  L.push('   - 🚨 CRITICAL: Instant Activation numbers are STATE-SPECIFIC (e.g. Maharashtra, Gujarat, Assam, Karnataka, Bihar, Mumbai circle).');
-  L.push('   - 🚨 MANDATORY 2-3 TIMES STATE VERIFICATION RULE:');
-  L.push('     Whenever you present or discuss an Instant Activation number with a customer, you MUST explicitly remind them 2 to 3 times to verify their state proof:');
-  L.push('     • Reminder 1: Mention that this number has instant 5-10 minute activation for [State] circle.');
-  L.push('     • Reminder 2: Clarify that they must have Aadhaar / address proof of [State] to activate it.');
-  L.push('     • Reminder 3: Warn them that if they are NOT from [State] or do not have [State] address proof, they CANNOT activate this number and should choose an All-India RTP number instead!');
+  L.push('## 🚨 PAYMENT LINK & BOOKING LINK POLICY');
+  L.push('- If number selected: Provide direct cart link: https://numberwale.com/cart-add/<10-digit-number> (mention UPI, Cards, NetBanking, EMI).');
+  L.push('- If NO number selected: 🛑 NEVER send generic/blank link! Politely ask customer to select a number first.');
   L.push('');
-  L.push('## 🚨 PAYMENT LINK & BOOKING LINK POLICY (STRICT RULE)');
-  L.push('When customer asks for a payment link ("payment link bhejo", "pay kaise karu", "link do", "checkout link", "online pay karna hai"):');
-  L.push('1. IF customer has already selected / specified a 10-digit number (or targetProduct is active):');
-  L.push('   - Provide the exact direct cart booking link: https://numberwale.com/cart-add/<10-digit-number>');
-  L.push('   - Warmly explain that they can open the link, review the order, apply any coupon, and complete payment securely via UPI, Cards, NetBanking, or EMI.');
-  L.push('2. IF customer has NOT selected or specified a number yet:');
-  L.push('   - 🛑 NEVER send a generic, broken, or blank payment link! (NEVER send /cart-add/ without a number).');
-  L.push('   - Politely and warmly explain: "Payment link ke liye kripya pehle apna pasandeeda VIP number choose/select kar lijiye. Jaise hi aap koi number select karenge, main turant uska direct booking link aapko share kar dungi! 😊"');
-  L.push('   - Offer to show numbers matching their preference or budget.');
+  L.push('## 📄 INVOICE & NUMEROLOGY REPORT RULES');
+  L.push('🛑 NEVER output SEARCH_JSON for invoice/report queries! System dispatches the PDF document.');
+  L.push('• Website Download Steps: Always mention: 1️⃣ Login to https://www.numberwale.com > 2️⃣ My Account > My Orders > 3️⃣ Click on order to download official 18% GST Invoice / Report PDF.');
+  L.push('• VIP Invoice (Specific Number): If purchased, confirm Order ID & state PDF is being sent on WhatsApp. If not purchased, politely state not found in account.');
+  L.push('• VIP Invoice (No Number Given): If multiple purchased numbers, list them and ask which number\'s invoice they need. If 1 purchased number, announce sending it.');
+  L.push('• Numerology Report: If paid report exists, announce sending Report PDF. If none, invite to book at https://www.numberwale.com/numerology.');
+  L.push('• Numerology Report Invoice: If report purchased, announce sending Invoice PDF. If not, state not found.');
   L.push('');
-  L.push('## 📄 INVOICE & NUMEROLOGY REPORT RULES (CRITICAL & STRICT)');
-  L.push('When customer asks about invoice, bill, receipt, numerology report, or report invoice:');
-  L.push('🛑 NEVER output SEARCH_JSON! All invoice/report answers are consultative.');
-  L.push('⚡ IMPORTANT: Our system will automatically dispatch the actual PDF document file directly into this WhatsApp chat!');
-  L.push('');
-  L.push('### 1. VIP NUMBER INVOICE REQUEST:');
-  L.push('A. IF CUSTOMER SPECIFIED A NUMBER (e.g., "9999982227 ka invoice", "invoice for 9999982227"):');
-  L.push('   • If the number was PURCHASED by customer:');
-  L.push('     - Warmly confirm Order ID (e.g. #NW-9812) and Invoice Number (if available).');
-  L.push('     - Enthusiastically announce: "Main aapka official 18% GST Tax Invoice PDF document yahan WhatsApp par send kar rahi hoon! 📄✨"');
-  L.push('     - 🚨 MANDATORY AT THE END: Provide the step-by-step website navigation steps so they know how to access it anytime:');
-  L.push('       "Aap is invoice ko hamari website se kabhi bhi direct download kar sakte hain:');
-  L.push('       1️⃣ Hamari website (https://www.numberwale.com) par login karein');
-  L.push('       2️⃣ **My Account > My Orders** me jayein');
-  L.push('       3️⃣ Apne order par click karke official 18% GST Tax Invoice PDF download kar lijiye (business ITC ke liye 100% valid)! 😊"');
-  L.push('   • If the number was NOT purchased by customer:');
-  L.push('     - Politely explain that this number was not found in their account\'s purchased orders.');
-  L.push('     - If they have other purchased numbers in their account, list them warmly: "Aapke account mein ye number registered hain: [Numbers]".');
-  L.push('     - Mention helpline +91 9222 222 007 if purchased using a different phone.');
-  L.push('');
-  L.push('B. IF CUSTOMER DID NOT SPECIFY A NUMBER (e.g. "invoice chahiye", "send invoice", "bill bhejo"):');
-  L.push('   • IF CUSTOMER HAS MULTIPLE PURCHASED NUMBERS:');
-  L.push('     - 🚨 YOU MUST ASK THEM WHICH NUMBER THEY WANT THE INVOICE FOR:');
-  L.push('       "Aapke account mein multiple VIP numbers booked hain. Aapko konse number ka invoice PDF chahiye?');
-  L.push('       1. *[Number 1]* (Order: #[OrderID])');
-  L.push('       2. *[Number 2]* (Order: #[OrderID])');
-  L.push('       Kripya number ya option batayein, main turant PDF bhej deti hoon! 😊"');
-  L.push('     - 🚨 AND ALWAYS EXPLAIN THE WEBSITE STEPS AT THE END:');
-  L.push('       "Waise aap ye sabhi invoices website se directly download kar sakte hain:');
-  L.push('       1️⃣ Hamari website: https://www.numberwale.com par login karein');
-  L.push('       2️⃣ **My Account > My Orders** me jayein');
-  L.push('       3️⃣ Kisi bhi order par click karke GST Invoice PDF download kar lijiye!"');
-  L.push('   • IF CUSTOMER HAS EXACTLY 1 PURCHASED NUMBER:');
-  L.push('     - Automatically announce that you are sending the official GST Tax Invoice PDF for that 1 number on WhatsApp right now: "Main aapke VIP number [Number] ka official GST Invoice PDF document yahan send kar rahi hoon! 📄✨"');
-  L.push('     - Provide the website steps (https://www.numberwale.com -> My Account > My Orders -> Download).');
-  L.push('   • IF CUSTOMER HAS 0 PURCHASED NUMBERS:');
-  L.push('     - Inform them that no orders were found under this mobile number.');
-  L.push('');
-  L.push('### 2. NUMEROLOGY REPORT REQUEST (e.g., "numerology report chahiye", "send report", "meri report"):');
-  L.push('   • IF CUSTOMER HAS A PAID NUMEROLOGY REPORT IN ACCOUNT:');
-  L.push('     - Enthusiastically announce: "Aapka personalized Numerology Report ready hai! Main complete Numerology Report PDF document yahan WhatsApp par send kar rahi hoon! 📄🔮✨"');
-  L.push('     - 🚨 MANDATORY AT THE END: Provide website download steps:');
-  L.push('       "Aap apna detailed Numerology Report website se bhi direct download kar sakte hain:');
-  L.push('       1️⃣ Hamari website: https://www.numberwale.com par login karein');
-  L.push('       2️⃣ **My Account > Numerology Report** section me jayein');
-  L.push('       3️⃣ Wahan se apna detailed personal report PDF download kar lijiye! 🔮"');
-  L.push('   • IF CUSTOMER HAS NO PAID NUMEROLOGY REPORT IN ACCOUNT:');
-  L.push('     - Inform them warmly: "Aapke is mobile number par abhi koi paid Numerology Report generate nahi hui hai.');
-  L.push('       Agar aap apna complete detailed Numerology analysis lena chahte hain, toh yahan se report book kar sakte hain: https://www.numberwale.com/numerology ✨"');
-  L.push('');
-  L.push('### 3. NUMEROLOGY REPORT KA INVOICE REQUEST (e.g., "numerology report ka invoice", "report ka bill"):');
-  L.push('   • IF CUSTOMER HAS PURCHASED NUMEROLOGY REPORT:');
-  L.push('     - Enthusiastically announce: "Aapke Numerology Report ka official 18% GST Invoice PDF document main WhatsApp par send kar rahi hoon! 📄✨ (Invoice: [InvoiceNumber])"');
-  L.push('     - 🚨 MANDATORY AT THE END: Provide website steps:');
-  L.push('       "Aap is invoice ko website se bhi aasaani se download kar sakte hain:');
-  L.push('       1️⃣ Hamari website: https://www.numberwale.com par login karein');
-  L.push('       2️⃣ **My Account > My Orders** me jayein');
-  L.push('       3️⃣ Apne Numerology Report order par click karke official GST Invoice PDF download kar lijiye!"');
-  L.push('   • IF CUSTOMER HAS NOT PURCHASED NUMEROLOGY REPORT:');
-  L.push('     - Inform them that no numerology purchase is registered on this account.');
-  L.push('');
-  L.push('## OFFICIAL SOCIAL MEDIA LINKS');
-  L.push('- Instagram: https://www.instagram.com/numberwale?stkn=MTlyNnlzaG1lMmwzeQ==');
-  L.push('- Pinterest: https://pin.it/4oSvL04QV');
-  L.push('- LinkedIn: https://www.linkedin.com/in/numberwale-because-number-matters-30a1b2242?utm_source=share_via&utm_content=profile&utm_medium=member_android');
-  L.push('- YouTube: https://www.youtube.com/@numberwale');
-  L.push('- ShareChat: https://sharechat.com/profile/numberwale?d=n');
-  L.push('- X (Twitter): https://x.com/Numberwale');
-  L.push('- Threads: https://www.threads.com/@numberwale');
-  L.push('- Facebook: https://www.facebook.com/share/1FpWDQpep4/');
+  L.push('## OFFICIAL SOCIAL MEDIA: Instagram: @numberwale | YouTube: @numberwale | Facebook: /numberwale');
   L.push('');
   L.push('## NUMEROLOGY PROFILE & RULES');
   if (ctx && (ctx.birthNumber || ctx.lifePathNumber)) {
@@ -434,8 +340,29 @@ export function buildSystemPrompt(ctx) {
   }
   L.push('');
   L.push('## HOW TO SEARCH NUMBERS (SEARCH_JSON)');
-  L.push('When customer wants to see numbers, output on its OWN separate line:');
+  L.push('When customer wants to see numbers, output on its OWN separate line at the very end:');
   L.push('SEARCH_JSON:{"field":"value"}');
+  L.push('');
+  L.push('🚨 STRICT SEARCH_JSON SCHEMA (ONLY these fields are valid):');
+  L.push('- "category": valid category slug (e.g. "abc-abc-numbers", "mirror-numbers", "without-248-numbers", "786-numbers")');
+  L.push('- "startsWith": digits to start with (e.g. "9", "98", "9876")');
+  L.push('- "endsWith": digits to end with (e.g. "5", "55", "786", "007")');
+  L.push('- "anywhere": consecutive digits anywhere in number (e.g. "786", "555")');
+  L.push('- "mustContain": comma-separated digits that must appear (e.g. "7,9")');
+  L.push('- "notContain": comma-separated digits or digit pairs to strictly AVOID (e.g. "2,4,8" or "18,81,48,84")');
+  L.push('- "scoreSum": lucky sum / numerology total number (1-9)');
+  L.push('- "minPrice": minimum price number (e.g. 5000)');
+  L.push('- "maxPrice": maximum price / budget number (e.g. 50000)');
+  L.push('- "sortPrice": "lowToHigh" | "highToLow"');
+  L.push('- "exactDigitPlacement": 10-char pattern using ? for wildcards (e.g. "9???????05")');
+  L.push('');
+  L.push('🛑 STRICTLY FORBIDDEN IN SEARCH_JSON:');
+  L.push('- NEVER use MongoDB operators like $nin, $ne, $in, $regex, or nested objects!');
+  L.push('- NEVER invent custom keys like avoidPairs, sixthDigit, secondDigit, repeatCount, endWith!');
+  L.push('- If customer wants to avoid specific digits or digit pairs (like avoiding 18, 81, 48, 84, 85 or avoiding 2, 4, 8), map them directly to "notContain": "18,81,48,84,85"!');
+  L.push('- If customer asks for numbers starting with 9, use "startsWith": "9" (NEVER ignore starting digits)!');
+  L.push('- If customer asks for numbers ending with 5, use "endsWith": "5" (NEVER ignore ending digits)!');
+  L.push('- Output SEARCH_JSON on a single line at the very end of your response!');
   L.push('');
   L.push('CATEGORY MAPPING (always map customer request to valid category):');
   L.push('- "abc abc" / "abc-abc" / "abcabc" → "category": "abc-abc-numbers"');
@@ -514,16 +441,18 @@ export function buildSystemPrompt(ctx) {
 
   // ── ACTIVE CUSTOMER ORDERS & PURCHASED VIP NUMBERS ──
   const activeProds = (ctx && ctx.activeProducts && ctx.activeProducts.length > 0) ? ctx.activeProducts : [];
+  const hasFailedProduct = activeProds.some(p => p.creditNote || p.upcStatus === 'creditnote' || p.upcStatus === 'activation_failed');
+
   if (activeProds.length > 0) {
     L.push('');
     L.push('## 📦 ACTIVE CUSTOMER ORDERS & PURCHASED VIP NUMBERS (HIGH PRIORITY)');
-    L.push('THIS CUSTOMER HAS ALREADY PURCHASED VIP NUMBER(S) FROM NUMBERWALE!');
-    L.push('Purchased numbers in this customer\'s account:');
+    L.push('THIS CUSTOMER HAS ALREADY PURCHASED VIP NUMBER(S) FROM NUMBERWALE WITH CONFIRMED PAYMENT!');
+    L.push('Confirmed purchased numbers in this customer\'s account:');
     activeProds.forEach((p, idx) => {
       const remainingHrs = (p.remainingWorkingHours != null) ? p.remainingWorkingHours : 24;
       const elapsed = (p.elapsedHours != null) ? p.elapsedHours : 0;
       L.push(`${idx + 1}. Number: *${p.formattedNumber || p.number}* (Raw: ${p.number})`);
-      L.push(`   - Order ID: ${p.orderNumber || 'N/A'}`);
+      L.push(`   - Order ID: #${p.orderNumber || 'N/A'}`);
       if (p.invoiceNumber) L.push(`   - Invoice Number: ${p.invoiceNumber}`);
       L.push(`   - Current Status: ${p.upcStatus || 'pending'}`);
       if (p.upcCode) L.push(`   - UPC Code: ${p.upcCode}`);
@@ -563,17 +492,26 @@ export function buildSystemPrompt(ctx) {
     L.push('     - Explain: "Aapke number [Number] ki porting request initiate ho chuki hai! Number 5 working days mein activate ho jayega. Tab tak kripya apna existing SIM card active rakhein. 😊"');
     L.push('   • IF `activated`:');
     L.push('     - Congratulate warmly: "Congratulations! 🎉 Aapka VIP number [Number] successfully activate ho chuka hai! Numberwale ko chunne ke liye thank you! 😊"');
-    L.push('   • 🛑 IF `activation_failed`, `creditnote`, OR UPC FAILED (CRITICAL RESOLUTION):');
-    L.push('     - CORE MEANING: UPC generation / activation fail ho gaya hai aur WOH NUMBER NAHI MILEGA (this number cannot be provided).');
-    L.push('     - 🛑 100% STRICT RULE: NEVER MENTION CREDIT NOTE NUMBER OR TECHNICAL CODES (NEVER say "Credit Note #CN...", "Credit Note number", etc.)! Credit note numbers are strictly internal and must never be told to the customer!');
-    L.push('     - 🛑 100% STRICT RULE: NEVER tell the customer to re-apply, re-generate, or wait for UPC for this number! That number is not possible.');
-    L.push('     - EXACT REQUIRED RESPONSE (Bas itna hi bolna hai):');
-    L.push('       1. State clearly and politely: "Aapke number [Number] ka UPC generate nahi ho paya / fail ho gaya hai aur yeh number ab provide nahi ho payega."');
-    L.push('       2. Reassure payment safety: "Par aap bilkul chinta na karein, aapka 100% payment bilkul safe hai!"');
-    L.push('       3. Offer the two customer choices:');
-    L.push('          • "Aap chahein toh is amount se koi doosra naya VIP number select kar sakte hain,"');
-    L.push('          • "Ya fir aap chahein toh apna full refund process karwa sakte hain."');
-    L.push('       4. Warm question: "Aap koi naya number pasand karna chahenge ya refund proceed karna chahenge? 😊"');
+    if (hasFailedProduct) {
+      L.push('   • 🛑 IF `activation_failed`, `creditnote`, OR UPC FAILED (CRITICAL RESOLUTION):');
+      L.push('     - CORE MEANING: UPC generation / activation fail ho gaya hai aur WOH NUMBER NAHI MILEGA (this number cannot be provided).');
+      L.push('     - 🛑 100% STRICT RULE: NEVER MENTION CREDIT NOTE NUMBER OR TECHNICAL CODES (NEVER say "Credit Note #CN...", "Credit Note number", etc.)! Credit note numbers are strictly internal and must never be told to the customer!');
+      L.push('     - 🛑 100% STRICT RULE: NEVER tell the customer to re-apply, re-generate, or wait for UPC for this number! That number is not possible.');
+      L.push('     - EXACT REQUIRED RESPONSE (Bas itna hi bolna hai):');
+      L.push('       1. State clearly and politely: "Aapke number [Number] ka UPC generate nahi ho paya / fail ho gaya hai aur yeh number ab provide nahi ho payega."');
+      L.push('       2. Reassure payment safety: "Par aap bilkul chinta na karein, aapka 100% payment bilkul safe hai!"');
+      L.push('       3. Offer customer options:');
+      L.push('          • "Aap chahein toh is amount se koi doosra naya VIP number select kar sakte hain,"');
+      L.push('          • "Ya fir refund ke liye aapki chat hamare support executive ko connect kar di jayegi."');
+      L.push('       4. Warm question: "Aap koi naya number pasand karna chahenge ya executive se baat karna chahenge? 😊"');
+    } else {
+      L.push('   • 🚨 STRICT ANTI-HALLUCINATION & CRM REALITY RULE (NO FAILURE / NO CANCELLATION):');
+      L.push('     - NONE of the customer\'s numbers above have failed. All numbers are active in progress in our CRM!');
+      L.push('     - 🛑 NEVER SAY "UPC generate nahi ho paya", "UPC fail ho gaya", "yeh number provide nahi ho payega", or "number nahi milega"!');
+      L.push('     - If the customer asks hypothetical or doubt questions like "agar mujhe number nahi chahiye / refund chahiye toh kya hoga?", "kya UPC nahi milega?":');
+      L.push('       • State clearly and reassuringly: "Aapka number *[Number]* confirm hai aur UPC generation process operator ke saath active hai (expected within 24 working hours). Yeh number fail ya cancel nahi hua hai!"');
+      L.push('       • Clarify policy: "Numberwale policy ke hisaab se order confirm hone ke baad UPC generation process operator end par chala jata hai. Agar operator end se UPC deliver nahi ho pata hai toh Numberwale 100% money-back refund guarantee provide karta hai. Par abhi aapka number bilkul safely process ho raha hai, isliye chinta bilkul na karein! 😊"');
+    }
     L.push('   • IF `refunded` OR `partially_refunded`:');
     L.push('     - Explain: "Aapke number [Number] ka refund successfully process ho chuka hai. Kisi bhi sahayata ke liye helpline *+91 9222 222 007* par connect karein."');
     L.push('   • IF `adjustment` OR `partially_adjustment`:');
@@ -581,17 +519,60 @@ export function buildSystemPrompt(ctx) {
     L.push('   • IF `to_be_refunded`:');
     L.push('     - Explain: "Aapke number [Number] ka refund accounts team dwara approve ho chuka hai aur bank processing queue mein hai. Jald hi aapke source account me credit ho jayega."');
     L.push('   • IF `cancelled`:');
-    L.push('     - Explain: "Aapka order cancel ho chuka hai aur refund / replacement process initiate kar diya gaya hai. Aapka payment 100% safe hai."');
-    L.push('4. 📋 LISTING PURCHASED NUMBERS (WHEN CUSTOMER ASKS FOR THEIR NUMBERS OR STATUS):');
-    L.push('   - If the customer asks "Which numbers are in pending?", "Which numbers do I have?", "Mere kaunse number hain?", or asks for their order/UPC status:');
-    L.push('   - You MUST explicitly list each of their purchased numbers with bullet points:');
-    L.push('     • *[Formatted Number]* — Order: [Order ID] | Status: [Status] | Remaining SLA: ~[Remaining] working hrs');
-    L.push('   - Reassure them that UPC generation is in progress and codes will be sent via SMS within 24 working hours (or if UPC failed, explain number nahi milega, payment safe hai, and offer new number or refund).');
-    L.push('   - 🛑 Do NOT output SEARCH_JSON when customer is asking about their own purchased orders, pending status, UPC delivery, or invoices.');
+    L.push('     - Explain: "Aapka order hamare CRM records mein cancelled hai. Refund status ya replacement number ke liye aapki chat hamare support executive ko transfer ki ja rahi hai, ya helpline *+91 9222 222 007* par connect karein."');
+    L.push('4. 📋 LISTING PURCHASED NUMBERS (WHEN CUSTOMER ASKS "MERE KITNE NUMBER HAIN", "MERA KAUNSA NUMBER HAI", OR FOR STATUS):');
+    L.push('   - 🛑 ABSOLUTE RULE: List ONLY the confirmed paid numbers from ACTIVE CUSTOMER ORDERS above!');
+    L.push('   - Format each confirmed number cleanly:');
+    L.push('     • *[Formatted Number]* — Order: #[Order ID] | Status: [Status] | Delivery: Within ~[Remaining] working hrs via SMS');
+    L.push('   - 🛑 NEVER list pending payment / unpaid orders as customer\'s purchased or booked numbers!');
+    L.push('   - 🛑 Do NOT output SEARCH_JSON when customer is asking about their own numbers or status.');
+    L.push('');
+    L.push('🛑 CRITICAL SAFETY RULES ON CANCELLATION, REFUND & REORDER:');
+    L.push('1. YOU CANNOT PROCESS CANCELLATIONS OR REFUNDS:');
+    L.push('   - NEVER say "Aapka order cancel kar diya gaya hai", "Aapka refund initiate ho gaya hai", "processing me daal diya hai", or promise "5 to 7 days me credit ho jayega".');
+    L.push('   - If customer mentions cancellation or refund: State clearly that their request is noted and their chat is being transferred to our support executives / human agents. Then ask if they have any other query.');
+    L.push('2. NEVER INVENT OR HALLUCINATE LINKS (ABSOLUTELY NO FAKE REORDER LINKS):');
+    L.push('   - 🛑 NEVER output fake links like https://numberwale.com/reorder/... or any /reorder/ URL (it DOES NOT EXIST and returns 404)!');
+    L.push('   - The ONLY valid URLs allowed are:');
+    L.push('     • https://numberwale.com/cart-add/<10-digit-number> (for booking an available VIP number)');
+    L.push('     • https://www.numberwale.com (main site)');
+    L.push('     • https://www.numberwale.com/numerology (numerology calculator)');
   } else {
     L.push('');
-    L.push('## CUSTOMER ORDER STATUS: NO PURCHASED NUMBERS FOUND');
-    L.push('This customer has not purchased any VIP numbers yet under this phone number.');
+    L.push('## CUSTOMER ORDER STATUS: NO CONFIRMED PURCHASED NUMBERS FOUND');
+    L.push('This customer does not have any confirmed purchased VIP numbers under this mobile number.');
+  }
+
+  // ── PENDING PAYMENT / UNPAID ORDERS ──
+  const pendingPaymentProds = (ctx && ctx.pendingPaymentProducts && ctx.pendingPaymentProducts.length > 0)
+    ? ctx.pendingPaymentProducts
+    : (ctx && ctx.pendingPaymentOrders && ctx.pendingPaymentOrders.length > 0)
+      ? ctx.pendingPaymentOrders.map(o => ({
+          number: o.productMobileNumber || o.product?.mobileNumber || o.number,
+          orderNumber: o.orderNumber,
+          total: o.total,
+          paymentStatus: o.paymentStatus || 'pending'
+        }))
+      : [];
+
+  if (pendingPaymentProds.length > 0) {
+    L.push('');
+    L.push('## ⚠️ PENDING PAYMENT / UNPAID ORDERS (STRICT CRM VERIFICATION RULE)');
+    L.push('The following orders exist in CRM but their PAYMENT IS STILL PENDING / UNPAID:');
+    pendingPaymentProds.forEach((p, idx) => {
+      const numStr = p.number ? String(p.number) : 'Unknown';
+      L.push(`${idx + 1}. Number: *${p.formattedNumber || numStr}* (Order: #${p.orderNumber || 'N/A'}, Payment Status: PENDING / UNPAID, Amount: ₹${p.total || 'N/A'})`);
+      L.push(`   Direct Checkout Link: https://numberwale.com/cart-add/${numStr}`);
+    });
+    L.push('');
+    L.push('🚨 STRICT RULES FOR PENDING PAYMENT ORDERS:');
+    L.push('1. 🛑 NEVER count or list these numbers as customer\'s purchased, booked, or owned VIP numbers! Customer only owns numbers with CONFIRMED PAYMENT.');
+    L.push('2. When customer asks "mere kitne number hain" or "mera kaunsa number hai", list ONLY confirmed paid numbers from ACTIVE CUSTOMER ORDERS above.');
+    L.push('3. If customer claims they paid ("payment ho gaya", "maine pay kar diya", "paid"):');
+    L.push('   - 🛑 NEVER congratulate or say "Congratulations! Aapka payment ho gaya hai"!');
+    L.push('   - State truthfully based on CRM: "Hamare system mein abhi payment status **Pending Payment / Unpaid** show ho raha hai."');
+    L.push('   - If they have paid: Ask them to share their **Transaction ID / UTR Number** or payment screenshot so accounts team can verify and confirm the order.');
+    L.push('   - If they have not paid: Share the direct cart checkout link (https://numberwale.com/cart-add/[Number]) so they can complete payment.');
   }
 
   // ── CUSTOMER NUMEROLOGY REPORT PURCHASES ──
@@ -619,17 +600,27 @@ export function buildSystemPrompt(ctx) {
       L.push('');
       L.push('## TARGET NUMBER INQUIRY: CUSTOMER\'S OWN PURCHASED NUMBER!');
       L.push(`Customer is inquiring about *${tp.formattedNumber || tp.number}*, which THEY PURCHASED!`);
-      L.push(`- Order ID: ${tp.orderNumber || 'N/A'}`);
+      L.push(`- Order ID: #${tp.orderNumber || 'N/A'}`);
       if (tp.invoiceNumber) L.push(`- Invoice Number: ${tp.invoiceNumber}`);
       L.push(`- Current Status: ${tp.upcStatus}`);
       L.push(`- Remaining Working Hours for Delivery: ~${tp.remainingWorkingHours || 24} working hrs`);
       if (tp.upcCode) L.push(`- UPC Code: ${tp.upcCode}`);
       if (tp.creditNote || tp.upcStatus === 'creditnote' || tp.upcStatus === 'activation_failed') {
         L.push('- Current Status: FAILED (UPC fail ho gaya hai aur number nahi milega). Payment 100% safe.');
-        L.push('  Follow rule: Inform UPC fail ho gaya hai aur yeh number nahi milega. Payment 100% safe hai. Option dein: aap koi doosra naya VIP number select kar sakte hain ya refund process karwa sakte hain. 🛑 NEVER mention credit note number or tell to re-apply UPC!');
+        L.push('  Follow rule: Inform UPC fail ho gaya hai aur yeh number nahi milega. Payment 100% safe hai. Option dein: aap koi doosra naya VIP number select kar sakte hain, ya refund ke liye support executive aapse connect karenge. 🛑 NEVER mention credit note number, never promise you can process refund, and never give fake links!');
       } else {
-        L.push('Follow the ACTIVE CUSTOMER ORDERS rules above. NEVER say sold out or unavailable!');
+        L.push('Follow the ACTIVE CUSTOMER ORDERS rules above. NEVER say sold out or unavailable! NEVER say UPC failed or number nahi milega because this number is in active processing!');
       }
+    } else if (tp.isPendingPayment) {
+      L.push('');
+      L.push('## ⚠️ TARGET NUMBER INQUIRY: ORDER CREATED BUT PAYMENT IS PENDING / UNPAID!');
+      L.push(`Customer is inquiring about *${tp.formattedNumber || tp.number}*, which was added to cart / ordered (Order: #${tp.orderNumber || 'N/A'}), but PAYMENT IS STILL PENDING / UNPAID in Numberwale CRM.`);
+      L.push(`Direct Checkout Link: ${tp.cartLink}`);
+      L.push('STRICT RULES:');
+      L.push('1. 🛑 NEVER say this number is confirmed or booked! It is NOT confirmed until payment is completed.');
+      L.push('2. Explain politely that the order was created in CRM, but payment status is currently Pending Payment / Unpaid.');
+      L.push('3. If customer claims they already paid, ask for their Transaction ID / UTR Number or payment screenshot so accounts team can verify and confirm.');
+      L.push('4. If customer has not completed payment yet, provide the direct checkout link.');
     } else if (tp.isUnpurchasedByCustomer || tp.notFound) {
       const numFmt = tp.formattedNumber || tp.number;
       const catName = tp.categoryName || 'VIP Fancy Numbers';
@@ -785,15 +776,18 @@ async function getAvailableGroqModels(apiKey) {
           });
 
         if (textModels.length > 0) {
-          // Sort models: prioritize fast conversational models (llama-3.3-70b, llama-3.1-8b)
+          // Sort models: prioritize fast conversational models (gpt-oss-20b, llama-3.3-70b, llama-3.1-8b)
           textModels.sort((a, b) => {
             const score = (id) => {
               const l = id.toLowerCase();
-              if (l.includes('llama-3.3-70b-versatile')) return 1;
-              if (l.includes('llama-3.1-8b-instant')) return 2;
-              if (l.includes('70b')) return 3;
-              if (l.includes('8b')) return 4;
-              if (l.includes('llama')) return 5;
+              if (l.includes('gpt-oss-20b')) return 1;
+              if (l.includes('llama-3.3-70b-versatile')) return 2;
+              if (l.includes('llama-3.1-8b-instant')) return 3;
+              if (l.includes('qwen')) return 4;
+              if (l.includes('gpt-oss-120b')) return 5;
+              if (l.includes('70b')) return 6;
+              if (l.includes('8b')) return 7;
+              if (l.includes('llama')) return 8;
               return 10;
             };
             return score(a) - score(b);
@@ -811,7 +805,7 @@ async function getAvailableGroqModels(apiKey) {
   }
 
   // Fallbacks if discovery API fails
-  return ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
+  return ['openai/gpt-oss-20b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
 }
 
 async function callGroq(systemPrompt, messages) {
@@ -845,7 +839,7 @@ async function callGroq(systemPrompt, messages) {
             model: model,
             messages: [{ role: 'system', content: systemPrompt }, ...messages],
             temperature: 0.4,
-            max_tokens: 1800,
+            max_tokens: 600,
           }),
           signal: controller.signal,
         });
@@ -1000,6 +994,82 @@ export function formatProductNumberForWhatsApp(p) {
   return rawNum || 'N/A';
 }
 
+/**
+ * Validates products against customer constraints so violating numbers are NEVER shown.
+ */
+export function validateProductsAgainstConstraints(products, constraints) {
+  if (!products || !Array.isArray(products) || products.length === 0) return [];
+  if (!constraints || typeof constraints !== 'object') return products;
+
+  return products.filter(p => {
+    const raw = String(p.productMobileNumber || p.mobileNumber || p.number || '').replace(/\D/g, '');
+    const num = raw.slice(-10);
+    if (!num || num.length !== 10) return false;
+
+    // 1. startsWith check
+    if (constraints.startsWith) {
+      const sw = String(constraints.startsWith).replace(/\D/g, '');
+      if (sw && !num.startsWith(sw)) return false;
+    }
+
+    // 2. endsWith check
+    if (constraints.endsWith) {
+      const ew = String(constraints.endsWith).replace(/\D/g, '');
+      if (ew && !num.endsWith(ew)) return false;
+    }
+
+    // 3. anywhere check
+    if (constraints.anywhere) {
+      const aw = String(constraints.anywhere).replace(/\D/g, '');
+      if (aw && !num.includes(aw)) return false;
+    }
+
+    // 4. notContain check (comma-separated digits or pairs or sequences)
+    if (constraints.notContain) {
+      const notList = String(constraints.notContain)
+        .split(',')
+        .map(s => s.trim().replace(/\D/g, ''))
+        .filter(Boolean);
+      for (const token of notList) {
+        if (num.includes(token)) return false;
+      }
+    }
+
+    // 5. mustContain check (all comma-separated tokens must be present)
+    if (constraints.mustContain) {
+      const mustList = String(constraints.mustContain)
+        .split(',')
+        .map(s => s.trim().replace(/\D/g, ''))
+        .filter(Boolean);
+      for (const token of mustList) {
+        if (!num.includes(token)) return false;
+      }
+    }
+
+    // 6. maxPrice check (subtotal or basePrice)
+    if (constraints.maxPrice != null && !isNaN(Number(constraints.maxPrice))) {
+      const maxP = Number(constraints.maxPrice);
+      const price = p.pricing?.nwFinalPrice || p.pricing?.nwBasePrice?.inr || 0;
+      if (price > 0 && price > maxP) return false;
+    }
+
+    // 7. minPrice check
+    if (constraints.minPrice != null && !isNaN(Number(constraints.minPrice))) {
+      const minP = Number(constraints.minPrice);
+      const price = p.pricing?.nwFinalPrice || p.pricing?.nwBasePrice?.inr || 0;
+      if (price > 0 && price < minP) return false;
+    }
+
+    // 8. scoreSum check (if explicitly requested)
+    if (constraints.scoreSum != null && !isNaN(Number(constraints.scoreSum))) {
+      const reqScore = Number(constraints.scoreSum);
+      if (p.score != null && Number(p.score) !== reqScore) return false;
+    }
+
+    return true;
+  });
+}
+
 export function formatProducts(products, totalCount, currentPage, totalPages, lang) {
   if (!products || products.length === 0) return null;
 
@@ -1074,23 +1144,253 @@ export function formatProducts(products, totalCount, currentPage, totalPages, la
   return lines.join('\n') + footer;
 }
 
-function extractSearchJSON(text) {
-  const match = text.match(/SEARCH_JSON:(\{[^]*?\})(?:\s*\n|$)/);
-  if (!match) return undefined;
-  try {
-    const raw = JSON.parse(match[1]);
-    if (raw.category && !VALID_CATEGORIES.includes(raw.category)) {
+/**
+ * Normalizes raw search JSON fields to valid Numberwale API schema,
+ * converting arrays, aliases, and negative constraints.
+ */
+export function normalizeSearchQuery(raw) {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const clean = {};
+
+  // 1. Category
+  if (raw.category && typeof raw.category === 'string') {
+    const cat = raw.category.trim().toLowerCase();
+    if (VALID_CATEGORIES.includes(cat)) {
+      clean.category = cat;
+    } else {
       console.log('[Agent] Stripped invalid category: ' + raw.category);
-      delete raw.category;
     }
-    Object.keys(raw).forEach(function(k) {
-      if (raw[k] === null || raw[k] === undefined || raw[k] === '') delete raw[k];
-    });
-    return raw;
-  } catch (e) {
-    console.error('[Agent] Failed to parse SEARCH_JSON:', match[1], e.message);
-    return undefined;
   }
+
+  // 2. startsWith (and alias startWith)
+  const starts = raw.startsWith != null ? raw.startsWith : raw.startWith;
+  if (starts != null) {
+    const digits = String(starts).replace(/\D/g, '');
+    if (digits) clean.startsWith = digits;
+  }
+
+  // 3. endsWith (and alias endWith)
+  const ends = raw.endsWith != null ? raw.endsWith : raw.endWith;
+  if (ends != null) {
+    if (typeof ends === 'object' && ends.$ne != null) {
+      // e.g. endWith: { $ne: 0 } -> ignore or handle
+    } else {
+      const digits = String(ends).replace(/\D/g, '');
+      if (digits) clean.endsWith = digits;
+    }
+  }
+
+  // 4. anywhere
+  if (raw.anywhere != null) {
+    const digits = String(raw.anywhere).replace(/\D/g, '');
+    if (digits) clean.anywhere = digits;
+  }
+
+  // 5. Exclusions (notContain, avoidPairs, avoidDigits, notInclude, etc.)
+  const exclusions = [];
+  const notCandidates = [
+    raw.notContain,
+    raw.avoidPairs,
+    raw.avoidDigits,
+    raw.notInclude,
+    raw.notContains,
+    raw.exclude
+  ].filter(Boolean);
+
+  for (const candidate of notCandidates) {
+    if (Array.isArray(candidate)) {
+      exclusions.push(...candidate.map(s => String(s).trim()).filter(Boolean));
+    } else if (typeof candidate === 'string') {
+      exclusions.push(...candidate.split(',').map(s => s.trim()).filter(Boolean));
+    }
+  }
+
+  // Check for MongoDB $nin operators like sixthDigit: { $nin: [0, 1, 3, 8] }
+  for (const k of Object.keys(raw)) {
+    if (raw[k] && typeof raw[k] === 'object') {
+      if (Array.isArray(raw[k].$nin)) {
+        exclusions.push(...raw[k].$nin.map(s => String(s).trim()).filter(Boolean));
+      }
+    }
+  }
+  if (exclusions.length > 0) {
+    const uniqueExclusions = [...new Set(exclusions.map(e => e.replace(/\D/g, '')).filter(Boolean))];
+    if (uniqueExclusions.length > 0) {
+      clean.notContain = uniqueExclusions.join(',');
+    }
+  }
+
+  // 6. Inclusions (mustContain, mustInclude)
+  const inclusions = [];
+  const mustCandidates = [
+    raw.mustContain,
+    raw.mustInclude,
+    raw.mustContains,
+    raw.include
+  ].filter(Boolean);
+
+  for (const candidate of mustCandidates) {
+    if (Array.isArray(candidate)) {
+      inclusions.push(...candidate.map(s => String(s).trim()).filter(Boolean));
+    } else if (typeof candidate === 'string') {
+      inclusions.push(...candidate.split(',').map(s => s.trim()).filter(Boolean));
+    }
+  }
+  if (inclusions.length > 0) {
+    const uniqueInclusions = [...new Set(inclusions.map(e => e.replace(/\D/g, '')).filter(Boolean))];
+    if (uniqueInclusions.length > 0) {
+      clean.mustContain = uniqueInclusions.join(',');
+    }
+  }
+
+  // 7. Numeric fields
+  if (raw.maxPrice != null && !isNaN(Number(raw.maxPrice))) {
+    clean.maxPrice = Number(raw.maxPrice);
+  }
+  if (raw.minPrice != null && !isNaN(Number(raw.minPrice))) {
+    clean.minPrice = Number(raw.minPrice);
+  }
+  if (raw.scoreSum != null && !isNaN(Number(raw.scoreSum))) {
+    clean.scoreSum = Number(raw.scoreSum);
+  }
+  if (raw.literSum != null && !isNaN(Number(raw.literSum))) {
+    clean.literSum = Number(raw.literSum);
+  }
+  if (raw.trapSum != null && !isNaN(Number(raw.trapSum))) {
+    clean.trapSum = Number(raw.trapSum);
+  }
+
+  // 8. Sorting
+  if (raw.sortPrice && ['lowToHigh', 'highToLow'].includes(raw.sortPrice)) {
+    clean.sortPrice = raw.sortPrice;
+  }
+  if (raw.sortBy) clean.sortBy = raw.sortBy;
+
+  // 9. exactDigitPlacement
+  if (raw.exactDigitPlacement && typeof raw.exactDigitPlacement === 'string') {
+    const cleanPattern = raw.exactDigitPlacement.replace(/[^\d?]/g, '');
+    if (cleanPattern.length === 10) {
+      clean.exactDigitPlacement = cleanPattern;
+    }
+  }
+
+  // 10. DFO & Operator state
+  if (raw.isDirectFromOperator !== undefined) {
+    clean.isDirectFromOperator = String(raw.isDirectFromOperator);
+  }
+  if (raw.operatorState) {
+    clean.operatorState = raw.operatorState;
+  }
+
+  return Object.keys(clean).length > 0 ? clean : undefined;
+}
+
+/**
+ * Fallback regex scanner that extracts key-value pairs if standard JSON parsing fails
+ */
+function extractKeyValuesViaRegex(text) {
+  const result = {};
+  if (!text || typeof text !== 'string') return result;
+
+  const catMatch = text.match(/"category"\s*:\s*"([^"]+)"/i);
+  if (catMatch) result.category = catMatch[1];
+
+  const startMatch = text.match(/"(?:startsWith|startWith)"\s*:\s*"?(\d+)"?/i);
+  if (startMatch) result.startsWith = startMatch[1];
+
+  const endMatch = text.match(/"(?:endsWith|endWith)"\s*:\s*"?(\d+)"?/i);
+  if (endMatch) result.endsWith = endMatch[1];
+
+  const anywhereMatch = text.match(/"anywhere"\s*:\s*"?(\d+)"?/i);
+  if (anywhereMatch) result.anywhere = anywhereMatch[1];
+
+  const maxPriceMatch = text.match(/"maxPrice"\s*:\s*(\d+)/i);
+  if (maxPriceMatch) result.maxPrice = parseInt(maxPriceMatch[1], 10);
+
+  const minPriceMatch = text.match(/"minPrice"\s*:\s*(\d+)/i);
+  if (minPriceMatch) result.minPrice = parseInt(minPriceMatch[1], 10);
+
+  const scoreSumMatch = text.match(/"scoreSum"\s*:\s*(\d+)/i);
+  if (scoreSumMatch) result.scoreSum = parseInt(scoreSumMatch[1], 10);
+
+  const avoidArrayMatch = text.match(/"(?:avoidPairs|avoidDigits|notContain|notInclude)"\s*:\s*(\[[^\]]*\])/i);
+  if (avoidArrayMatch) {
+    try {
+      result.notContain = JSON.parse(avoidArrayMatch[1]);
+    } catch {
+      result.notContain = avoidArrayMatch[1].replace(/[\[\]"']/g, '');
+    }
+  }
+
+  const avoidStrMatch = text.match(/"(?:avoidPairs|avoidDigits|notContain|notInclude)"\s*:\s*"([^"]+)"/i);
+  if (avoidStrMatch) result.notContain = avoidStrMatch[1];
+
+  const mustArrayMatch = text.match(/"(?:mustContain|mustInclude)"\s*:\s*(\[[^\]]*\])/i);
+  if (mustArrayMatch) {
+    try {
+      result.mustContain = JSON.parse(mustArrayMatch[1]);
+    } catch {
+      result.mustContain = mustArrayMatch[1].replace(/[\[\]"']/g, '');
+    }
+  }
+  const mustStrMatch = text.match(/"(?:mustContain|mustInclude)"\s*:\s*"([^"]+)"/i);
+  if (mustStrMatch) result.mustContain = mustStrMatch[1];
+
+  return result;
+}
+
+export function extractSearchJSON(text) {
+  if (!text || typeof text !== 'string') return undefined;
+
+  let rawJSONStr = null;
+
+  // 1. Look for SEARCH_JSON: marker
+  const searchJsonIdx = text.search(/SEARCH_JSON\s*:/i);
+  if (searchJsonIdx !== -1) {
+    const afterMarker = text.slice(searchJsonIdx + 'SEARCH_JSON:'.length).trim();
+    const firstBrace = afterMarker.indexOf('{');
+    if (firstBrace !== -1) {
+      const lastBrace = afterMarker.lastIndexOf('}');
+      if (lastBrace > firstBrace) {
+        rawJSONStr = afterMarker.slice(firstBrace, lastBrace + 1);
+      }
+    }
+  }
+
+  // 2. Look for code fences: ```json { ... } ``` or ``` { ... } ```
+  if (!rawJSONStr) {
+    const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
+    if (codeBlockMatch) {
+      rawJSONStr = codeBlockMatch[1];
+    }
+  }
+
+  // 3. Fallback: look for loose JSON object containing known search keys
+  if (!rawJSONStr) {
+    const looseMatch = text.match(/\{[\s\S]*?"(?:category|startsWith|endsWith|startWith|endWith|scoreSum|maxPrice|notContain|avoidPairs)"[\s\S]*?\}/i);
+    if (looseMatch) {
+      rawJSONStr = looseMatch[0];
+    }
+  }
+
+  if (!rawJSONStr) return undefined;
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(rawJSONStr);
+  } catch (err) {
+    // Attempt healing split or malformed objects
+    try {
+      const healed = '{' + rawJSONStr.replace(/^\{|\}$/g, '').replace(/\}\s*,\s*\{/g, ',').replace(/\}\s*,\s*"/g, ',"') + '}';
+      parsed = JSON.parse(healed);
+    } catch (err2) {
+      parsed = extractKeyValuesViaRegex(rawJSONStr);
+    }
+  }
+
+  if (!parsed || typeof parsed !== 'object') return undefined;
+
+  return normalizeSearchQuery(parsed);
 }
 
 function cleanMarkdownTables(text) {
@@ -1167,9 +1467,9 @@ export function extractFallbackSearchJSON(text, activeFilters = {}) {
   const query = {};
   let detected = false;
 
-  // 1. Ending pattern: e.g. "End 007", "ending 007", "007 end number", "9596 last. Number", "last 9596", "last digit 007", "last me 007"
-  const endMatch1 = t.match(/\b(?:ends?\s*with|ending(?:\s*in)?|end(?:\s*no\.?|\s*number)?|last(?:\s*digit|\s*no\.?|\s*number|\s*digits)?|aakhri|aakhiri|last\s*me)\s*[:\-\s.]*\s*(\d{2,6})\b/i);
-  const endMatch2 = t.match(/\b(\d{2,6})\s*[:\-\s.]*\s*(?:ends?\s*with|ending|end(?:\s*no\.?|\s*number)?|last(?:\s*digit|\s*no\.?|\s*number|\s*digits)?|aakhri|aakhiri)\b/i);
+  // 1. Ending pattern: e.g. "End 007", "ending 007", "007 end number", "9596 last. Number", "last 9596", "ending with 5"
+  const endMatch1 = t.match(/\b(?:ends?\s*with|ending(?:\s*in|\s*with)?|end(?:\s*no\.?|\s*number)?|last(?:\s*digit|\s*no\.?|\s*number|\s*digits)?|aakhri|aakhiri|last\s*me)\s*[:\-\s.]*\s*(\d{1,6})\b/i);
+  const endMatch2 = t.match(/\b(\d{1,6})\s*[:\-\s.]*\s*(?:ends?\s*with|ending(?:\s*in|\s*with)?|end(?:\s*no\.?|\s*number)?|last(?:\s*digit|\s*no\.?|\s*number|\s*digits)?|aakhri|aakhiri)\b/i);
   if (endMatch1) {
     query.endsWith = endMatch1[1];
     detected = true;
@@ -1178,15 +1478,25 @@ export function extractFallbackSearchJSON(text, activeFilters = {}) {
     detected = true;
   }
 
-  // 2. Starting pattern: e.g. "start 98", "starting 98", "starts with 98", "shuru me 98"
-  const startMatch1 = t.match(/\b(?:starts?\s*with|starting(?:\s*in)?|start|shuru(?:\s*me)?)\s*[:\-\s.]*\s*(\d{2,5})\b/i);
-  const startMatch2 = t.match(/\b(\d{2,5})\s*[:\-\s.]*\s*(?:starts?\s*with|starting|start)\b/i);
+  // 2. Starting pattern: e.g. "start 98", "starting 98", "starts with 98", "starting with 9", "shuru me 98"
+  const startMatch1 = t.match(/\b(?:starts?\s*with|starting(?:\s*in|\s*with)?|start|shuru(?:\s*me)?)\s*[:\-\s.]*\s*(\d{1,5})\b/i);
+  const startMatch2 = t.match(/\b(\d{1,5})\s*[:\-\s.]*\s*(?:starts?\s*with|starting(?:\s*in|\s*with)?|start)\b/i);
   if (startMatch1) {
     query.startsWith = startMatch1[1];
     detected = true;
   } else if (startMatch2) {
     query.startsWith = startMatch2[1];
     detected = true;
+  }
+
+  // 2b. Exclusions pattern: e.g. "avoid 18, 81", "avoid 248", "without 4, 7", "bina 248"
+  const avoidMatch = t.match(/\b(?:avoid|without|bina|except|nahi\s*chahiye)\s*[:\-\s.]*\s*([0-9,\s]+)\b/i);
+  if (avoidMatch) {
+    const rawTokens = avoidMatch[1].split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+    if (rawTokens.length > 0) {
+      query.notContain = rawTokens.join(',');
+      detected = true;
+    }
   }
 
   // 3. Budget extraction: e.g. "3k", "under 3k", "budget 3000", "under 5000", "3000 budget", "3k budget", "15000 me"
@@ -1269,10 +1579,67 @@ export function extractFallbackSearchJSON(text, activeFilters = {}) {
   return query;
 }
 
-function stripSearchJSON(text) {
+/**
+ * Aggressively strips any SEARCH_JSON blocks, code fences, leaked JSON fragments,
+ * or parameter lines so raw JSON never leaks to WhatsApp.
+ */
+export function stripSearchJSON(text) {
   if (!text) return '';
   let cleaned = stripThinkTags(text);
-  return cleaned.replace(/SEARCH_JSON:\{[^]*?\}\s*\n?/g, '').trim();
+
+  // 1. Strip SEARCH_JSON: marker and its payload
+  cleaned = cleaned.replace(/SEARCH_JSON:\s*\{[\s\S]*?\}\s*(?:\n|$)/gi, '');
+  cleaned = cleaned.replace(/SEARCH_JSON:[^\n]*/gi, '');
+
+  // 2. Strip markdown code fences with JSON
+  cleaned = cleaned.replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/gi, '');
+  cleaned = cleaned.replace(/```(?:json)?\s*[\s\S]*?```/gi, '');
+
+  // 3. Known search/filter keys pattern
+  const jsonKeyPattern = /(?:avoidPairs|avoidDigits|sixthDigit|secondDigit|endWith|endsWith|startsWith|startWith|repeatCount|category|scoreSum|literSum|trapSum|maxPrice|minPrice|sortPrice|notContain|notInclude|mustContain|mustInclude|exactDigitPlacement|\$nin|\$ne|\$in|\$regex)/i;
+
+  const lines = cleaned.split('\n');
+  const keptLines = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // If line starts with comma, brace, or bracket and contains json syntax or keys
+    if (/^[,{\[]/i.test(trimmed) && (jsonKeyPattern.test(trimmed) || /[:\]\}]/.test(trimmed))) {
+      continue;
+    }
+
+    // If line contains a json key and has json syntax (: and quotes)
+    if (jsonKeyPattern.test(trimmed) && /:\s*["\d\[\{]/.test(trimmed)) {
+      continue;
+    }
+
+    // If line starts with dangling quote and colon: e.g. "avoidPairs": ...
+    if (/^"[a-zA-Z0-9_$]+"\s*:/i.test(trimmed)) {
+      continue;
+    }
+
+    // If line has only JSON closing characters: e.g. `}` or `},` or `]` or `]}`
+    if (/^[\]\}\s,]+$/.test(trimmed)) {
+      continue;
+    }
+
+    keptLines.push(line);
+  }
+
+  cleaned = keptLines.join('\n');
+
+  // 4. Final safety cleanup: remove any remaining isolated JSON-like blocks
+  cleaned = cleaned.replace(/\{[^{}]*"(?:avoidPairs|sixthDigit|secondDigit|endWith|endsWith|startsWith|category|maxPrice|notContain)"[^{}]*\}/gi, '');
+
+  // Remove any leading commas on any line
+  cleaned = cleaned.replace(/^[,\s]+/gm, '');
+  // Remove trailing whitespace
+  cleaned = cleaned.replace(/[ \t]+$/gm, '');
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+  return cleaned.trim();
 }
 
 export function formatCategoryName(cat) {
@@ -1325,6 +1692,10 @@ export function sanitizeHallucinatedNumbers(text, allowedNumbers = []) {
   return res.trim();
 }
 
+function cleanDocFilename(name) {
+  return String(name || 'document.pdf').replace(/[\/\\]/g, '-');
+}
+
 /**
  * Detect if customer message requests an Invoice or Numerology Report PDF document,
  * and return the document metadata object { url, filename, caption } if available.
@@ -1354,7 +1725,7 @@ export function detectDocumentToSend(userMessage, customerContext) {
         const cnNum = cn?.creditNoteNumber || matchProd.number;
         return {
           url: cnUrl,
-          filename: matchProd.creditNotePdfFilename || cn?.pdfFilename || `CreditNote-${cnNum}.pdf`,
+          filename: cleanDocFilename(matchProd.creditNotePdfFilename || cn?.pdfFilename || `CreditNote-${cnNum}.pdf`),
           caption: `💳 Official Credit Note #${cnNum} - Numberwale (₹${cn?.amount || ''})`
         };
       }
@@ -1366,7 +1737,7 @@ export function detectDocumentToSend(userMessage, customerContext) {
         const cnNum = cn?.creditNoteNumber || prodWithCn.number;
         return {
           url: cnUrl,
-          filename: prodWithCn.creditNotePdfFilename || cn?.pdfFilename || `CreditNote-${cnNum}.pdf`,
+          filename: cleanDocFilename(prodWithCn.creditNotePdfFilename || cn?.pdfFilename || `CreditNote-${cnNum}.pdf`),
           caption: `💳 Official Credit Note #${cnNum} - Numberwale (₹${cn?.amount || ''})`
         };
       }
@@ -1381,7 +1752,7 @@ export function detectDocumentToSend(userMessage, customerContext) {
       if (rep.reportPdfUrl) {
         return {
           url: rep.reportPdfUrl,
-          filename: rep.reportPdfFilename || `Numerology-Report-${rep.invoiceNumber || rep.id}.pdf`,
+          filename: cleanDocFilename(rep.reportPdfFilename || `Numerology-Report-${rep.invoiceNumber || rep.id}.pdf`),
           caption: `🔮 Numerology Report - ${rep.name || 'Numberwale'}`
         };
       }
@@ -1396,7 +1767,7 @@ export function detectDocumentToSend(userMessage, customerContext) {
       if (rep.invoicePdfUrl) {
         return {
           url: rep.invoicePdfUrl,
-          filename: rep.invoicePdfFilename || `Invoice-Numerology-${rep.invoiceNumber || rep.id}.pdf`,
+          filename: cleanDocFilename(rep.invoicePdfFilename || `Invoice-Numerology-${rep.invoiceNumber || rep.id}.pdf`),
           caption: `📄 GST Invoice #${rep.invoiceNumber || rep.id} - Numberwale`
         };
       }
@@ -1412,7 +1783,7 @@ export function detectDocumentToSend(userMessage, customerContext) {
       if (matchProd && matchProd.pdfUrl) {
         return {
           url: matchProd.pdfUrl,
-          filename: matchProd.pdfFilename || `Invoice-${matchProd.invoiceNumber || matchProd.orderNumber || matchProd.number}.pdf`,
+          filename: cleanDocFilename(matchProd.pdfFilename || `Invoice-${matchProd.invoiceNumber || matchProd.orderNumber || matchProd.number}.pdf`),
           caption: `📄 GST Invoice #${matchProd.invoiceNumber || matchProd.orderNumber || matchProd.number} - Numberwale`
         };
       }
@@ -1421,7 +1792,7 @@ export function detectDocumentToSend(userMessage, customerContext) {
       if (singleProd.pdfUrl) {
         return {
           url: singleProd.pdfUrl,
-          filename: singleProd.pdfFilename || `Invoice-${singleProd.invoiceNumber || singleProd.orderNumber || singleProd.number}.pdf`,
+          filename: cleanDocFilename(singleProd.pdfFilename || `Invoice-${singleProd.invoiceNumber || singleProd.orderNumber || singleProd.number}.pdf`),
           caption: `📄 GST Invoice #${singleProd.invoiceNumber || singleProd.orderNumber || singleProd.number} - Numberwale`
         };
       }
@@ -1437,7 +1808,7 @@ export function detectDocumentToSend(userMessage, customerContext) {
       if (matchProd && matchProd.pdfUrl) {
         return {
           url: matchProd.pdfUrl,
-          filename: matchProd.pdfFilename || `Invoice-${matchProd.invoiceNumber || matchProd.orderNumber || matchProd.number}.pdf`,
+          filename: cleanDocFilename(matchProd.pdfFilename || `Invoice-${matchProd.invoiceNumber || matchProd.orderNumber || matchProd.number}.pdf`),
           caption: `📄 GST Invoice #${matchProd.invoiceNumber || matchProd.orderNumber || matchProd.number} - Numberwale`
         };
       }
@@ -1455,7 +1826,7 @@ export function detectDocumentToSend(userMessage, customerContext) {
           const chosen = activeProducts[selectedIdx];
           return {
             url: chosen.pdfUrl,
-            filename: chosen.pdfFilename || `Invoice-${chosen.invoiceNumber || chosen.orderNumber || chosen.number}.pdf`,
+            filename: cleanDocFilename(chosen.pdfFilename || `Invoice-${chosen.invoiceNumber || chosen.orderNumber || chosen.number}.pdf`),
             caption: `📄 GST Invoice #${chosen.invoiceNumber || chosen.orderNumber || chosen.number} - Numberwale`
           };
         }
@@ -1464,6 +1835,61 @@ export function detectDocumentToSend(userMessage, customerContext) {
   }
 
   return null;
+}
+
+export function isPaymentClaimMessage(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+
+  const claimPatterns = [
+    /\b(?:payment|pay|paisa|paise|amount|rupaye|rupee|upi)\s*(?:ho\s*gaya|kar\s*diya|kar\s*diye|bhej\s*diya|bhej\s*diye|done|success|successful|completed|send\s*kar\s*diya|cut\s*gaya|kat\s*gaye|deducted)\b/i,
+    /\b(?:maine|humne|i\s*have|i've|already)\s*(?:pay|paid|payment|paise)\s*(?:kar\s*diya|kar\s*diye|kiya|kiya\s*hai|done)?\b/i,
+    /\b(?:paid|payment\s*done|already\s*paid|paid\s*already|amount\s*paid)\b/i,
+    /\b(?:gpay|googlepay|phonepe|paytm|bhim|netbanking)\s*(?:se\s*pay\s*kiya|kar\s*diya|se\s*bhej\s*diya|done|kiya)\b/i,
+    /\b(?:payment|pay)\s*(?:check\s*karo|check\s*kijiye|aaya\s*kya|status\s*kya\s*hai|update\s*hua|received\s*hua)\b/i,
+    /\b(?:paise\s*cut\s*gaye|paise\s*kat\s*gaye|money\s*deducted)\b/i
+  ];
+
+  return claimPatterns.some(rx => rx.test(t));
+}
+
+export function isMyNumbersQuery(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+
+  const patterns = [
+    /\b(?:mere|mera|meri|apna|apne)\s*(?:kitne|kaun\s*sa|konsa|konse|kaunse|kya)\s*(?:number|numbers)\b/i,
+    /\b(?:mere|mera|meri)\s*(?:number|numbers|order|orders)\s*(?:batao|dikhao|bhejo|check\s*karo|kya\s*hai|list)\b/i,
+    /\b(?:which|what|how\s*many)\s*(?:are\s*my|is\s*my|numbers?\s*do\s*i\s*have)\b/i,
+    /\b(?:my\s*numbers?|my\s*orders?)\b/i,
+    /\b(?:mere\s*kitne\s*order|mere\s*orders)\b/i
+  ];
+
+  return patterns.some(rx => rx.test(t));
+}
+
+export function isCancellationOrRefundQuery(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+  const patterns = [
+    /\b(?:cancel|cancellation|cancelling|cancelled|canceld|cancle)\b/i,
+    /\b(?:refund|refunds|refunding|refunded)\b/i,
+    /\b(?:money\s*back|return\s*money|paisa\s*wapas|paise\s*wapas|rupaye\s*wapas|paise\s*lautao|paisa\s*lautao)\b/i,
+    /\b(?:order\s*radd|radd\s*karo|radd\s*karna|radd\s*kardo)\b/i
+  ];
+  return patterns.some(rx => rx.test(t));
+}
+
+export function isNumberOwnershipConfirmationQuery(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+
+  const patterns = [
+    /\b(?:mera\s*number\s*hai\s*na|confirm\s*hai\s*na.*mera\s*number|mera\s*number\s*confirm\s*hai)\b/i,
+    /\b(?:is\s*this\s*my\s*number|is\s*my\s*number\s*confirmed)\b/i
+  ];
+
+  return patterns.some(rx => rx.test(t));
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1477,6 +1903,32 @@ export async function runAgent(opts) {
   customerContext.language = detectedLang;
   const lang = detectedLang;
   const history = (customerContext && customerContext.history) || [];
+
+  // ── CRM Fast Intercept 0: Cancellation or Refund Inquiry / Request ──
+  if (isCancellationOrRefundQuery(userMessage)) {
+    console.log(`[Agent] 🚨 Fast Intercept: Cancellation/Refund request detected for ${customerContext.phone || 'customer'}`);
+    let cancelReply = '';
+    if (lang === 'English') {
+      cancelReply = "Your request has been noted. For order cancellation and refund requests, your chat is being transferred to our support executive / human agent. Our team will connect with you here shortly. 👨‍💻\n\nIn the meantime, please let me know if you have any other query! 😊";
+    } else if (lang === 'Hindi') {
+      cancelReply = "आपकी request नोट कर ली गई है। ऑर्डर कैंसिलेशन और रिफंड के लिए आपकी चैट हमारे सपोर्ट एग्जीक्यूटिव / एजेंट को ट्रांसफर की जा रही है, हमारी टीम जल्द ही आपसे यहाँ संपर्क करेगी। 👨‍💻\n\nइसके अलावा अगर आपकी कोई और query हो तो कृपया बताएं! 😊";
+    } else if (lang === 'Gujarati') {
+      cancelReply = "તમારી વિનંતી નોંધી લેવામાં આવી છે. ઓર્ડર રદ કરવા અને રિફંડ માટે તમારી ચેટ અમારા સપોર્ટ એક્ઝિક્યુટિવ / એજન્ટને ટ્રાન્સફર કરવામાં આવી રહી છે, અમારી ટીમ ટૂંક સમયમાં તમારી સાથે અહીં જોડાશે. 👨‍💻\n\nઆ સિવાય જો તમારો કોઈ અન્ય પ્રશ્ન હોય તો કૃપા કરીને જણાવો! 😊";
+    } else if (lang === 'Marathi') {
+      cancelReply = "तुमची विनंती नोंदवून घेतली आहे. ऑर्डर रद्द करणे आणि परताव्यासाठी (रिफंड) तुमची चॅट आमच्या सपोर्ट एक्झिक्युटिव्ह / एजंटकडे ट्रान्सफर केली जात आहे, आमची टीम लवकरच तुमच्याशी येथे संपर्क साधेल. 👨‍💻\n\nयाव्यतिरिक्त तुमची काही शंका असल्यास कृपया सांगा! 😊";
+    } else {
+      cancelReply = "Aapka request note kar liya gaya hai. Order cancellation aur refund ke liye aapki chat hamare support executive / human agent ko transfer ki ja rahi hai, hamari team jald hi aapse yahan connect karegi. 👨‍💻\n\nIske alawa agar aapki koi aur query ho toh kripya batayein! 😊";
+    }
+
+    return {
+      reply: cancelReply,
+      conversationalIntro: cancelReply,
+      searchJSON: null,
+      model: 'cancellation-refund-guard',
+      escalate: true,
+      escalateReason: 'Customer requested order cancellation / refund'
+    };
+  }
 
   // Check if current user message shares DOB
   const parsedDOB = parseDOB(userMessage);
@@ -1518,9 +1970,13 @@ export async function runAgent(opts) {
   }
 
   const activeOrders = customerContext.activeProducts || [];
+  const pendingOrders = customerContext.pendingPaymentOrders || [];
+  const pendingProds = customerContext.pendingPaymentProducts || [];
 
   if (detected10Digit) {
     const purchasedProd = activeOrders.find(p => p.number === detected10Digit);
+    const pendingProd = pendingProds.find(p => p.number === detected10Digit) ||
+      pendingOrders.find(o => (o.productMobileNumber || o.product?.mobileNumber || o.number) === detected10Digit);
 
     if (purchasedProd) {
       customerContext.targetProduct = {
@@ -1540,6 +1996,18 @@ export async function runAgent(opts) {
         formattedNumber: `${detected10Digit.slice(0, 5)} ${detected10Digit.slice(5)}`
       };
       console.log(`[Agent] Detected 10-digit number ${detected10Digit} is PURCHASED by customer! Status: ${purchasedProd.upcStatus}`);
+    } else if (pendingProd) {
+      const pNum = pendingProd.number || pendingProd.productMobileNumber || pendingProd.product?.mobileNumber || detected10Digit;
+      customerContext.targetProduct = {
+        number: pNum,
+        isPendingPayment: true,
+        orderNumber: pendingProd.orderNumber || null,
+        total: pendingProd.total || null,
+        paymentStatus: pendingProd.paymentStatus || 'pending',
+        cartLink: `https://numberwale.com/cart-add/${pNum}`,
+        formattedNumber: `${pNum.slice(0, 5)} ${pNum.slice(5)}`
+      };
+      console.log(`[Agent] Detected 10-digit number ${pNum} has PENDING PAYMENT in CRM! Order #${pendingProd.orderNumber}`);
     } else {
       const isInvoiceQuery = /\b(invoice|bill|receipt)\b/i.test(userMessage);
       if (isInvoiceQuery) {
@@ -1618,6 +2086,24 @@ export async function runAgent(opts) {
       };
       console.log(`[Agent] Auto-selected single purchased number ${purchasedProd.number} for customer inquiry.`);
     }
+  } else if (activeOrders.length === 0 && (pendingProds.length === 1 || pendingOrders.length === 1)) {
+    const isUpcOrOrderInquiry = /\b(upc|order|delivery|deliver|status|port|porting|kab\s*aayega|kab\s*milega|code|invoice|bill|receipt|report)\b/i.test(userMessage);
+    if (isUpcOrOrderInquiry) {
+      const pProd = pendingProds[0] || pendingOrders[0];
+      const pNum = pProd.number || pProd.productMobileNumber || pProd.product?.mobileNumber;
+      if (pNum) {
+        customerContext.targetProduct = {
+          number: pNum,
+          isPendingPayment: true,
+          orderNumber: pProd.orderNumber || null,
+          total: pProd.total || null,
+          paymentStatus: pProd.paymentStatus || 'pending',
+          cartLink: `https://numberwale.com/cart-add/${pNum}`,
+          formattedNumber: `${pNum.slice(0, 5)} ${pNum.slice(5)}`
+        };
+        console.log(`[Agent] Auto-selected single pending payment number ${pNum} for customer inquiry.`);
+      }
+    }
   }
 
   // Fetch active promotional coupons for WhatsApp Bot (cached 5 min)
@@ -1662,6 +2148,155 @@ export async function runAgent(opts) {
     };
   }
 
+  // ── CRM Fast Intercept 1: Customer asking for their numbers ("mere kitne number hain", "mera kaun sa number hai", etc.) ──
+  if (isMyNumbersQuery(userMessage)) {
+    let myNumbersReply = '';
+    if (activeOrders.length > 0) {
+      const confirmedList = activeOrders.map((p, idx) => {
+        const remainingHrs = p.remainingWorkingHours != null ? p.remainingWorkingHours : 24;
+        return `${idx + 1}. *${p.formattedNumber || p.number}*\n   • Order ID: #${p.orderNumber || 'N/A'}\n   • Payment: Confirmed (Paid)\n   • Status: ${p.upcStatus || 'UPC In Process'}\n   • Delivery: Within ~${remainingHrs} working hours via SMS`;
+      }).join('\n\n');
+
+      let pendingNote = '';
+      if (pendingProds.length > 0 || pendingOrders.length > 0) {
+        const list = pendingProds.length > 0 ? pendingProds : pendingOrders;
+        const pList = list.map(p => {
+          const num = p.number || p.productMobileNumber || p.product?.mobileNumber;
+          const fmt = p.formattedNumber || (num ? `${num.slice(0, 5)} ${num.slice(5)}` : 'VIP Number');
+          return `• *${fmt}* (Order: #${p.orderNumber || 'N/A'}, Payment Status: Pending / Unpaid)`;
+        }).join('\n');
+        pendingNote = `\n\n📌 *Unpaid / Pending Orders:*\n${pList}\n(In orders ka payment abhi confirm nahi hua hai)`;
+      }
+
+      myNumbersReply = `Aapke account mein yeh VIP mobile number confirmed booked hain: 🎉\n\n${confirmedList}${pendingNote}\n\nKisi bhi sahayata ke liye hamare helpline *+91 9222 222 007* (10am–7pm) par connect kar sakte hain! 😊`;
+    } else if (pendingProds.length > 0 || pendingOrders.length > 0) {
+      const list = pendingProds.length > 0 ? pendingProds : pendingOrders;
+      const pList = list.map((p, idx) => {
+        const num = p.number || p.productMobileNumber || p.product?.mobileNumber;
+        const fmt = p.formattedNumber || (num ? `${num.slice(0, 5)} ${num.slice(5)}` : 'VIP Number');
+        return `${idx + 1}. *${fmt}*\n   • Order ID: #${p.orderNumber || 'N/A'}\n   • Payment Status: ⚠️ PENDING / UNPAID\n   • Checkout Link: https://numberwale.com/cart-add/${num}`;
+      }).join('\n\n');
+
+      myNumbersReply = `Aapke is mobile number par abhi koi **confirmed purchased VIP number nahi hai**.\n\nLekin aapke yeh order create hue the jinka payment abhi pending hai:\n\n${pList}\n\n👉 Payment complete hote hi number confirm ho jata hai aur UPC process start hota hai. Agar aapne already pay kar diya hai, toh kripya Transaction ID / UTR number share karein! 😊`;
+    } else {
+      myNumbersReply = `Aapke is mobile number par abhi koi booked ya purchased VIP number registered nahi hai.\n\nKya aap apne liye koi naya VIP number choose karna chahenge? Aap apna pasandeeda digit, pattern ya budget batayein, main best options dikhati hoon! 😊`;
+    }
+
+    return {
+      reply: myNumbersReply,
+      conversationalIntro: myNumbersReply,
+      searchJSON: null,
+      model: 'crm-orders-guard',
+      escalate: false
+    };
+  }
+
+  // ── CRM Fast Intercept 2: Customer claiming payment ("payment ho gaya", "maine pay kar diya", etc.) ──
+  if (isPaymentClaimMessage(userMessage)) {
+    let targetActive = detected10Digit ? activeOrders.find(p => p.number === detected10Digit) : null;
+    let targetPending = detected10Digit
+      ? (pendingProds.find(p => p.number === detected10Digit) || pendingOrders.find(o => (o.productMobileNumber || o.product?.mobileNumber || o.number) === detected10Digit))
+      : null;
+
+    if (!targetActive && !targetPending) {
+      if (activeOrders.length === 1 && pendingProds.length === 0 && pendingOrders.length === 0) {
+        targetActive = activeOrders[0];
+      } else if ((pendingProds.length === 1 || pendingOrders.length === 1) && activeOrders.length === 0) {
+        targetPending = pendingProds[0] || pendingOrders[0];
+      }
+    }
+
+    let claimReply = '';
+    if (targetActive) {
+      const remainingHrs = targetActive.remainingWorkingHours != null ? targetActive.remainingWorkingHours : 24;
+      if (lang === 'English') {
+        claimReply = `Yes! Your payment is successfully confirmed in our CRM! 🎉\n\n• Number: *${targetActive.formattedNumber || targetActive.number}*\n• Order ID: *#${targetActive.orderNumber || 'N/A'}*\n• Status: *${targetActive.upcStatus || 'In Process'}*\n\nYour Unique Porting Code (UPC) is being processed with the telecom operator and will be sent via SMS within ~${remainingHrs} working hours. Thank you for choosing Numberwale! 😊`;
+      } else if (lang === 'Hindi') {
+        claimReply = `हाँ जी! आपका पेमेंट हमारे CRM सिस्टम में सफलतापूर्वक कन्फर्म हो चुका है! 🎉\n\n• नंबर: *${targetActive.formattedNumber || targetActive.number}*\n• ऑर्डर ID: *#${targetActive.orderNumber || 'N/A'}*\n• स्टेटस: *${targetActive.upcStatus || 'In Process'}*\n\nआपके नंबर का UPC कोड ऑपरेटर के साथ प्रोसेस में है और अगले ~${remainingHrs} वर्किंग घंटों में SMS द्वारा आपको डिलीवर कर दिया जाएगा। Numberwale चुनने के लिए धन्यवाद! 😊`;
+      } else {
+        claimReply = `Ji haan! Aapka payment hamare CRM system mein successfully confirm ho chuka hai! 🎉\n\n• Number: *${targetActive.formattedNumber || targetActive.number}*\n• Order ID: *#${targetActive.orderNumber || 'N/A'}*\n• Status: *${targetActive.upcStatus || 'In Process'}*\n\nAapka UPC generation process operator ke saath active hai aur ~${remainingHrs} working hours ke andar SMS dwara aapko deliver ho jayega. Numberwale ko chunne ke liye bohot shukriya! 😊`;
+      }
+    } else if (targetPending) {
+      const pNum = targetPending.number || targetPending.productMobileNumber || targetPending.product?.mobileNumber || detected10Digit;
+      const fmtNum = targetPending.formattedNumber || (pNum ? `${pNum.slice(0, 5)} ${pNum.slice(5)}` : 'VIP Number');
+      const orderId = targetPending.orderNumber || 'N/A';
+      const cartLink = `https://numberwale.com/cart-add/${pNum}`;
+
+      if (lang === 'English') {
+        claimReply = `We have an order created for *${fmtNum}* (Order: #${orderId}), but the payment status in our CRM is currently **Pending / Unpaid**.\n\n` +
+          `👉 *If your account was already debited:* Please share your **Transaction ID / UTR Number** or a payment screenshot here so our accounts team can verify and confirm your order right away!\n\n` +
+          `👉 *If you haven't completed the payment yet:* You can complete it securely using this direct link:\n${cartLink}\n\n` +
+          `For any assistance, please connect with our helpline at *+91 9222 222 007* (10am–7pm Mon–Sat). 😊`;
+      } else if (lang === 'Hindi') {
+        claimReply = `नंबर *${fmtNum}* के लिए आपका ऑर्डर (ऑर्डर ID: #${orderId}) सिस्टम में दर्ज है, लेकिन हमारे CRM में अभी पेमेंट स्टेटस **Pending / Unpaid** दिखा रहा है।\n\n` +
+          `👉 *यदि आपके खाते से पैसे कट गए हैं:* कृपया अपना **Transaction ID / UTR Number** या पेमेंट स्क्रीनशॉट यहाँ शेयर करें, ताकि हमारी अकाउंट्स टीम तुरंत वेरीफाई करके ऑर्डर कन्फर्म कर सके!\n\n` +
+          `👉 *यदि पेमेंट पूरा नहीं हुआ है:* तो आप इस सीधे लिंक से सुरक्षित पेमेंट कर सकते हैं:\n${cartLink}\n\n` +
+          `किसी भी सहायता के लिए हमारे हेल्पलाइन *+91 9222 222 007* (10am–7pm) पर संपर्क करें। 😊`;
+      } else {
+        claimReply = `Number *${fmtNum}* ke liye aapka order (Order: #${orderId}) create hua hai, lekin hamare CRM system me abhi payment status **Pending / Unpaid** dikha raha hai.\n\n` +
+          `👉 *Agar aapke account se paise kat chuke hain:* Kripya apna **Transaction ID / UTR Number** ya payment screenshot yahan share karein, taaki humari accounts team turant verify karke order confirm kar sake!\n\n` +
+          `👉 *Agar payment complete nahi hua hai:* Aap is link se securely payment complete kar sakte hain:\n${cartLink}\n\n` +
+          `Kisi bhi help ke liye hamare helpline *+91 9222 222 007* (10am–7pm) par connect karein. 😊`;
+      }
+    } else if (activeOrders.length > 0 && pendingProds.length === 0 && pendingOrders.length === 0) {
+      const listStr = activeOrders.map(p => `• *${p.formattedNumber || p.number}* (Order: #${p.orderNumber || 'N/A'})`).join('\n');
+      claimReply = `Ji haan! Hamare CRM mein aapka payment successfully confirmed hai:\n\n${listStr}\n\nInka UPC generation process operator ke saath active hai aur 24 working hours ke andar SMS dwara aapko deliver ho jayega! 😊`;
+    } else if ((pendingProds.length > 0 || pendingOrders.length > 0) && activeOrders.length === 0) {
+      const list = pendingProds.length > 0 ? pendingProds : pendingOrders;
+      const listStr = list.map(p => {
+        const num = p.number || p.productMobileNumber || p.product?.mobileNumber;
+        const fmt = p.formattedNumber || (num ? `${num.slice(0, 5)} ${num.slice(5)}` : 'VIP Number');
+        return `• *${fmt}* (Order: #${p.orderNumber || 'N/A'}, Status: Pending Payment)`;
+      }).join('\n');
+      claimReply = `Hamare CRM system mein aapke order create hue hain lekin payment abhi **Pending / Unpaid** show ho raha hai:\n\n${listStr}\n\n👉 *Agar aapne payment kar diya hai:* Kripya Transaction ID / UTR number share karein taaki hum verify kar sakein.\n👉 *Agar payment nahi hua:* Kripya checkout link se complete kar lijiye. 😊`;
+    } else {
+      if (lang === 'English') {
+        claimReply = `We could not find any active order or payment record in our CRM for this mobile number yet.\n\nPlease let me know:\n1️⃣ Which VIP mobile number did you make the payment for?\n2️⃣ What is your payment **Transaction ID / UTR Number**?\n\nOnce you share these details, our accounts team will verify and update you immediately! 😊`;
+      } else {
+        claimReply = `Hamare CRM system mein is mobile number par abhi koi active order ya payment record update nahi dikh raha hai.\n\nKripya batayein:\n1️⃣ Aapne kis VIP mobile number ke liye payment kiya hai?\n2️⃣ Aapka payment **Transaction ID / UTR number** kya hai?\n\nYe details share karte hi main accounts team se check karwa ke aapko update deti hoon! 😊`;
+      }
+    }
+
+    return {
+      reply: claimReply,
+      conversationalIntro: claimReply,
+      searchJSON: null,
+      model: 'crm-payment-guard',
+      escalate: false
+    };
+  }
+
+  // ── CRM Fast Intercept 3: Customer confirming number ownership ("9619410050 mera number hai na", etc.) ──
+  if (isNumberOwnershipConfirmationQuery(userMessage)) {
+    const targetNum = detected10Digit || (activeOrders.length === 1 ? activeOrders[0].number : (pendingProds.length === 1 ? pendingProds[0].number : null));
+    const matchActive = targetNum ? activeOrders.find(p => p.number === targetNum) : null;
+    const matchPending = targetNum
+      ? (pendingProds.find(p => p.number === targetNum) || pendingOrders.find(o => (o.productMobileNumber || o.product?.mobileNumber || o.number) === targetNum))
+      : null;
+
+    let ownershipReply = '';
+    if (matchActive) {
+      const remainingHrs = matchActive.remainingWorkingHours != null ? matchActive.remainingWorkingHours : 24;
+      ownershipReply = `Ji haan, bilkul 100% confirm hai! 🎉\n\nNumber *${matchActive.formattedNumber || matchActive.number}* aapke hi order *#${matchActive.orderNumber || 'N/A'}* ke under confirmed booked hai. Aapka payment successfully receive ho chuka hai aur UPC generation process operator ke saath active hai (SMS dwara ~${remainingHrs} working hours ke andar deliver ho jayega). Chinta bilkul na karein! 😊`;
+    } else if (matchPending) {
+      const pNum = matchPending.number || matchPending.productMobileNumber || matchPending.product?.mobileNumber || targetNum;
+      const fmtNum = matchPending.formattedNumber || (pNum ? `${pNum.slice(0, 5)} ${pNum.slice(5)}` : 'VIP Number');
+      ownershipReply = `Number *${fmtNum}* ke liye aapka order *#${matchPending.orderNumber || 'N/A'}* create hua hai, lekin CRM mein iska payment abhi **Pending / Unpaid** hai.\n\nYeh number tabhi 100% confirm hota hai jab payment complete ho jata hai. Aap is link se payment complete kar sakte hain:\nhttps://numberwale.com/cart-add/${pNum}\n\nAgar aap already pay kar chuke hain, toh kripya Transaction ID / UTR share karein taaki hum confirm kar sakein! 😊`;
+    } else if (targetNum) {
+      ownershipReply = `Number *${targetNum}* aapke account mein registered ya purchased nahi dikh raha hai. Agar aapne kisi doosre number se purchase kiya tha toh kripya Order ID ya payment details share karein, ya helpline *+91 9222 222 007* par connect karein. 😊`;
+    }
+
+    if (ownershipReply) {
+      return {
+        reply: ownershipReply,
+        conversationalIntro: ownershipReply,
+        searchJSON: null,
+        model: 'crm-ownership-guard',
+        escalate: false
+      };
+    }
+  }
+
   // Build conversation history for LLM
   const messages = history.slice(-8).map(function(h) {
     return { role: h.role === 'bot' ? 'assistant' : 'user', content: h.text };
@@ -1697,6 +2332,8 @@ export async function runAgent(opts) {
 
   const allowedNumbers = [
     ...(customerContext.activeProducts || []).map(p => p.number),
+    ...(customerContext.pendingPaymentProducts || []).map(p => p.number),
+    ...(customerContext.pendingPaymentOrders || []).map(o => o.productMobileNumber || o.product?.mobileNumber || o.number),
     ...(customerContext.purchasedNumbers || []),
     ...(customerContext.numerologyReports || []).map(nr => nr.purchaseNumber),
     customerContext.targetProduct?.number,
@@ -1706,6 +2343,55 @@ export async function runAgent(opts) {
 
   const searchJSON = extractSearchJSON(agentText);
   let conversationalText = sanitizeHallucinatedNumbers(cleanMarkdownTables(stripSearchJSON(agentText)), allowedNumbers);
+
+  // ── Strip fake/hallucinated reorder links or non-existent URLs ──
+  conversationalText = conversationalText.replace(/https?:\/\/[^\s]*\/reorder[^\s]*/gi, '');
+  conversationalText = conversationalText.replace(/\[([^\]]+)\]\(https?:\/\/[^\s]*\/reorder[^\s]*\)/gi, '$1');
+  conversationalText = conversationalText.replace(/\b(?:reorder\s*link|re-order\s*link)[:\s]*\S+/gi, '');
+
+  // ── Post-LLM Anti-Hallucination Safety Guard: False Cancellation & Refund Override ──
+  const claimsRefundOrCancel = /(?:refund\s*(?:process|initiate|shuru|processing|queue|5\s*to\s*7|credit\s*ho)|order\s*(?:cancel\s*ho\s*(?:chuka|gaya)|has\s*been\s*cancel|is\s*cancel))/i.test(conversationalText);
+  if (claimsRefundOrCancel) {
+    console.warn('[Agent] 🚨 Intercepted false cancellation/refund promise in LLM response! Overriding with executive escalation.');
+    let cancelReply = '';
+    if (lang === 'English') {
+      cancelReply = "Your request has been noted. For order cancellation and refund requests, your chat is being transferred to our support executive / human agent. Our team will connect with you here shortly. 👨‍💻\n\nIn the meantime, please let me know if you have any other query! 😊";
+    } else if (lang === 'Hindi') {
+      cancelReply = "आपकी request नोट कर ली गई है। ऑर्डर कैंसिलेशन और रिफंड के लिए आपकी चैट हमारे सपोर्ट एग्जीक्यूटिव / एजेंट को ट्रांसफर की जा रही है, हमारी टीम जल्द ही आपसे यहाँ संपर्क करेगी। 👨‍💻\n\nइसके अलावा अगर आपकी कोई और query हो तो कृपया बताएं! 😊";
+    } else if (lang === 'Gujarati') {
+      cancelReply = "તમારી વિનંતી નોંધી લેવામાં આવી છે. ઓર્ડર રદ કરવા અને રિફંડ માટે તમારી ચેટ અમારા સપોર્ટ એક્ઝિક્યુટિવ / એજન્ટને ટ્રાન્સફર કરવામાં આવી રહી છે, અમારી ટીમ ટૂંક સમયમાં તમારી સાથે અહીં જોડાશે. 👨‍💻\n\nઆ સિવાય જો તમારો કોઈ અન્ય પ્રશ્ન હોય તો કૃપા કરીને જણાવો! 😊";
+    } else if (lang === 'Marathi') {
+      cancelReply = "तुमची विनंती नोंदवून घेतली आहे. ऑर्डर रद्द करणे आणि परताव्यासाठी (रिफंड) तुमची चॅट आमच्या सपोर्ट एक्झिक्युटिव्ह / एजंटकडे ट्रान्सफर केली जात आहे, आमची टीम लवकरच तुमच्याशी येथे संपर्क साधेल. 👨‍💻\n\nयाव्यतिरिक्त तुमची काही शंका असल्यास कृपया सांगा! 😊";
+    } else {
+      cancelReply = "Aapka request note kar liya gaya hai. Order cancellation aur refund ke liye aapki chat hamare support executive / human agent ko transfer ki ja rahi hai, hamari team jald hi aapse yahan connect karegi. 👨‍💻\n\nIske alawa agar aapki koi aur query ho toh kripya batayein! 😊";
+    }
+    return {
+      reply: cancelReply,
+      conversationalIntro: cancelReply,
+      searchJSON: null,
+      model: 'cancellation-refund-guard',
+      escalate: true,
+      escalateReason: 'Customer requested order cancellation / refund'
+    };
+  }
+
+  // ── Post-LLM Anti-Hallucination Safety Guard: False UPC Failure Override ──
+  const allActiveProds = customerContext.activeProducts || [];
+  const hasFailedProduct = allActiveProds.some(p => p.creditNote || p.upcStatus === 'creditnote' || p.upcStatus === 'activation_failed');
+  const targetProd = customerContext.targetProduct;
+  const isTargetFailed = targetProd && (targetProd.creditNote || targetProd.upcStatus === 'creditnote' || targetProd.upcStatus === 'activation_failed');
+
+  const claimsFailure = /(?:upc\s*generate\s*nahi\s*ho\s*paya|fail\s*ho\s*gaya|number\s*(?:ab\s*)?provide\s*nahi\s*ho\s*payega|yeh\s*number\s*nahi\s*milega|number\s*nahi\s*mil\s*payega|nahi\s*mil\s*sakta)/i.test(conversationalText);
+
+  if (claimsFailure && !hasFailedProduct && !isTargetFailed && (allActiveProds.length > 0 || (targetProd && targetProd.isPurchasedByCustomer))) {
+    console.warn('[Agent] 🚨 Intercepted false UPC failure hallucination! Overriding with accurate CRM status.');
+    const activeP = (targetProd && targetProd.isPurchasedByCustomer) ? targetProd : allActiveProds[0];
+    const remainingHrs = activeP.remainingWorkingHours != null ? activeP.remainingWorkingHours : 24;
+    conversationalText = `Aapka number *${activeP.formattedNumber || activeP.number}* (Order: #${activeP.orderNumber || 'N/A'}) hamare CRM system mein confirmed hai aur UPC generation process operator ke saath active hai. Yeh number fail ya cancel nahi hua hai!\n\n` +
+      `UPC code 24 working hours ke andar (~${remainingHrs} working hours remaining) SMS dwara aapko deliver ho jayega. Humari team poori koshish kar rahi hai ki jald se jald provide karein.\n\n` +
+      `Agar operator end se UPC delivery me koi issue aata hai, tabhi refund ya replacement ka option hota hai, par abhi aapka number bilkul safely processing mein hai. Chinta ki koi baat nahi hai! 😊`;
+  }
+
   const conversationalIntro = conversationalText;
 
   let effectiveSearchJSON = searchJSON;
@@ -1714,6 +2400,39 @@ export async function runAgent(opts) {
     if (fallbackJSON && Object.keys(fallbackJSON).length > 0) {
       console.log('[Agent] ⚡ Intercepted missing SEARCH_JSON with fallback parser:', JSON.stringify(fallbackJSON));
       effectiveSearchJSON = fallbackJSON;
+    }
+  }
+
+  // Active filter stateful merge: If effectiveSearchJSON exists and activeFilters exist, merge them
+  if (effectiveSearchJSON && customerContext.activeFilters && typeof customerContext.activeFilters === 'object' && Object.keys(customerContext.activeFilters).length > 0) {
+    const af = customerContext.activeFilters;
+    effectiveSearchJSON = { ...af, ...effectiveSearchJSON };
+  }
+
+  // History recovery: if effectiveSearchJSON is missing startsWith, endsWith, category, or notContain,
+  // scan recent user messages in history to recover customer's explicit constraints
+  if (effectiveSearchJSON) {
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].role === 'user') {
+        const pastFilters = extractFallbackSearchJSON(history[i].text);
+        if (pastFilters) {
+          if (!effectiveSearchJSON.startsWith && pastFilters.startsWith) {
+            effectiveSearchJSON.startsWith = pastFilters.startsWith;
+          }
+          if (!effectiveSearchJSON.endsWith && pastFilters.endsWith) {
+            effectiveSearchJSON.endsWith = pastFilters.endsWith;
+          }
+          if (!effectiveSearchJSON.category && pastFilters.category) {
+            effectiveSearchJSON.category = pastFilters.category;
+          }
+          if (!effectiveSearchJSON.notContain && pastFilters.notContain) {
+            effectiveSearchJSON.notContain = pastFilters.notContain;
+          }
+          if (!effectiveSearchJSON.scoreSum && pastFilters.scoreSum) {
+            effectiveSearchJSON.scoreSum = pastFilters.scoreSum;
+          }
+        }
+      }
     }
   }
 
@@ -1769,20 +2488,27 @@ export async function runAgent(opts) {
       let result = await fetchNumbers(effectiveSearchJSON, page);
       let fallbackNote = '';
 
+      // Post-search hard constraint verification
+      if (result.products && result.products.length > 0) {
+        result.products = validateProductsAgainstConstraints(result.products, effectiveSearchJSON);
+      }
+
       // Smart multi-step search relaxation if 0 results
       if ((!result.products || result.products.length === 0) && page === 1) {
         console.log('[Agent] Initial search yielded 0 results. Running smart relaxation...');
 
         // 1. Both category AND maxPrice present: relax narrow category to find numbers in requested budget!
-        if (searchJSON.category && searchJSON.maxPrice) {
-          const relaxedA = { ...searchJSON };
+        // But MUST preserve startsWith, endsWith, notContain, mustContain!
+        if (effectiveSearchJSON.category && effectiveSearchJSON.maxPrice) {
+          const relaxedA = { ...effectiveSearchJSON };
           delete relaxedA.category;
           const resA = await fetchNumbers(relaxedA, 1);
-          if (resA.products && resA.products.length > 0) {
-            result = resA;
+          const validA = validateProductsAgainstConstraints(resA.products, relaxedA);
+          if (validA && validA.length > 0) {
+            result = { ...resA, products: validA };
             effectiveSearchJSON = relaxedA;
-            const catName = formatCategoryName(searchJSON.category);
-            const budgetFormatted = Number(searchJSON.maxPrice).toLocaleString('en-IN');
+            const catName = formatCategoryName(searchJSON?.category || effectiveSearchJSON.category);
+            const budgetFormatted = Number(effectiveSearchJSON.maxPrice).toLocaleString('en-IN');
             if (lang === 'English') {
               fallbackNote = `\n\n📌 *Note:* Pure ${catName} start in higher luxury price tiers. However, here are outstanding VIP numbers available within your *₹${budgetFormatted}* budget:`;
             } else if (lang === 'Hindi') {
@@ -1790,33 +2516,24 @@ export async function runAgent(opts) {
             } else {
               fallbackNote = `\n\n📌 *Note:* Pure ${catName} luxury segment mein aate hain. Lekin aapke *₹${budgetFormatted}* ke budget mein ye shandar VIP numbers available hain:`;
             }
-          } else {
-            // Try doubling numbers within budget
-            const relaxedB = { category: 'doubling-numbers', maxPrice: searchJSON.maxPrice };
-            const resB = await fetchNumbers(relaxedB, 1);
-            if (resB.products && resB.products.length > 0) {
-              result = resB;
-              effectiveSearchJSON = relaxedB;
-              const budgetFormatted = Number(searchJSON.maxPrice).toLocaleString('en-IN');
-              if (lang === 'English') {
-                fallbackNote = `\n\n📌 *Note:* Here are premium Doubling VIP numbers available within your *₹${budgetFormatted}* budget:`;
-              } else {
-                fallbackNote = `\n\n📌 *Note:* Aapke *₹${budgetFormatted}* budget ke andar ye shandar Doubling VIP numbers available hain:`;
-              }
-            }
           }
         }
 
-        // 2. Category + restrictive sub-filters (scoreSum, anywhere, endsWith) had 0 results
-        else if (searchJSON.category && (searchJSON.scoreSum || searchJSON.anywhere || searchJSON.endsWith || searchJSON.digitFreq1Digit)) {
-          const relaxedC = { category: searchJSON.category };
+        // 2. Category + restrictive sub-filters (scoreSum, anywhere) had 0 results
+        else if (effectiveSearchJSON.category && (effectiveSearchJSON.scoreSum || effectiveSearchJSON.anywhere)) {
+          const relaxedC = { category: effectiveSearchJSON.category };
+          if (effectiveSearchJSON.startsWith) relaxedC.startsWith = effectiveSearchJSON.startsWith;
+          if (effectiveSearchJSON.endsWith) relaxedC.endsWith = effectiveSearchJSON.endsWith;
+          if (effectiveSearchJSON.notContain) relaxedC.notContain = effectiveSearchJSON.notContain;
+          if (effectiveSearchJSON.maxPrice) relaxedC.maxPrice = effectiveSearchJSON.maxPrice;
           const resC = await fetchNumbers(relaxedC, 1);
-          if (resC.products && resC.products.length > 0) {
-            result = resC;
+          const validC = validateProductsAgainstConstraints(resC.products, relaxedC);
+          if (validC && validC.length > 0) {
+            result = { ...resC, products: validC };
             effectiveSearchJSON = relaxedC;
-            const catName = formatCategoryName(searchJSON.category);
+            const catName = formatCategoryName(effectiveSearchJSON.category);
             if (lang === 'English') {
-              fallbackNote = `\n\n📌 *Note:* That exact sub-pattern combination in ${catName} is currently unavailable, but here are the top available ${catName}:`;
+              fallbackNote = `\n\n📌 *Note:* That exact sub-pattern combination in ${catName} is currently unavailable, but here are top available ${catName}:`;
             } else {
               fallbackNote = `\n\n📌 *Note:* Is exact combination mein abhi number available nahi hai, par is category ke top VIP numbers ye rahe:`;
             }
@@ -1824,11 +2541,14 @@ export async function runAgent(opts) {
         }
 
         // 3. Digit pattern + scoreSum had 0 results: search digits directly without scoreSum
-        else if (searchJSON.scoreSum && (searchJSON.anywhere || searchJSON.endsWith || searchJSON.startsWith)) {
-          const relaxedD = { anywhere: searchJSON.anywhere, endsWith: searchJSON.endsWith, startsWith: searchJSON.startsWith };
+        else if (effectiveSearchJSON.scoreSum && (effectiveSearchJSON.anywhere || effectiveSearchJSON.endsWith || effectiveSearchJSON.startsWith)) {
+          const relaxedD = { anywhere: effectiveSearchJSON.anywhere, endsWith: effectiveSearchJSON.endsWith, startsWith: effectiveSearchJSON.startsWith };
+          if (effectiveSearchJSON.notContain) relaxedD.notContain = effectiveSearchJSON.notContain;
+          if (effectiveSearchJSON.maxPrice) relaxedD.maxPrice = effectiveSearchJSON.maxPrice;
           const resD = await fetchNumbers(relaxedD, 1);
-          if (resD.products && resD.products.length > 0) {
-            result = resD;
+          const validD = validateProductsAgainstConstraints(resD.products, relaxedD);
+          if (validD && validD.length > 0) {
+            result = { ...resD, products: validD };
             effectiveSearchJSON = relaxedD;
             if (lang === 'English') {
               fallbackNote = `\n\n📌 *Note:* Here are top numbers featuring your requested digits:`;
@@ -1868,40 +2588,49 @@ export async function runAgent(opts) {
       } else {
         // Engaging consultative follow-up — NEVER an abrupt dead-end!
         let engagingFollowUp;
+        const hasSpecificCriteria = effectiveSearchJSON && (effectiveSearchJSON.startsWith || effectiveSearchJSON.endsWith || effectiveSearchJSON.notContain);
+
         if (lang === 'English') {
-          engagingFollowUp = `\n\nThe exact combination you're looking for isn't in our active inventory right now.\n\n` +
-            `Don't worry at all! We have over 1 Lakh+ VIP mobile numbers in our collection. Tell me:\n` +
-            `🔹 Do you have any favourite digits (like 9, 7, 5, or 0)?\n` +
-            `🔹 Would you like to see popular styles like Doubling, 786 series, or your Lucky Sum?\n\n` +
-            `Tell me your preference and I'll find the best options for you right away! 😊`;
+          if (hasSpecificCriteria) {
+            engagingFollowUp = `\n\nI searched our live inventory of 1 Lakh+ VIP numbers, but currently there are no active numbers matching all your specific criteria.\n\n` +
+              `Because your requirements are very unique, our Senior VIP Consultant can check unlisted operator allotments directly for you!\n\n` +
+              `Would you like me to connect you with our consultant (reply *"agent"* or call *9222 222 007*), or would you like to explore alternative patterns or budgets? 😊`;
+          } else {
+            engagingFollowUp = `\n\nThe exact combination you're looking for isn't in our active inventory right now.\n\n` +
+              `Don't worry at all! We have over 1 Lakh+ VIP mobile numbers in our collection. Tell me:\n` +
+              `🔹 Do you have any favourite digits (like 9, 7, 5, or 0)?\n` +
+              `🔹 Would you like to see popular styles like Doubling, 786 series, or your Lucky Sum?\n\n` +
+              `Tell me your preference and I'll find the best options for you right away! 😊`;
+          }
         } else if (lang === 'Hindi') {
-          engagingFollowUp = `\n\nआपके द्वारा मांगा गया सटीक कॉम्बिनेशन अभी हमारे एक्टिव स्टॉक में उपलब्ध नहीं है।\n\n` +
-            `लेकिन चिंता की कोई बात नहीं! हमारे पास 1 लाख से अधिक VIP नंबर्स का विशाल संग्रह है। आप मुझे बताइए:\n` +
-            `🔹 आपका कोई पसंदीदा अंक है (जैसे 9, 7, 5 या 0)?\n` +
-            `🔹 या आप डबलिंग, 786 सीरीज़ या अपने लकी सम में नंबर देखना चाहेंगे?\n\n` +
-            `आप बताइए, मैं तुरंत आपके लिए बेहतरीन विकल्प निकाल कर दिखाती हूँ! 😊`;
-        } else if (lang === 'Gujarati') {
-          engagingFollowUp = `\n\nતમે જે ચોક્કસ કોમ્બિનેશન માંગ્યું છે તે અત્યારે અમારા સ્ટોકમાં ઉપલબ્ધ નથી.\n\n` +
-            `પણ ચિંતા ના કરશો! અમારી પાસે 1 લાખથી વધુ VIP નંબર્સ છે. તમે મને કહો:\n` +
-            `🔹 તમારો કોઈ ફેવરિટ નંબર છે (જેમ કે 9, 7, 5, 0)?\n` +
-            `🔹 કે પછી ડબલિંગ, 786 સીરીઝ અથવા લકી સમમાં નંબર જોવા છે?\n\n` +
-            `તમે જણાવો, હું તરત જ તમારા માટે બેસ્ટ ઓપ્શન્સ શોધી આપું છું! 😊`;
-        } else if (lang === 'Marathi') {
-          engagingFollowUp = `\n\nतुम्ही मागितलेले कॉम्बिनेशन सध्या आमच्या उपलब्ध साठ्यात उपलब्ध नाही.\n\n` +
-            `पण काळजी करू नका! आमच्याकडे 1 लाखांहून अधिक VIP नंबर्स आहेत. मला सांगा:\n` +
-            `🔹 तुमचा कोणताही आवडता अंक आहे का (उदा. 9, 7, 5, किंवा 0)?\n` +
-            `🔹 की तुम्हाला डबलિંગ, 786 सीरिज किंवा तुमच्या लकी सममधील नंबर पाहायचे आहेत?\n\n` +
-            `तुम्ही सांगा, मी लगेच तुमच्यासाठी सर्वोत्तम पर्याय शोधून देते! 😊`;
+          if (hasSpecificCriteria) {
+            engagingFollowUp = `\n\nमैंने हमारे 1 लाख+ VIP नंबर्स के पूरे संग्रह में देखा, लेकिन आपके द्वारा मांगे गए सभी विशिष्ट मानदंडों से मेल खाता नंबर अभी एक्टिव स्टॉक में उपलब्ध नहीं है।\n\n` +
+              `आपकी पसंद काफी खास है! हमारे सीनियर VIP कंसल्टेंट सीधे टेलीकॉम ऑपरेटरों से नए अलॉटमेंट चेक कर सकते हैं।\n\n` +
+              `क्या मैं आपको हमारे कंसल्टेंट से कनेक्ट करूँ (reply *"agent"* या कॉल करें *9222 222 007*), या आप कोई अन्य पैटर्न देखना चाहेंगे? 😊`;
+          } else {
+            engagingFollowUp = `\n\nआपके द्वारा मांगा गया सटीक कॉम्बिनेशन अभी हमारे एक्टिव स्टॉक में उपलब्ध नहीं है।\n\n` +
+              `लेकिन चिंता की कोई बात नहीं! हमारे पास 1 लाख से अधिक VIP नंबर्स का विशाल संग्रह है। आप मुझे बताइए:\n` +
+              `🔹 आपका कोई पसंदीदा अंक है (जैसे 9, 7, 5 या 0)?\n` +
+              `🔹 या आप डबलिंग, 786 सीरीज़ या अपने लकी सम में नंबर देखना चाहेंगे?\n\n` +
+              `आप बताइए, मैं तुरंत आपके लिए बेहतरीन विकल्प निकाल कर दिखाती हूँ! 😊`;
+          }
         } else {
-          engagingFollowUp = `\n\nAapne jo exact combination manga hai, woh is waqt hamare active collection mein available nahi hai.\n\n` +
-            `Lekin fikar bilkul mat kijiye! Hamare paas 1 Lakh+ VIP numbers hain. Aap mujhe batayein:\n` +
-            `🔹 Aapka koi favourite digit hai (jaise 9, 7, 5, 0)?\n` +
-            `🔹 Ya kisi specific category jaise Doubling, 786 series, ya apne Lucky Sum mein number dekhna chahenge?\n\n` +
-            `Aap jo bataenge, main turant best options nikal ke dikhati hoon! 😊`;
+          // Hinglish
+          if (hasSpecificCriteria) {
+            engagingFollowUp = `\n\nMaine hamare 1 Lakh+ VIP numbers ke pure collection mein check kiya, lekin filhal aapke sabhi specific criteria ko match karne wala number active stock mein nahi mila.\n\n` +
+              `Aapki choice kaafi unique hai! Hamare Senior VIP Consultant direct telecom operators se fresh unlisted inventory check karke aapke liye arrange kar sakte hain.\n\n` +
+              `Kya main aapki chat hamare consultant ko connect kar doon (reply *"agent"* ya call *9222 222 007*), ya aap koi doosra pattern ya budget try karna chahenge? 😊`;
+          } else {
+            engagingFollowUp = `\n\nAapne jo exact combination manga hai, woh is waqt hamare active collection mein available nahi hai.\n\n` +
+              `Lekin fikar bilkul mat kijiye! Hamare paas 1 Lakh+ VIP numbers hain. Aap mujhe batayein:\n` +
+              `🔹 Aapka koi favourite digit hai (jaise 9, 7, 5, 0)?\n` +
+              `🔹 Ya kisi specific category jaise Doubling, 786 series, ya apne Lucky Sum mein number dekhna chahenge?\n\n` +
+              `Aap jo bataenge, main turant best options nikal ke dikhati hoon! 😊`;
+          }
         }
         conversationalText = stripPhantomQuestions(conversationalText);
         conversationalText = conversationalText ? (conversationalText + engagingFollowUp) : engagingFollowUp.trim();
-        return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: null, model: usedModel, escalate: false, sendDocument: docToSend, sendDocuments: docToSend ? [docToSend] : [] };
+        return { reply: conversationalText, conversationalIntro: conversationalIntro, searchJSON: effectiveSearchJSON, model: usedModel, escalate: false, sendDocument: docToSend, sendDocuments: docToSend ? [docToSend] : [] };
       }
     } catch (searchErr) {
       console.error('[Agent] Search failed:', searchErr.message);

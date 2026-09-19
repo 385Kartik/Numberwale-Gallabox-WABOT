@@ -157,9 +157,9 @@ export async function fetchActiveBotCoupon() {
  * Fetch customer's active orders and purchased VIP numbers from CRM.
  */
 export async function fetchCustomerOrders(customerPhone) {
-  if (!customerPhone) return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] };
+  if (!customerPhone) return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], pendingPaymentOrders: [], pendingPaymentNumbers: [], pendingPaymentProducts: [], numerologyReports: [] };
   const cleanPhone = String(customerPhone).replace(/\D/g, '');
-  if (!cleanPhone) return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] };
+  if (!cleanPhone) return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], pendingPaymentOrders: [], pendingPaymentNumbers: [], pendingPaymentProducts: [], numerologyReports: [] };
 
   const API_URL = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
   const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
@@ -175,46 +175,92 @@ export async function fetchCustomerOrders(customerPhone) {
     });
 
     if (response.data && response.data.status === 'success') {
-      const orders = response.data.orders || [];
+      const rawOrders = response.data.orders || [];
+      const rawPending = response.data.pendingPaymentOrders || [];
       const numerologyReports = response.data.numerologyReports || [];
+      
+      const confirmedOrders = [];
+      const pendingPaymentOrders = [];
       const purchasedNumbers = [];
       const activeProducts = [];
+      const pendingPaymentNumbers = [];
+      const pendingPaymentProducts = [];
 
-      for (const ord of orders) {
-        for (const prod of (ord.products || [])) {
-          if (prod.number) {
-            const raw10 = String(prod.number).replace(/\D/g, '').slice(-10);
-            purchasedNumbers.push(raw10);
-            activeProducts.push({
-              ...prod,
-              number: raw10,
-              orderNumber: ord.orderNumber,
-              invoiceNumber: ord.invoiceNumber || prod.invoiceNumber || null,
-              pdfUrl: prod.pdfUrl || ord.pdfUrl || null,
-              pdfFilename: prod.pdfFilename || ord.pdfFilename || null,
-              creditNote: prod.creditNote || null,
-              creditNotePdfUrl: prod.creditNotePdfUrl || prod.creditNote?.pdfUrl || null,
-              creditNotePdfFilename: prod.creditNotePdfFilename || prod.creditNote?.pdfFilename || null,
-              orderStatus: ord.orderStatus,
-              createdAt: ord.createdAt
-            });
+      // Combine raw orders and pending orders, then strictly categorize by payment status
+      const allOrders = [...rawOrders, ...rawPending];
+      // Deduplicate orders by orderNumber
+      const seenOrderNumbers = new Set();
+      const uniqueOrders = allOrders.filter(o => {
+        if (!o.orderNumber || seenOrderNumbers.has(o.orderNumber)) return false;
+        seenOrderNumbers.add(o.orderNumber);
+        return true;
+      });
+
+      for (const ord of uniqueOrders) {
+        const rawPayStatus = String(ord.paymentStatus || '').toLowerCase();
+        const isPaid = (ord.isPaymentConfirmed === true || rawPayStatus === 'completed' || rawPayStatus === 'paid') &&
+          rawPayStatus !== 'pending' && rawPayStatus !== 'failed' && rawPayStatus !== 'cancelled';
+
+        if (isPaid) {
+          confirmedOrders.push(ord);
+          for (const prod of (ord.products || [])) {
+            if (prod.number) {
+              const raw10 = String(prod.number).replace(/\D/g, '').slice(-10);
+              purchasedNumbers.push(raw10);
+              activeProducts.push({
+                ...prod,
+                number: raw10,
+                orderNumber: ord.orderNumber,
+                invoiceNumber: ord.invoiceNumber || prod.invoiceNumber || null,
+                pdfUrl: prod.pdfUrl || ord.pdfUrl || null,
+                pdfFilename: (prod.pdfFilename || ord.pdfFilename || '').replace(/[\/\\]/g, '-'),
+                creditNote: prod.creditNote || null,
+                creditNotePdfUrl: prod.creditNotePdfUrl || prod.creditNote?.pdfUrl || null,
+                creditNotePdfFilename: (prod.creditNotePdfFilename || prod.creditNote?.pdfFilename || '').replace(/[\/\\]/g, '-'),
+                orderStatus: ord.orderStatus,
+                paymentStatus: 'completed',
+                isPaid: true,
+                createdAt: ord.createdAt
+              });
+            }
+          }
+        } else {
+          // Unpaid / pending payment order
+          pendingPaymentOrders.push(ord);
+          for (const prod of (ord.products || [])) {
+            if (prod.number) {
+              const raw10 = String(prod.number).replace(/\D/g, '').slice(-10);
+              pendingPaymentNumbers.push(raw10);
+              pendingPaymentProducts.push({
+                ...prod,
+                number: raw10,
+                orderNumber: ord.orderNumber,
+                orderStatus: ord.orderStatus,
+                paymentStatus: ord.paymentStatus || 'pending',
+                isPaid: false,
+                createdAt: ord.createdAt
+              });
+            }
           }
         }
       }
 
       return {
-        hasOrders: response.data.hasOrders || orders.length > 0 || numerologyReports.length > 0,
+        hasOrders: purchasedNumbers.length > 0 || numerologyReports.length > 0,
         customerName: response.data.customerName || null,
-        orders,
+        orders: confirmedOrders,
         purchasedNumbers: [...new Set(purchasedNumbers)],
         activeProducts,
+        pendingPaymentOrders,
+        pendingPaymentNumbers: [...new Set(pendingPaymentNumbers)],
+        pendingPaymentProducts,
         numerologyReports
       };
     }
-    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], numerologyReports: [] };
+    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], pendingPaymentOrders: [], pendingPaymentNumbers: [], pendingPaymentProducts: [], numerologyReports: [] };
   } catch (err) {
     console.warn('[Orders] fetchCustomerOrders warning:', err.response?.data?.message || err.message);
-    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], numerologyReports: [] };
+    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], pendingPaymentOrders: [], pendingPaymentNumbers: [], pendingPaymentProducts: [], numerologyReports: [] };
   }
 }
 

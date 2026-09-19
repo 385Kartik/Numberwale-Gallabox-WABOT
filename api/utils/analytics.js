@@ -44,6 +44,7 @@ const CustomerBotProfileSchema = new mongoose.Schema({
   pinCode: { type: String },
   name: { type: String, default: 'Unknown' },
   selfProvidedName: { type: Boolean, default: false },
+  leadSynced: { type: Boolean, default: false },
   language: { type: String, default: null },
   dob: { type: String, default: null },
   birthNumber: { type: Number, default: null },
@@ -89,6 +90,7 @@ function getMemoryProfile(phone) {
       name: 'Unknown',
       selfProvidedName: false,
       pinCode: null,
+      leadSynced: false,
       language: null,
       dob: null,
       birthNumber: null,
@@ -123,6 +125,7 @@ export async function getCustomerContext(phone, name) {
       name: profile.name,
       selfProvidedName: profile.selfProvidedName || false,
       pinCode: profile.pinCode,
+      leadSynced: profile.leadSynced || false,
       language: profile.language || null,
       dob: profile.dob || null,
       birthNumber: profile.birthNumber != null ? profile.birthNumber : null,
@@ -145,6 +148,7 @@ export async function getCustomerContext(phone, name) {
       name: mem.name,
       selfProvidedName: mem.selfProvidedName || false,
       pinCode: mem.pinCode,
+      leadSynced: mem.leadSynced || false,
       language: mem.language || null,
       dob: mem.dob || null,
       birthNumber: mem.birthNumber != null ? mem.birthNumber : null,
@@ -273,6 +277,9 @@ export async function logInteraction({ phone, name, userText, botText, isFail = 
     if (dob) mem.dob = dob;
     if (birthNumber != null) mem.birthNumber = birthNumber;
     if (lifePathNumber != null) mem.lifePathNumber = lifePathNumber;
+    if (jsonQuery && Object.keys(jsonQuery).length > 0) {
+      mem.activeFilters = jsonQuery;
+    }
 
     const incCustomer = isFail ? { failureCount: 1 } : { successCount: 1 };
 

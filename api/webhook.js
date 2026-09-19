@@ -338,8 +338,8 @@ export default async function handler(req, res) {
       getCustomerContext(customerPhone, customerName),
       customerPhone ? fetchCustomerOrders(customerPhone).catch(err => {
         console.warn('[Webhook] Error fetching customer orders:', err.message);
-        return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] };
-      }) : Promise.resolve({ hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [] })
+        return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], pendingPaymentOrders: [], pendingPaymentNumbers: [], pendingPaymentProducts: [] };
+      }) : Promise.resolve({ hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], pendingPaymentOrders: [], pendingPaymentNumbers: [], pendingPaymentProducts: [] })
     ]);
     const tContext = Date.now() - t0Context;
 
@@ -347,6 +347,9 @@ export default async function handler(req, res) {
     customerContext.orders = customerOrdersData?.orders || [];
     customerContext.purchasedNumbers = customerOrdersData?.purchasedNumbers || [];
     customerContext.activeProducts = customerOrdersData?.activeProducts || [];
+    customerContext.pendingPaymentOrders = customerOrdersData?.pendingPaymentOrders || [];
+    customerContext.pendingPaymentNumbers = customerOrdersData?.pendingPaymentNumbers || [];
+    customerContext.pendingPaymentProducts = customerOrdersData?.pendingPaymentProducts || [];
     customerContext.numerologyReports = customerOrdersData?.numerologyReports || [];
     if (customerOrdersData?.customerName && (!customerContext.name || customerContext.name === 'Unknown')) {
       customerContext.name = cleanCustomerName(customerOrdersData.customerName) || customerContext.name;
@@ -390,9 +393,107 @@ export default async function handler(req, res) {
     }
 
     // ── Global Commands ───────────────────────────────────────────────────
+    const cancellationRefundRegex = /\b(cancel|cancellation|cancelling|cancelled|canceld|cancle|refund|refunds|refunding|refunded|money\s*back|return\s*money|paisa\s*wapas|paise\s*wapas|rupaye\s*wapas|paise\s*lautao|paisa\s*lautao|radd|radd\s*karo|radd\s*karna)\b/i;
     const agentRegex = /\b(talk\s*to\s*(?:an?\s*)?(?:agent|human|executive)|connect\s*(?:to|me)?\s*(?:an?\s*)?(?:agent|human|executive)|agent\s*se\s*baat|executive\s*se\s*baat|customer\s*care|call\s*me|call\s*back)\b|^(agent|human|executive|help|madad|सहायता)$/i;
     const resetRegex = /^(menu|restart|reset|clear|start|शुरू|वापस)\b/i;
     const languageRegex = /^(language|change language|bhasha|bhasa|select language|ભાષા|भाषा)\b/i;
+
+    if (cancellationRefundRegex.test(lowerMsg)) {
+      console.log(`[Webhook] 🚨 Cancellation/Refund request received from ${customerPhone}: "${userMessage}". Transferring to human executive.`);
+      pauseBot(customerPhone);
+      await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: false });
+
+      const convId = body?.conversationId || body?.data?.conversationId || body?.request?.data?.conversationId || '';
+      if (convId) {
+        saveConversationId(customerPhone, convId).catch(() => {});
+      }
+
+      // 1. Tag in Gallabox → REQUIRE_AGENT
+      await addGallaboxTag(customerPhone, "REQUIRE_AGENT");
+      removeGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
+      stopDrip(customerPhone).catch(() => {});
+
+      // 2. Notify Admin CRM Panel
+      const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
+      const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
+      fetch(`${ADMIN_API}/api/v1/gallabox-bot/request-agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
+        body: JSON.stringify({
+          phone: customerPhone,
+          name: customerContext.name || '',
+          pincode: customerContext.pinCode || '',
+          pinCode: customerContext.pinCode || '',
+          language: customerContext.language || 'English',
+          activeFilters: customerContext.activeFilters || {},
+          conversationId: convId,
+          isUrgent: true,
+          reason: 'Customer requested order cancellation / refund'
+        })
+      }).then(r => console.log(`[Webhook] Admin notified for cancellation/refund agent request: ${r.status}`))
+        .catch(e => console.error(`[Webhook] Admin notification for cancellation/refund failed:`, e.message));
+
+      // 3. Fallback timeout logic (2 mins)
+      setTimeout(async () => {
+        try {
+          const ctx = await getCustomerContext(customerPhone);
+          if (!ctx.agentReplied) {
+            console.log(`[Webhook] Agent timeout (2 min) after cancellation/refund request for ${customerPhone}. Reactivating bot.`);
+            resumeBot(customerPhone);
+            await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
+            addGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
+            removeGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
+
+            const lang = ctx.language || 'English';
+            let timeoutMsg = '';
+            if (lang === 'English') {
+              timeoutMsg = `Our executives are currently busy assisting other clients. 👨‍💻\n\nThey have been notified of your cancellation/refund request and will connect with you here shortly! In the meantime, please let me know if you have any other query. 😊`;
+            } else if (lang === 'Hindi') {
+              timeoutMsg = `हमारे सभी executives अभी व्यस्त हैं। 👨‍💻\n\nउन्हें आपकी कैंसिलेशन/रिफंड की request मिल चुकी है और वो जल्द ही यहाँ connect करेंगे! तब तक अगर आपकी कोई और query हो तो कृपया बताएं। 😊`;
+            } else if (lang === 'Gujarati') {
+              timeoutMsg = `અમારા તમામ એક્ઝિક્યુટિવ્સ અત્યારે વ્યસ્ત છે. 👨‍💻\n\nતેમને તમારી કેન્સલેશન/રિફંડ વિનંતી મળી ગઈ છે અને તેઓ ટૂંક સમયમાં તમારી સાથે અહીં જોડાશે! ત્યાં સુધી જો તમારો કોઈ અન્ય પ્રશ્ન હોય તો જણાવો. 😊`;
+            } else if (lang === 'Marathi') {
+              timeoutMsg = `आमचे सर्व एक्झिक्युटिव्ह सध्या व्यस्त आहेत. 👨‍💻\n\nत्यांना तुमची कॅन्सलेशन/रिफंड विनंती मिळाली असून ते लवकरच तुमच्याशी येथे कनेक्ट होतील! तोपर्यंत आपली काही इतर शंका असल्यास कृपया सांगा. 😊`;
+            } else {
+              timeoutMsg = `Hamare sabhi executives abhi busy hain. 👨‍💻\n\nUnhe aapki cancellation/refund request mil chuki hai aur woh aapse jald hi yaha connect karenge! Tab tak agar aapki koi aur query ho toh kripya batayein. 😊`;
+            }
+            await sendToGallabox(customerPhone, timeoutMsg, channelID);
+          }
+        } catch (err) {
+          console.error('[Webhook] VPS timeout error after cancellation/refund:', err.message);
+        }
+      }, 2 * 60 * 1000);
+
+      // Reply to customer
+      const lang = customerContext.language || 'English';
+      let cancelReply = '';
+      if (lang === 'English') {
+        cancelReply = "Your request has been noted. For order cancellation and refund requests, your chat is being transferred to our support executive / human agent. Our team will connect with you here shortly. 👨‍💻\n\nIn the meantime, please let me know if you have any other query! 😊";
+      } else if (lang === 'Hindi') {
+        cancelReply = "आपकी request नोट कर ली गई है। ऑर्डर कैंसिलेशन और रिफंड के लिए आपकी चैट हमारे सपोर्ट एग्जीक्यूटिव / एजेंट को ट्रांसफर की जा रही है, हमारी टीम जल्द ही आपसे यहाँ संपर्क करेगी। 👨‍💻\n\nइसके अलावा अगर आपकी कोई और query हो तो कृपया बताएं! 😊";
+      } else if (lang === 'Gujarati') {
+        cancelReply = "તમારી વિનંતી નોંધી લેવામાં આવી છે. ઓર્ડર રદ કરવા અને રિફંડ માટે તમારી ચેટ અમારા સપોર્ટ એક્ઝિક્યુટિવ / એજન્ટને ટ્રાન્સફર કરવામાં આવી રહી છે, અમારી ટીમ ટૂંક સમયમાં તમારી સાથે અહીં જોડાશે. 👨‍💻\n\nઆ સિવાય જો તમારો કોઈ અન્ય પ્રશ્ન હોય તો કૃપા કરીને જણાવો! 😊";
+      } else if (lang === 'Marathi') {
+        cancelReply = "तुमची विनंती नोंदवून घेतली आहे. ऑर्डर रद्द करणे आणि परताव्यासाठी (रिफंड) तुमची चॅट आमच्या सपोर्ट एक्झिक्युटिव्ह / एजंटकडे ट्रान्सफर केली जात आहे, आमची टीम लवकरच तुमच्याशी येथे संपर्क साधेल. 👨‍💻\n\nयाव्यतिरिक्त तुमची काही शंका असल्यास कृपया सांगा! 😊";
+      } else {
+        cancelReply = "Aapka request note kar liya gaya hai. Order cancellation aur refund ke liye aapki chat hamare support executive / human agent ko transfer ki ja rahi hai, hamari team jald hi aapse yahan connect karegi. 👨‍💻\n\nIske alawa agar aapki koi aur query ho toh kripya batayein! 😊";
+      }
+
+      await sendToGallabox(customerPhone, cancelReply, channelID);
+      await logInteraction({
+        phone: customerPhone,
+        name: effectiveCustomerName,
+        userText: userMessage,
+        botText: cancelReply,
+        isFail: false,
+        model: 'cancellation-refund-escalation',
+        tokensUsed: 0,
+        jsonQuery: null,
+        page: 1,
+      }).catch(() => {});
+
+      return res.status(200).json({ success: true, reason: 'cancellation_refund_escalated' });
+    }
 
     if (agentRegex.test(lowerMsg)) {
       pauseBot(customerPhone);
@@ -567,6 +668,8 @@ export default async function handler(req, res) {
             conversationId: convId,
             autoAssign: true
           })
+        }).then(r => {
+          if (r.ok) updateCustomerInfo(customerPhone, { leadSynced: true }).catch(() => {});
         }).catch(e => console.error(`[Webhook] Failed to sync lead to CRM:`, e.message));
 
         const welcomeMsg = `Awesome, ${extractedName}! 🎉 Your Pincode ${extractedPin} has been saved.\n\nHi, I'm Eva, Numberwale's assistant! What kind of VIP mobile number are you looking for? (e.g. _9999 ending_, _mirror numbers_, _lucky total 5 or 6_, or share your budget) 😊`;
@@ -627,6 +730,8 @@ export default async function handler(req, res) {
             conversationId: convId,
             autoAssign: true
           })
+        }).then(r => {
+          if (r.ok) updateCustomerInfo(customerPhone, { leadSynced: true }).catch(() => {});
         }).catch(e => console.error(`[Webhook] Failed to sync lead to CRM:`, e.message));
 
         const lang = customerContext.language || 'English';
@@ -998,17 +1103,39 @@ export default async function handler(req, res) {
       // ── Escalation: pause bot + tag contact ─────────────────────────────
       if (agentResult.escalate) {
         pauseBot(customerPhone);
+        await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: false });
         await addGallaboxTag(customerPhone, "REQUIRE_AGENT");
         removeGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
         stopDrip(customerPhone).catch(() => {});
-        console.log(`[Webhook] 🔴 Bot PAUSED for ${customerPhone} — escalated to human agent`);
+
+        const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
+        const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
+        const convId = body?.conversationId || body?.data?.conversationId || body?.request?.data?.conversationId || '';
+        fetch(`${ADMIN_API}/api/v1/gallabox-bot/request-agent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
+          body: JSON.stringify({
+            phone: customerPhone,
+            name: customerContext.name || '',
+            pincode: customerContext.pinCode || '',
+            pinCode: customerContext.pinCode || '',
+            language: customerContext.language || 'English',
+            activeFilters: customerContext.activeFilters || {},
+            conversationId: convId,
+            isUrgent: true,
+            reason: agentResult.escalateReason || 'Agent escalated to human executive'
+          })
+        }).then(r => console.log(`[Webhook] Admin notified for AI agent escalation: ${r.status}`))
+          .catch(e => console.error(`[Webhook] Admin notification for AI agent escalation failed:`, e.message));
+
+        console.log(`[Webhook] 🔴 Bot PAUSED for ${customerPhone} — escalated to human agent (${agentResult.escalateReason || 'general'})`);
         await logInteraction({
           phone: customerPhone,
           name: effectiveCustomerName,
           userText: userMessage,
-          botText: '🔴 ESCALATED to human agent',
+          botText: replyText || '🔴 ESCALATED to human agent',
           isFail: false,
-          model: 'escalation',
+          model: agentResult.model || 'escalation',
           tokensUsed: 0,
           jsonQuery: null,
           page: 1,
