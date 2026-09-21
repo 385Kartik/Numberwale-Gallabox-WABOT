@@ -11,6 +11,11 @@ import { fetchNumbers } from './searchApi.js';
 import { fetchProductByNumber, fetchActiveBotCoupon, fetchActiveBotCoupons } from './paymentUtils.js';
 import { detectLanguage } from './agentEngine.js';
 import { findAlternativeNumbers } from './numberClassifier.js';
+import { 
+  getOfficeHoursStatus as getHelperOfficeHoursStatus, 
+  fetchOfficeStatusFromCRM, 
+  calculateWorkingHoursRemaining 
+} from './workingHoursHelper.js';
 
 export function cleanCustomerName(rawName) {
   if (!rawName || typeof rawName !== 'string') return null;
@@ -130,28 +135,8 @@ const PLANET_GUIDE = {
   9: 'Mars 🔥 (Dynamic Energy, Courage & Bold Action)'
 };
 
-export function getOfficeHoursStatus() {
-  const now = new Date();
-  const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-  const istDate = new Date(istString);
-  const day = istDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  const hours = istDate.getHours();
-  const minutes = istDate.getMinutes();
-  const currentMinutes = hours * 60 + minutes;
-
-  const isSunday = (day === 0);
-  const isOpen = !isSunday && (currentMinutes >= 10 * 60 && currentMinutes < 19 * 60); // 10:00 AM to 7:00 PM
-
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const formattedTime = istDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-
-  return {
-    isOpen,
-    isSunday,
-    currentDay: dayNames[day],
-    currentTime: formattedTime,
-    schedule: "10:00 AM to 7:00 PM, Monday to Saturday (Closed on Sundays)"
-  };
+export function getOfficeHoursStatus(holidays = [], dateInput = new Date()) {
+  return getHelperOfficeHoursStatus(holidays, dateInput);
 }
 
 export function buildSystemPrompt(ctx) {
@@ -239,11 +224,17 @@ export function buildSystemPrompt(ctx) {
   L.push('- Strictly NEVER switch to another language unless customer specifically switches language in their message.');
   L.push(name ? 'Customer name: ' + name : 'Customer name: Unknown');
   L.push('');
-  const officeStatus = (ctx && ctx.testOfficeStatus) || getOfficeHoursStatus();
-  L.push('## OFFICE HOURS & STRICT CALLING POLICY');
-  L.push('- Official Office Hours: 10:00 AM to 7:00 PM, Monday to Saturday (Closed on Sundays).');
-  L.push(`- Current IST Time: ${officeStatus.currentDay}, ${officeStatus.currentTime}.`);
-  L.push(`- Office Current Status: ${officeStatus.isOpen ? '🟢 OPEN (Helpline Active: 10am to 7pm)' : '🔴 CLOSED (AFTER OFFICE HOURS — PHONE CALLS CANNOT BE ANSWERED)'}.`);
+  const officeStatus = (ctx && ctx.testOfficeStatus) || (ctx && ctx.officeStatus) || getOfficeHoursStatus(ctx?.officeHolidays || []);
+  L.push('## OFFICE HOURS, HOLIDAYS & STRICT TIMELINE POLICY');
+  L.push('- Official Working Hours: 10:00 AM to 7:00 PM, Monday to Saturday (9 working hours/day).');
+  L.push('- Non-Working Days: Sunday (Weekly Off) and Scheduled Office Leaves/Holidays.');
+  L.push(`- Current IST Time: ${officeStatus.currentDay}, ${officeStatus.currentTime}${officeStatus.currentDate ? ' (' + officeStatus.currentDate + ')' : ''}.`);
+  L.push(`- Office Current Status: ${officeStatus.isOpen ? '🟢 OPEN (Helpline & Operations Active: 10am to 7pm)' : '🔴 CLOSED (' + (officeStatus.reason || 'Non-Working Hours') + ')'}.`);
+  L.push(`- Is Non-Working Day (Sunday/Holiday): ${officeStatus.isNonWorkingDay ? 'YES' : 'NO'}`);
+  L.push(`- Is Non-Working Hours (Outside 10am-7pm): ${officeStatus.isNonWorkingHour ? 'YES' : 'NO'}`);
+  if (officeStatus.nextWorkingDay) {
+    L.push(`- Next Working Window: ${officeStatus.nextWorkingDay} at ${officeStatus.nextWorkingTime || '10:00 AM'}.`);
+  }
   L.push('- CRITICAL CALLING POLICY:');
   if (officeStatus.isOpen) {
     L.push('  • Helpline +91 9222 222 007 is active right now (10:00 AM to 7:00 PM, Mon–Sat).');
@@ -252,9 +243,9 @@ export function buildSystemPrompt(ctx) {
     L.push('  • 🚨 OFFICE IS CURRENTLY CLOSED! Phone calls CANNOT be answered right now.');
     L.push('  • If customer asks to call, speak to an agent/manager, or requests a callback:');
     L.push('    1. State clearly that our office hours are 10:00 AM to 7:00 PM, Monday to Saturday (Closed on Sundays).');
-    L.push('    2. Politely explain that calls cannot be answered after office hours.');
+    L.push('    2. Politely explain that calls cannot be answered after office hours / on holidays.');
     L.push('    3. Reassure them that you (Eva) are available 24/7 on WhatsApp chat to answer all questions and help them find/book numbers right now!');
-    L.push('    4. Promise that our team will gladly connect or call them back as soon as the office opens at 10:00 AM.');
+    L.push(`    4. Promise that our team will gladly connect or call them back during the next working hours (${officeStatus.nextWorkingDay || 'tomorrow'} starting at ${officeStatus.nextWorkingTime || '10:00 AM'}).`);
   }
   L.push('');
   L.push('## NUMBERWALE FACTS (use strictly, never guess)');
@@ -467,15 +458,23 @@ export function buildSystemPrompt(ctx) {
     L.push('1. 🛑 ABSOLUTE RULE: NEVER say "this number is sold", "unavailable", or "not in our inventory" for any of the above purchased numbers! The customer chatting with you IS THE ONE WHO PURCHASED IT!');
     L.push('2. Address them warmly and thank them for purchasing with Numberwale: "Thank you for purchasing with Numberwale!" (or in Hindi/Hinglish: "Numberwale se purchase karne ke liye bohot bohot shukriya!")');
     L.push('3. Provide accurate information based on their `upcStatus`:');
-    L.push('   • IF `pending`:');
-    L.push('     - Thank them for purchasing.');
-    L.push('     - Explain that their order is confirmed and UPC generation has started.');
-    L.push('     - Inform them that UPC will be delivered for their number within 24 working hours via SMS.');
-    L.push('     - Reassure: "We will try our best to provide you as soon as possible. Thank you for your patience! 😊"');
-    L.push('   • IF `upc_in_process`:');
-    L.push('     - Thank them for purchasing.');
-    L.push('     - Calculate and state the remaining working hours explicitly!');
-    L.push('     - Example: "Aapke number [Number] ka UPC generation process mein hai. UPC will be provided within ~[remainingWorkingHours] working hrs, but we are trying our best to provide you as soon as possible. Thank you for your patience! 😊"');
+    L.push('   • IF `upc_in_process` OR `pending`:');
+    L.push('     - Thank them warmly for purchasing.');
+    L.push('     - 🛑 STRICT TIMELINE & WORKING HOURS RULE:');
+    L.push('       • UPC delivery is measured in 24 WORKING HOURS (Mon-Sat 10:00 AM to 7:00 PM).');
+    L.push('       • Sundays and office holidays do NOT count towards working hours!');
+    L.push('       • Hours outside 10:00 AM to 7:00 PM do NOT count towards working hours!');
+    if (officeStatus.isNonWorkingDay) {
+      L.push(`       • 🚨 CRITICAL (TODAY IS NON-WORKING DAY): Today is a non-working day (${officeStatus.reason || 'Sunday Weekly Off'}). You MUST explicitly inform the customer:`);
+      L.push(`         "Today is a non-working day, can you please wait for today? Our executives will guide you on the next working day (${officeStatus.nextWorkingDay || 'Monday'} starting at ${officeStatus.nextWorkingTime || '10:00 AM'})."`);
+      L.push('         State clearly that their order is confirmed and UPC generation will continue during working hours (~[remainingWorkingHours] working hrs remaining).');
+    } else if (officeStatus.isNonWorkingHour) {
+      L.push(`       • 🚨 CRITICAL (CURRENTLY NON-WORKING HOURS): Office hours are 10:00 AM to 7:00 PM. You MUST explicitly inform the customer:`);
+      L.push(`         "Our office hours are 10:00 AM to 7:00 PM. As it is currently outside office hours, our team / executives will guide you during the next working hours (${officeStatus.nextWorkingDay || 'tomorrow'} starting at ${officeStatus.nextWorkingTime || '10:00 AM'})."`);
+      L.push('         State clearly that their order is confirmed and progressing safely (~[remainingWorkingHours] working hrs remaining).');
+    } else {
+      L.push('       • State clearly that their order is confirmed and UPC will be delivered within ~[remainingWorkingHours] working hours via SMS. Reassure them that our team is trying their best to provide it as soon as possible! 😊');
+    }
     L.push('   • IF `upc_delivered`:');
     L.push('     - Inform them that UPC is delivered! Share the code if present: "Aapke number [Number] ka UPC code hai: *[upcCode]* (SMS par bhi bheja gaya hai)."');
     L.push('     - State clearly: "Yeh UPC code 4 working days tak valid rehta hai."');
@@ -1859,9 +1858,10 @@ export function isMyNumbersQuery(text) {
 
   const patterns = [
     /\b(?:mere|mera|meri|apna|apne)\s*(?:kitne|kaun\s*sa|konsa|konse|kaunse|kya)\s*(?:number|numbers)\b/i,
-    /\b(?:mere|mera|meri)\s*(?:number|numbers|order|orders)\s*(?:batao|dikhao|bhejo|check\s*karo|kya\s*hai|list)\b/i,
+    /\b(?:mere|mera|meri)\s*(?:number|numbers|order|orders|upc)?(?:\s*(?:ka|ke|ki))?\s*(?:status|batao|dikhao|bhejo|check\s*karo|kya\s*hai|list|kab\s*aayega)\b/i,
     /\b(?:which|what|how\s*many)\s*(?:are\s*my|is\s*my|numbers?\s*do\s*i\s*have)\b/i,
-    /\b(?:my\s*numbers?|my\s*orders?)\b/i,
+    /\b(?:my\s*numbers?|my\s*orders?|my\s*upc|order\s*status|upc\s*status)\b/i,
+    /\b(?:check|track)\s*(?:my\s*)?(?:order|upc|number)\b/i,
     /\b(?:mere\s*kitne\s*order|mere\s*orders)\b/i
   ];
 
@@ -1969,6 +1969,21 @@ export async function runAgent(opts) {
     }
   }
 
+  const officeStatus = (customerContext && customerContext.testOfficeStatus) ||
+    (customerContext && customerContext.officeStatus) ||
+    (await fetchOfficeStatusFromCRM().catch(() => getOfficeHoursStatus([])));
+  customerContext.officeStatus = officeStatus;
+
+  const calculateRemaining = (p) => {
+    if (!p) return 24;
+    if (p.processedAt) {
+      const effectiveNow = (customerContext && customerContext.testNow) || (officeStatus && officeStatus.rawDate) || new Date();
+      const calc = calculateWorkingHoursRemaining(p.processedAt, 24, officeStatus.activeHolidays || [], effectiveNow);
+      return calc.remainingWorkingHours;
+    }
+    return p.remainingWorkingHours != null ? p.remainingWorkingHours : 24;
+  };
+
   const activeOrders = customerContext.activeProducts || [];
   const pendingOrders = customerContext.pendingPaymentOrders || [];
   const pendingProds = customerContext.pendingPaymentProducts || [];
@@ -1979,6 +1994,7 @@ export async function runAgent(opts) {
       pendingOrders.find(o => (o.productMobileNumber || o.product?.mobileNumber || o.number) === detected10Digit);
 
     if (purchasedProd) {
+      const accurateRemaining = calculateRemaining(purchasedProd);
       customerContext.targetProduct = {
         number: detected10Digit,
         isPurchasedByCustomer: true,
@@ -1989,7 +2005,7 @@ export async function runAgent(opts) {
         upcStatus: purchasedProd.upcStatus || 'pending',
         upcCode: purchasedProd.upcCode || null,
         elapsedHours: purchasedProd.elapsedHours != null ? purchasedProd.elapsedHours : null,
-        remainingWorkingHours: purchasedProd.remainingWorkingHours != null ? purchasedProd.remainingWorkingHours : 24,
+        remainingWorkingHours: accurateRemaining,
         processedAt: purchasedProd.processedAt || null,
         deliveredAt: purchasedProd.deliveredAt || null,
         operator: purchasedProd.operator || null,
@@ -2078,7 +2094,7 @@ export async function runAgent(opts) {
         upcStatus: purchasedProd.upcStatus || 'pending',
         upcCode: purchasedProd.upcCode || null,
         elapsedHours: purchasedProd.elapsedHours != null ? purchasedProd.elapsedHours : null,
-        remainingWorkingHours: purchasedProd.remainingWorkingHours != null ? purchasedProd.remainingWorkingHours : 24,
+        remainingWorkingHours: calculateRemaining(purchasedProd),
         processedAt: purchasedProd.processedAt || null,
         deliveredAt: purchasedProd.deliveredAt || null,
         operator: purchasedProd.operator || null,
@@ -2153,9 +2169,17 @@ export async function runAgent(opts) {
     let myNumbersReply = '';
     if (activeOrders.length > 0) {
       const confirmedList = activeOrders.map((p, idx) => {
-        const remainingHrs = p.remainingWorkingHours != null ? p.remainingWorkingHours : 24;
-        return `${idx + 1}. *${p.formattedNumber || p.number}*\n   • Order ID: #${p.orderNumber || 'N/A'}\n   • Payment: Confirmed (Paid)\n   • Status: ${p.upcStatus || 'UPC In Process'}\n   • Delivery: Within ~${remainingHrs} working hours via SMS`;
+        const remainingHrs = calculateRemaining(p);
+        const numFmt = p.formattedNumber || (p.number && p.number.length === 10 ? `${p.number.slice(0, 5)} ${p.number.slice(5)}` : p.number);
+        return `${idx + 1}. *${numFmt}*\n   • Order ID: #${p.orderNumber || 'N/A'}\n   • Payment: Confirmed (Paid)\n   • Status: ${p.upcStatus || 'UPC In Process'}\n   • Delivery: Within ~${remainingHrs} working hours via SMS`;
       }).join('\n\n');
+
+      let scheduleNotice = '';
+      if (officeStatus.isNonWorkingDay) {
+        scheduleNotice = `\n\n📌 *Notice:* Aaj non-working day (${officeStatus.reason || 'Sunday Off'}) hai, kripya aaj ke din wait karein. Hamare executives agle working day (${officeStatus.nextWorkingDay || 'Monday'} subah ${officeStatus.nextWorkingTime || '10:00 AM'}) par aapko guide karenge. UPC 24 working hours ke hisaab se deliver hota hai (Sundays aur holidays count nahi hote).`;
+      } else if (officeStatus.isNonWorkingHour) {
+        scheduleNotice = `\n\n📌 *Notice:* Hamare office hours subah 10:00 AM se shaam 7:00 PM tak hain. Abhi non-working hours hain, isliye hamare executives agle working hours (${officeStatus.nextWorkingDay || 'kal subah'} ${officeStatus.nextWorkingTime || '10:00 AM'} se) aapse connect karke guide karenge.`;
+      }
 
       let pendingNote = '';
       if (pendingProds.length > 0 || pendingOrders.length > 0) {
@@ -2168,7 +2192,7 @@ export async function runAgent(opts) {
         pendingNote = `\n\n📌 *Unpaid / Pending Orders:*\n${pList}\n(In orders ka payment abhi confirm nahi hua hai)`;
       }
 
-      myNumbersReply = `Aapke account mein yeh VIP mobile number confirmed booked hain: 🎉\n\n${confirmedList}${pendingNote}\n\nKisi bhi sahayata ke liye hamare helpline *+91 9222 222 007* (10am–7pm) par connect kar sakte hain! 😊`;
+      myNumbersReply = `Aapke account mein yeh VIP mobile number confirmed booked hain: 🎉\n\n${confirmedList}${pendingNote}${scheduleNotice}\n\nKisi bhi sahayata ke liye hamare helpline *+91 9222 222 007* (10am–7pm) par connect kar sakte hain! 😊`;
     } else if (pendingProds.length > 0 || pendingOrders.length > 0) {
       const list = pendingProds.length > 0 ? pendingProds : pendingOrders;
       const pList = list.map((p, idx) => {
@@ -2208,13 +2232,22 @@ export async function runAgent(opts) {
 
     let claimReply = '';
     if (targetActive) {
-      const remainingHrs = targetActive.remainingWorkingHours != null ? targetActive.remainingWorkingHours : 24;
+      const remainingHrs = calculateRemaining(targetActive);
       if (lang === 'English') {
-        claimReply = `Yes! Your payment is successfully confirmed in our CRM! 🎉\n\n• Number: *${targetActive.formattedNumber || targetActive.number}*\n• Order ID: *#${targetActive.orderNumber || 'N/A'}*\n• Status: *${targetActive.upcStatus || 'In Process'}*\n\nYour Unique Porting Code (UPC) is being processed with the telecom operator and will be sent via SMS within ~${remainingHrs} working hours. Thank you for choosing Numberwale! 😊`;
+        const engSchedule = officeStatus.isNonWorkingDay
+          ? `\n\n📌 *Notice:* Today is a non-working day (${officeStatus.reason || 'Office Holiday'}), can you please wait for today? Our executives will guide you on the next working day (${officeStatus.nextWorkingDay || 'Monday'} starting at ${officeStatus.nextWorkingTime || '10:00 AM'}).`
+          : (officeStatus.isNonWorkingHour ? `\n\n📌 *Notice:* Our office hours are 10:00 AM to 7:00 PM. As it is currently outside working hours, our team will guide you during the next working hours (${officeStatus.nextWorkingDay || 'tomorrow'} starting at ${officeStatus.nextWorkingTime || '10:00 AM'}).` : '');
+        claimReply = `Yes! Your payment is successfully confirmed in our CRM! 🎉\n\n• Number: *${targetActive.formattedNumber || targetActive.number}*\n• Order ID: *#${targetActive.orderNumber || 'N/A'}*\n• Status: *${targetActive.upcStatus || 'In Process'}*\n\nYour Unique Porting Code (UPC) is being processed with the telecom operator and will be sent via SMS within ~${remainingHrs} working hours.${engSchedule}\n\nThank you for choosing Numberwale! 😊`;
       } else if (lang === 'Hindi') {
-        claimReply = `हाँ जी! आपका पेमेंट हमारे CRM सिस्टम में सफलतापूर्वक कन्फर्म हो चुका है! 🎉\n\n• नंबर: *${targetActive.formattedNumber || targetActive.number}*\n• ऑर्डर ID: *#${targetActive.orderNumber || 'N/A'}*\n• स्टेटस: *${targetActive.upcStatus || 'In Process'}*\n\nआपके नंबर का UPC कोड ऑपरेटर के साथ प्रोसेस में है और अगले ~${remainingHrs} वर्किंग घंटों में SMS द्वारा आपको डिलीवर कर दिया जाएगा। Numberwale चुनने के लिए धन्यवाद! 😊`;
+        const hinSchedule = officeStatus.isNonWorkingDay
+          ? `\n\n📌 *सूचना:* आज non-working day (${officeStatus.reason || 'Office Holiday'}) है, कृपया आज प्रतीक्षा करें। हमारे एग्जीक्यूटिव्स अगले वर्किंग डे (${officeStatus.nextWorkingDay || 'सोमवार'} सुबह ${officeStatus.nextWorkingTime || '10:00 AM'}) पर आपको गाइड करेंगे।`
+          : (officeStatus.isNonWorkingHour ? `\n\n📌 *सूचना:* हमारे ऑफिस आवर्स सुबह 10:00 AM से शाम 7:00 PM तक हैं। हमारे एग्जीक्यूटिव्स अगले वर्किंग आवर्स (${officeStatus.nextWorkingDay || 'कल सुबह'} ${officeStatus.nextWorkingTime || '10:00 AM'} से) आपको गाइड करेंगे।` : '');
+        claimReply = `हाँ जी! आपका पेमेंट हमारे CRM सिस्टम में सफलतापूर्वक कन्फर्म हो चुका है! 🎉\n\n• नंबर: *${targetActive.formattedNumber || targetActive.number}*\n• ऑर्डर ID: *#${targetActive.orderNumber || 'N/A'}*\n• स्टेटस: *${targetActive.upcStatus || 'In Process'}*\n\nआपके नंबर का UPC कोड ऑपरेटर के साथ प्रोसेस में है और अगले ~${remainingHrs} वर्किंग घंटों में SMS द्वारा आपको डिलीवर कर दिया जाएगा।${hinSchedule}\n\nNumberwale चुनने के लिए धन्यवाद! 😊`;
       } else {
-        claimReply = `Ji haan! Aapka payment hamare CRM system mein successfully confirm ho chuka hai! 🎉\n\n• Number: *${targetActive.formattedNumber || targetActive.number}*\n• Order ID: *#${targetActive.orderNumber || 'N/A'}*\n• Status: *${targetActive.upcStatus || 'In Process'}*\n\nAapka UPC generation process operator ke saath active hai aur ~${remainingHrs} working hours ke andar SMS dwara aapko deliver ho jayega. Numberwale ko chunne ke liye bohot shukriya! 😊`;
+        const offScheduleNote = officeStatus.isNonWorkingDay
+          ? `\n\n📌 *Notice:* Aaj non-working day (${officeStatus.reason || 'Office Holiday'}) hai, kripya aaj wait karein. Hamare executives agle working day (${officeStatus.nextWorkingDay || 'Monday'} subah ${officeStatus.nextWorkingTime || '10:00 AM'}) par aapko guide karenge.`
+          : (officeStatus.isNonWorkingHour ? `\n\n📌 *Notice:* Hamare office hours subah 10:00 AM se shaam 7:00 PM tak hain. Abhi office hours over ho chuke hain, isliye hamare executives agle working hours (${officeStatus.nextWorkingDay || 'kal subah'} ${officeStatus.nextWorkingTime || '10:00 AM'} se) aapse connect karke guide karenge.` : '');
+        claimReply = `Ji haan! Aapka payment hamare CRM system mein successfully confirm ho chuka hai! 🎉\n\n• Number: *${targetActive.formattedNumber || targetActive.number}*\n• Order ID: *#${targetActive.orderNumber || 'N/A'}*\n• Status: *${targetActive.upcStatus || 'In Process'}*\n\nAapka UPC generation process operator ke saath active hai aur ~${remainingHrs} working hours ke andar SMS dwara aapko deliver ho jayega.${offScheduleNote}\n\nNumberwale ko chunne ke liye bohot shukriya! 😊`;
       }
     } else if (targetPending) {
       const pNum = targetPending.number || targetPending.productMobileNumber || targetPending.product?.mobileNumber || detected10Digit;
@@ -2276,8 +2309,14 @@ export async function runAgent(opts) {
 
     let ownershipReply = '';
     if (matchActive) {
-      const remainingHrs = matchActive.remainingWorkingHours != null ? matchActive.remainingWorkingHours : 24;
-      ownershipReply = `Ji haan, bilkul 100% confirm hai! 🎉\n\nNumber *${matchActive.formattedNumber || matchActive.number}* aapke hi order *#${matchActive.orderNumber || 'N/A'}* ke under confirmed booked hai. Aapka payment successfully receive ho chuka hai aur UPC generation process operator ke saath active hai (SMS dwara ~${remainingHrs} working hours ke andar deliver ho jayega). Chinta bilkul na karein! 😊`;
+      const remainingHrs = calculateRemaining(matchActive);
+      let offScheduleNote = '';
+      if (officeStatus.isNonWorkingDay) {
+        offScheduleNote = ` (Aaj non-working day hai, executives agle working day ${officeStatus.nextWorkingDay || 'Monday'} subah ${officeStatus.nextWorkingTime || '10:00 AM'} guide karenge)`;
+      } else if (officeStatus.isNonWorkingHour) {
+        offScheduleNote = ` (Abhi office hours 10am-7pm ke baad ka time hai, executives agle working hours me guide karenge)`;
+      }
+      ownershipReply = `Ji haan, bilkul 100% confirm hai! 🎉\n\nNumber *${matchActive.formattedNumber || matchActive.number}* aapke hi order *#${matchActive.orderNumber || 'N/A'}* ke under confirmed booked hai. Aapka payment successfully receive ho chuka hai aur UPC generation process operator ke saath active hai (SMS dwara ~${remainingHrs} working hours ke andar deliver ho jayega).${offScheduleNote} Chinta bilkul na karein! 😊`;
     } else if (matchPending) {
       const pNum = matchPending.number || matchPending.productMobileNumber || matchPending.product?.mobileNumber || targetNum;
       const fmtNum = matchPending.formattedNumber || (pNum ? `${pNum.slice(0, 5)} ${pNum.slice(5)}` : 'VIP Number');
@@ -2386,9 +2425,15 @@ export async function runAgent(opts) {
   if (claimsFailure && !hasFailedProduct && !isTargetFailed && (allActiveProds.length > 0 || (targetProd && targetProd.isPurchasedByCustomer))) {
     console.warn('[Agent] 🚨 Intercepted false UPC failure hallucination! Overriding with accurate CRM status.');
     const activeP = (targetProd && targetProd.isPurchasedByCustomer) ? targetProd : allActiveProds[0];
-    const remainingHrs = activeP.remainingWorkingHours != null ? activeP.remainingWorkingHours : 24;
+    const remainingHrs = calculateRemaining(activeP);
+    let scheduleNotice = '';
+    if (officeStatus.isNonWorkingDay) {
+      scheduleNotice = `\n\n📌 *Notice:* Aaj non-working day (${officeStatus.reason || 'Sunday Off'}) hai, kripya aaj wait karein. Hamare executives agle working day (${officeStatus.nextWorkingDay || 'Monday'} subah ${officeStatus.nextWorkingTime || '10:00 AM'}) par aapse connect karke guide karenge.`;
+    } else if (officeStatus.isNonWorkingHour) {
+      scheduleNotice = `\n\n📌 *Notice:* Hamare office hours subah 10:00 AM se shaam 7:00 PM tak hain. Abhi non-working hours hain, isliye hamare team / executives agle working hours (${officeStatus.nextWorkingDay || 'kal subah'} ${officeStatus.nextWorkingTime || '10:00 AM'} se) aapse connect karenge.`;
+    }
     conversationalText = `Aapka number *${activeP.formattedNumber || activeP.number}* (Order: #${activeP.orderNumber || 'N/A'}) hamare CRM system mein confirmed hai aur UPC generation process operator ke saath active hai. Yeh number fail ya cancel nahi hua hai!\n\n` +
-      `UPC code 24 working hours ke andar (~${remainingHrs} working hours remaining) SMS dwara aapko deliver ho jayega. Humari team poori koshish kar rahi hai ki jald se jald provide karein.\n\n` +
+      `UPC code 24 working hours ke andar (~${remainingHrs} working hours remaining) SMS dwara aapko deliver ho jayega. Humari team poori koshish kar rahi hai ki jald se jald provide karein.${scheduleNotice}\n\n` +
       `Agar operator end se UPC delivery me koi issue aata hai, tabhi refund ya replacement ka option hota hai, par abhi aapka number bilkul safely processing mein hai. Chinta ki koi baat nahi hai! 😊`;
   }
 
