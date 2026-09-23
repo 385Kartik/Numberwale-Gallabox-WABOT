@@ -523,7 +523,8 @@ export default async function handler(req, res) {
           language: customerContext.language || 'English',
           activeFilters: customerContext.activeFilters || {},
           conversationId: convId,
-          isUrgent: true
+          isUrgent: true,
+          reason: 'Customer requested human executive'
         })
       }).then(r => console.log(`[Webhook] Admin notified for agent request: ${r.status}`))
         .catch(e => console.error(`[Webhook] Admin notification failed:`, e.message));
