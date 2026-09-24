@@ -235,6 +235,16 @@ export function buildSystemPrompt(ctx) {
   if (officeStatus.nextWorkingDay) {
     L.push(`- Next Working Window: ${officeStatus.nextWorkingDay} at ${officeStatus.nextWorkingTime || '10:00 AM'}.`);
   }
+  const todayStr = officeStatus.currentDate || new Date().toISOString().split('T')[0];
+  const futureHolidays = (officeStatus.activeHolidays || (ctx && ctx.officeHolidays) || [])
+    .filter(h => h.date >= todayStr)
+    .slice(0, 3); // top 3 upcoming
+  if (futureHolidays.length > 0) {
+    L.push(`- UPCOMING SCHEDULED HOLIDAYS/LEAVES (Use this if customer asks about tomorrow/future dates):`);
+    futureHolidays.forEach(h => {
+      L.push(`  • ${h.date} (${h.title}): ${h.type === 'full_day' ? 'Full Day Off' : 'Half Day'}`);
+    });
+  }
   L.push('- CRITICAL CALLING POLICY:');
   if (officeStatus.isOpen) {
     L.push('  • Helpline +91 9222 222 007 is active right now (10:00 AM to 7:00 PM, Mon–Sat).');
