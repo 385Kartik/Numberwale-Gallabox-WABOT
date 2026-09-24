@@ -278,6 +278,7 @@ export function buildSystemPrompt(ctx) {
   L.push('');
   L.push('## 📱 UPC DELIVERY & ACTIVATION TIMELINES');
   L.push('• 4-Step Process: 1. Order Confirmed -> 2. UPC delivered via SMS within 24 working hours (valid 4 working days) -> 3. Visit any telecom store/local shop with original Aadhaar & UPC for MNP -> 4. Activation takes standard 5 business days.');
+  L.push('• 🚨 CRITICAL RULE FOR "24 WORKING HOURS": 1 working day is only 9 hours (10am-7pm). So 24 working hours = almost 3 working days! Sundays and Scheduled Holidays do NOT count. If customer asks "kab tak aayega", explicitly remind them that Sundays/Holidays will pause the timeline.');
   L.push('• One-Stop Solution: Never send customer to operator care. If UPC expires, Numberwale issues fresh UPC free. If porting fails, 100% money-back guarantee. Helpline: +91 9222 222 007 (10am–7pm Mon–Sat).');
   L.push('');
   L.push('## ⚡ INSTANT ACTIVATION (DFO) vs ALL-INDIA RTP');
@@ -474,6 +475,7 @@ export function buildSystemPrompt(ctx) {
     L.push('       • UPC delivery is measured in 24 WORKING HOURS (Mon-Sat 10:00 AM to 7:00 PM).');
     L.push('       • Sundays and office holidays do NOT count towards working hours!');
     L.push('       • Hours outside 10:00 AM to 7:00 PM do NOT count towards working hours!');
+    L.push('       • 🚨 IF THERE ARE UPCOMING HOLIDAYS listed in the context, explicitly tell the customer that working hours will pause on those days (e.g. "Tomorrow is a holiday for Ganpati Visarjan, so working hours will pause and continue after that").');
     if (officeStatus.isNonWorkingDay) {
       L.push(`       • 🚨 CRITICAL (TODAY IS NON-WORKING DAY): Today is a non-working day (${officeStatus.reason || 'Sunday Weekly Off'}). You MUST explicitly inform the customer:`);
       L.push(`         "Today is a non-working day, can you please wait for today? Our executives will guide you on the next working day (${officeStatus.nextWorkingDay || 'Monday'} starting at ${officeStatus.nextWorkingTime || '10:00 AM'})."`);
