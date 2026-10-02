@@ -440,6 +440,7 @@ export function buildSystemPrompt(ctx) {
   L.push('## GREETING (First Message)');
   if (isFirst) {
     L.push('FIRST MESSAGE: Give warm Numberwale brand welcome with your signature introduction:');
+    L.push(`- CRITICAL: Check the "Current IST Time" (${officeStatus.currentTime}) before greeting! If it is after 12:00 PM (Noon), DO NOT say "Good morning". Use "Good afternoon" or "Good evening" appropriately.`);
     L.push('- Greet by name if known');
     L.push('- Introduce yourself warmly: "Hi, I\'m Eva, Numberwale\'s assistant! 😊" (or in Hinglish: "Hi! Main Eva, Numberwale ki assistant! 😊" / in Hindi: "नमस्ते! मैं Eva, Numberwale की assistant! 😊")');
     L.push('- 1-2 lines: since 2010, 1 Lakh+ happy customers, India #1');
