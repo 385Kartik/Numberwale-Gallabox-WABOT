@@ -263,7 +263,7 @@ export function buildSystemPrompt(ctx) {
   L.push('- Office: Bhayandar East, Thane/Mumbai, Maharashtra 401105 (Working Hours: 10:00 AM to 7:00 PM, Mon–Sat)');
   L.push('- Networks: All operators (Jio, Airtel, Vi, BSNL) | 4G/5G | Prepaid or Postpaid | eSIM convertible');
   L.push('- Payment: UPI / Cards / NetBanking / Credit Card EMI | NO COD (UPC is digital delivery)');
-  L.push('- Guarantee: 100% Money-Back if porting fails | Fresh UPC free if expired within validity');
+  L.push('- Guarantee: 100% Money-Back if porting fails | Re-UPC may be charged ₹299 depending on circumstances');
   L.push('- Pricing: 18% GST included, official GST invoice provided | Business buyers can claim ITC');
   L.push('- Discounts: Website prices are already direct wholesale discounted up to 50% off.');
   L.push('');
@@ -272,7 +272,7 @@ export function buildSystemPrompt(ctx) {
   L.push('2. Numberwale is the customer\'s ONE-STOP SOLUTION for everything.');
   L.push('3. If customer reports ANY issue (MNP rejected, UPC code not received, UPC expired, store facing issue, porting delay, payment query):');
   L.push('   - Assure them with complete confidence: "Aapko kisi bhi operator ke customer care mein call karne ki bilkul zarurat nahi hai. Numberwale aapka One-Stop Solution hai!"');
-  L.push('   - If UPC expires: Numberwale generates a fresh new UPC code completely FREE of charge.');
+  L.push('   - If UPC expires: Numberwale generates a fresh new UPC code (Re-UPC), which may be subject to a ₹299 charge depending on circumstances.');
   L.push('   - If porting fails for any reason: Numberwale provides a fresh UPC or a 100% money-back refund guarantee.');
   L.push('   - Instruct them to connect directly with Numberwale on WhatsApp or call +91 9222 222 007 (10am–7pm Mon–Sat) / support@numberwale.com.');
   L.push('');
@@ -287,7 +287,7 @@ export function buildSystemPrompt(ctx) {
   L.push('## 📱 UPC DELIVERY & ACTIVATION TIMELINES');
   L.push('• 4-Step Process: 1. Order Confirmed -> 2. UPC delivered via SMS within 24 working hours (valid 4 working days) -> 3. Visit any telecom store/local shop with original Aadhaar & UPC for MNP -> 4. Activation takes standard 5 business days.');
   L.push('• 🚨 CRITICAL RULE FOR "24 WORKING HOURS": 1 working day is only 9 hours (10am-7pm). So 24 working hours = almost 3 working days! Sundays and Scheduled Holidays do NOT count. If customer asks "kab tak aayega", explicitly remind them that Sundays/Holidays will pause the timeline.');
-  L.push('• One-Stop Solution: Never send customer to operator care. If UPC expires, Numberwale issues fresh UPC free. If porting fails, 100% money-back guarantee. Helpline: +91 9222 222 007 (10am–7pm Mon–Sat).');
+  L.push('• One-Stop Solution: Never send customer to operator care. If UPC expires, Numberwale issues a fresh UPC (Re-UPC charge of ₹299 may apply). If porting fails, 100% money-back guarantee. Helpline: +91 9222 222 007 (10am–7pm Mon–Sat).');
   L.push('');
   L.push('## ⚡ INSTANT ACTIVATION (DFO) vs ALL-INDIA RTP');
   L.push('- RTP (All-India): Works across India with any operator, porting in 3-5 days via UPC.');
@@ -507,7 +507,7 @@ export function buildSystemPrompt(ctx) {
     L.push('     - Share: "Aapke number [Number] ka fresh UPC code delivered ho gaya hai: *[upcCode]*. Yeh agle 4 working days tak valid hai."');
     L.push('   • IF `upc_expired`:');
     L.push('     - Reassure them with full confidence: "Aapke number [Number] ka UPC expire ho gaya hai, par bilkul chinta na karein! Aapka purchase 100% safe hai."');
-    L.push('     - Action: "Aap hamare helpline *+91 9222 222 007* par connect kijiye ya yahan reply kijiye, hum aapko fresh UPC bilkul FREE of cost provide karenge! 😊"');
+    L.push('     - Action: "Aap hamare helpline *+91 9222 222 007* par connect kijiye ya yahan reply kijiye, hum aapko fresh UPC provide karenge. Note: Re-UPC ke liye circumstances ke hisaab se ₹299 ka charge lag sakta hai. 😊"');
     L.push('   • IF `activation_in_process`:');
     L.push('     - Explain: "Aapke number [Number] ki porting request initiate ho chuki hai! Number 5 working days mein activate ho jayega. Tab tak kripya apna existing SIM card active rakhein. 😊"');
     L.push('   • IF `activated`:');
