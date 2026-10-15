@@ -283,13 +283,43 @@ export default async function handler(req, res) {
       const ctxForAgent = await getCustomerContext(customerPhone);
       pauseBot(customerPhone);
       const agentNow = new Date();
+
+      // Check if employee mentioned payment captured / payment received
+      const isPaymentCapturedMsg = /\b(payment\s*captured|payment\s*mil\s*(?:gaya|gayi)|payment\s*(?:receive|received|done|confirm|confirmed|success)|paise\s*mil\s*gaye|payment\s*aa\s*(?:gaya|gayi)|received\s*payment|amount\s*received)\b/i.test(userMessage);
+
+      const agentUpdate = {
+        agentReplied: true,
+        lastAgentReplyAt: agentNow
+      };
+      if (ctxForAgent.botState !== 'PAUSED') {
+        agentUpdate.botState = 'PAUSED';
+      }
+
+      if (isPaymentCapturedMsg) {
+        console.log(`[Webhook] 💰 Employee confirmed payment captured in outbound message for ${customerPhone}.`);
+        agentUpdate.paymentCaptured = true;
+        // Fetch customer profile from User management in background
+        fetchCustomerOrders(customerPhone).then(async (custData) => {
+          const uName = custData?.customerName;
+          const uPin = custData?.customerPinCode;
+          if (uName || uPin) {
+            await updateCustomerInfo(customerPhone, {
+              name: uName && uName !== 'Unknown' ? uName : ctxForAgent.name,
+              pinCode: uPin || ctxForAgent.pinCode,
+              selfProvidedName: !!uName,
+              paymentCaptured: true
+            });
+            console.log(`[Webhook] ✅ Auto-populated User Management profile for ${customerPhone}: Name: "${uName}", Pin: "${uPin}"`);
+          }
+        }).catch(err => console.warn(`[Webhook] Warning fetching user management profile on payment captured:`, err.message));
+      }
+
       if (ctxForAgent.botState !== 'PAUSED') {
         console.log(`[Webhook] Real agent manual message received for ${customerPhone}. Pausing bot.`);
-        await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: true, lastAgentReplyAt: agentNow });
       } else {
         console.log(`[Webhook] Real agent manual message received for ${customerPhone}. Setting agentReplied = true.`);
-        await updateCustomerInfo(customerPhone, { agentReplied: true, lastAgentReplyAt: agentNow });
       }
+      await updateCustomerInfo(customerPhone, agentUpdate);
       removeGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
       removeGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
       scheduleAgentInactivityTimer(customerPhone, channelID);
@@ -353,6 +383,12 @@ export default async function handler(req, res) {
     customerContext.numerologyReports = customerOrdersData?.numerologyReports || [];
     if (customerOrdersData?.customerName && (!customerContext.name || customerContext.name === 'Unknown')) {
       customerContext.name = cleanCustomerName(customerOrdersData.customerName) || customerContext.name;
+    }
+    if (customerOrdersData?.customerPinCode && !customerContext.pinCode) {
+      customerContext.pinCode = customerOrdersData.customerPinCode;
+    }
+    if (customerOrdersData?.hasCapturedPayment) {
+      customerContext.paymentCaptured = true;
     }
 
     // Self-provided name takes absolute precedence over Gallabox contact name!
@@ -628,6 +664,27 @@ export default async function handler(req, res) {
       const langReply = "👋 Hello! How can I help you? / नमस्ते! मैं आपकी कैसे मदद कर सकता हूँ?\n\nPlease select your preferred language / कृपया अपनी भाषा चुनें:\n1. English\n2. हिंदी (Hindi)\n3. ગુજરાતી (Gujarati)\n4. मराठी (Marathi)\n5. Hinglish\n\n_Reply with 1, 2, 3, 4, or 5_";
       await sendToGallabox(customerPhone, langReply, channelID);
       return res.status(200).json({ success: true, reason: 'language_menu_sent' });
+    }
+
+    // ── Bypass Onboarding for Customers with Captured Payment or User Management Profile ──
+    const hasCapturedPayment = customerContext.paymentCaptured || customerOrdersData?.hasCapturedPayment;
+    const hasProfileInUserMgmt = customerOrdersData?.hasOrders || (customerOrdersData?.customerName && (customerOrdersData?.customerPinCode || customerContext.pinCode));
+    const alreadyHasNameAndPin = customerContext.name && customerContext.name !== 'Unknown' && customerContext.pinCode;
+
+    if (hasCapturedPayment || hasProfileInUserMgmt || alreadyHasNameAndPin) {
+      if (currentState === 'NEW' || currentState === 'AWAITING_INFO' || currentState === 'AWAITING_LANGUAGE') {
+        console.log(`[Webhook] ⚡ Auto-bypassing Name & Pincode onboarding for ${customerPhone} (Payment captured: ${!!hasCapturedPayment}, Name: "${customerContext.name}", Pin: "${customerContext.pinCode}")`);
+        currentState = 'ACTIVE';
+        customerContext.botState = 'ACTIVE';
+        customerContext.language = customerContext.language || 'English';
+        await updateCustomerInfo(customerPhone, {
+          botState: 'ACTIVE',
+          name: customerContext.name,
+          pinCode: customerContext.pinCode,
+          paymentCaptured: !!hasCapturedPayment,
+          selfProvidedName: true
+        });
+      }
     }
 
     // ── State Machine: Onboarding (Direct to Name & Pincode in English -> Active Sales Flow) ──

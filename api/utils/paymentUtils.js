@@ -247,7 +247,11 @@ export async function fetchCustomerOrders(customerPhone) {
 
       return {
         hasOrders: purchasedNumbers.length > 0 || numerologyReports.length > 0,
+        hasCapturedPayment: !!(response.data.hasCapturedPayment || purchasedNumbers.length > 0),
         customerName: response.data.customerName || null,
+        customerPinCode: response.data.customerPinCode || null,
+        user: response.data.user || null,
+        address: response.data.address || null,
         orders: confirmedOrders,
         purchasedNumbers: [...new Set(purchasedNumbers)],
         activeProducts,
@@ -257,10 +261,10 @@ export async function fetchCustomerOrders(customerPhone) {
         numerologyReports
       };
     }
-    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], pendingPaymentOrders: [], pendingPaymentNumbers: [], pendingPaymentProducts: [], numerologyReports: [] };
+    return { hasOrders: false, hasCapturedPayment: false, customerName: null, customerPinCode: null, user: null, address: null, orders: [], purchasedNumbers: [], activeProducts: [], pendingPaymentOrders: [], pendingPaymentNumbers: [], pendingPaymentProducts: [], numerologyReports: [] };
   } catch (err) {
     console.warn('[Orders] fetchCustomerOrders warning:', err.response?.data?.message || err.message);
-    return { hasOrders: false, orders: [], purchasedNumbers: [], activeProducts: [], pendingPaymentOrders: [], pendingPaymentNumbers: [], pendingPaymentProducts: [], numerologyReports: [] };
+    return { hasOrders: false, hasCapturedPayment: false, customerName: null, customerPinCode: null, user: null, address: null, orders: [], purchasedNumbers: [], activeProducts: [], pendingPaymentOrders: [], pendingPaymentNumbers: [], pendingPaymentProducts: [], numerologyReports: [] };
   }
 }
 

@@ -51,6 +51,7 @@ const CustomerBotProfileSchema = new mongoose.Schema({
   lifePathNumber: { type: Number, default: null },
   agentReplied: { type: Boolean, default: false },
   lastAgentReplyAt: { type: Date, default: null },
+  paymentCaptured: { type: Boolean, default: false },
   pendingBotMessages: [{ type: String }],  // localMessageIds sent by bot (to filter echoes)
   conversationId: { type: String, default: null }, // Gallabox conversationId for assign/unassign
 
@@ -96,6 +97,7 @@ function getMemoryProfile(phone) {
       birthNumber: null,
       lifePathNumber: null,
       agentReplied: false,
+      paymentCaptured: false,
       pendingBotMessages: [],
       history: []
     });
