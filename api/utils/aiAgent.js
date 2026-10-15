@@ -270,7 +270,10 @@ export function buildSystemPrompt(ctx) {
   L.push('## 🚨 PORTING, MNP & UPC SUPPORT — 100% ONE-STOP SOLUTION (STRICT RULE)');
   L.push('1. 🛑 NEVER, UNDER ANY CIRCUMSTANCE, TELL THE CUSTOMER TO CONTACT THE TELECOM OPERATOR CUSTOMER CARE (Jio/Airtel/Vi/BSNL care)! Telecom operators do NOT manage Numberwale bookings, invoices, or UPC generation.');
   L.push('2. Numberwale is the customer\'s ONE-STOP SOLUTION for everything.');
-  L.push('3. If customer reports ANY issue (MNP rejected, UPC code not received, UPC expired, store facing issue, porting delay, payment query):');
+  L.push('3. 🛑 STRICT RULE: EVA MUST NEVER SEND OR DISCLOSE ANY UPC CODE DIRECTLY IN CHAT!');
+  L.push('   - If customer asks for UPC, UPC code, or delivery: ALWAYS state: "Thank you for purchasing with Numberwale! For further assistance and your UPC code, our team will coordinate with you directly."');
+  L.push('   - (In Hinglish: "Numberwale se purchase karne ke liye bohot bohot shukriya! Aapke UPC code aur aage ke assistance ke liye hamari team aapse directly coordinate karegi. 😊")');
+  L.push('4. If customer reports ANY issue (MNP rejected, UPC code not received, UPC expired, store facing issue, porting delay, payment query):');
   L.push('   - Assure them with complete confidence: "Aapko kisi bhi operator ke customer care mein call karne ki bilkul zarurat nahi hai. Numberwale aapka One-Stop Solution hai!"');
   L.push('   - If UPC expires: Numberwale generates a fresh new UPC code (Re-UPC), which may be subject to a ₹299 charge depending on circumstances.');
   L.push('   - If porting fails for any reason: Numberwale provides a fresh UPC or a 100% money-back refund guarantee.');
@@ -466,7 +469,6 @@ export function buildSystemPrompt(ctx) {
       L.push(`   - Order ID: #${p.orderNumber || 'N/A'}`);
       if (p.invoiceNumber) L.push(`   - Invoice Number: ${p.invoiceNumber}`);
       L.push(`   - Current Status: ${p.upcStatus || 'pending'}`);
-      if (p.upcCode) L.push(`   - UPC Code: ${p.upcCode}`);
       if (p.operator) L.push(`   - Operator: ${p.operator}`);
       if (p.creditNote || p.upcStatus === 'creditnote' || p.upcStatus === 'activation_failed') {
         L.push(`   - UPC Status: FAILED (UPC generation fail ho gaya hai, number nahi milega). Payment 100% safe.`);
@@ -477,7 +479,11 @@ export function buildSystemPrompt(ctx) {
     L.push('🚨 STRICT LIFECYCLE RULES WHEN CUSTOMER ASKS ABOUT THEIR PURCHASED NUMBER OR UPC:');
     L.push('1. 🛑 ABSOLUTE RULE: NEVER say "this number is sold", "unavailable", or "not in our inventory" for any of the above purchased numbers! The customer chatting with you IS THE ONE WHO PURCHASED IT!');
     L.push('2. Address them warmly and thank them for purchasing with Numberwale: "Thank you for purchasing with Numberwale!" (or in Hindi/Hinglish: "Numberwale se purchase karne ke liye bohot bohot shukriya!")');
-    L.push('3. Provide accurate information based on their `upcStatus`:');
+    L.push('3. 🛑 STRICT PRIVACY RULE: NEVER SEND OR REVEAL ANY UPC CODE DIRECTLY IN CHAT!');
+    L.push('   - If customer asks for UPC, UPC code, porting code, or delivery:');
+    L.push('     Always say: "Thank you for purchasing with Numberwale! For further assistance and your UPC code, our team will coordinate with you directly."');
+    L.push('     (In Hindi/Hinglish: "Numberwale se purchase karne ke liye bohot bohot shukriya! Aapke UPC code aur aage ke assistance ke liye hamari team aapse directly coordinate karegi. 😊")');
+    L.push('4. Provide accurate information based on their `upcStatus`:');
     L.push('   • IF `upc_in_process` OR `pending`:');
     L.push('     - Thank them warmly for purchasing.');
     L.push('     - 🛑 STRICT TIMELINE & WORKING HOURS RULE:');
@@ -494,20 +500,16 @@ export function buildSystemPrompt(ctx) {
       L.push(`         "Our office hours are 10:00 AM to 7:00 PM. As it is currently outside office hours, our team / executives will guide you during the next working hours (${officeStatus.nextWorkingDay || 'tomorrow'} starting at ${officeStatus.nextWorkingTime || '10:00 AM'})."`);
       L.push('         State clearly that their order is confirmed and progressing safely (~[remainingWorkingHours] working hrs remaining).');
     } else {
-      L.push('       • State clearly that their order is confirmed and UPC will be delivered within ~[remainingWorkingHours] working hours via SMS. Reassure them that our team is trying their best to provide it as soon as possible! 😊');
+      L.push('       • State clearly that their order is confirmed and our team will coordinate with them directly regarding UPC delivery (~[remainingWorkingHours] working hours). Reassure them that our team is trying their best to provide it as soon as possible! 😊');
     }
-    L.push('   • IF `upc_delivered`:');
-    L.push('     - Inform them that UPC is delivered! Share the code if present: "Aapke number [Number] ka UPC code hai: *[upcCode]* (SMS par bhi bheja gaya hai)."');
-    L.push('     - State clearly: "Yeh UPC code 4 working days tak valid rehta hai."');
-    L.push('     - Next Step: "Kripya apna original Aadhaar card aur UPC code leke kisi bhi nazdeeki SIM shop ya operator store par visit karke porting (MNP) karwa lijiye."');
-    L.push('     - Add reassurance: "Hamari team bhi aapse call karke porting process mein help karne ke liye connect karegi! 😊"');
+    L.push('   • IF `upc_delivered` OR `re-upc_delivered`:');
+    L.push('     - 🛑 NEVER SEND ANY UPC CODE! Do not output any code string in chat.');
+    L.push('     - Inform: "Thank you for purchasing with Numberwale! Aapke number [Number] ke UPC code aur aage ke assistance ke liye hamari team aapse directly coordinate karegi. 😊"');
     L.push('   • IF `re-upc_in_process`:');
-    L.push('     - Explain: "Aapke number [Number] ke liye fresh Re-UPC generation process chal raha hai. Jald hi SMS dwara share kiya jayega. 😊"');
-    L.push('   • IF `re-upc_delivered`:');
-    L.push('     - Share: "Aapke number [Number] ka fresh UPC code delivered ho gaya hai: *[upcCode]*. Yeh agle 4 working days tak valid hai."');
+    L.push('     - Explain: "Aapke number [Number] ke liye fresh Re-UPC generation process chal raha hai. Hamari team aapse directly coordinate karegi. 😊"');
     L.push('   • IF `upc_expired`:');
     L.push('     - Reassure them with full confidence: "Aapke number [Number] ka UPC expire ho gaya hai, par bilkul chinta na karein! Aapka purchase 100% safe hai."');
-    L.push('     - Action: "Aap hamare helpline *+91 9222 222 007* par connect kijiye ya yahan reply kijiye, hum aapko fresh UPC provide karenge. Note: Re-UPC ke liye circumstances ke hisaab se ₹299 ka charge lag sakta hai. 😊"');
+    L.push('     - Action: "Re-UPC ke liye hamari team aapse directly coordinate karegi (circumstances ke hisaab se ₹299 charge lag sakta hai). 😊"');
     L.push('   • IF `activation_in_process`:');
     L.push('     - Explain: "Aapke number [Number] ki porting request initiate ho chuki hai! Number 5 working days mein activate ho jayega. Tab tak kripya apna existing SIM card active rakhein. 😊"');
     L.push('   • IF `activated`:');
@@ -624,7 +626,6 @@ export function buildSystemPrompt(ctx) {
       if (tp.invoiceNumber) L.push(`- Invoice Number: ${tp.invoiceNumber}`);
       L.push(`- Current Status: ${tp.upcStatus}`);
       L.push(`- Remaining Working Hours for Delivery: ~${tp.remainingWorkingHours || 24} working hrs`);
-      if (tp.upcCode) L.push(`- UPC Code: ${tp.upcCode}`);
       if (tp.creditNote || tp.upcStatus === 'creditnote' || tp.upcStatus === 'activation_failed') {
         L.push('- Current Status: FAILED (UPC fail ho gaya hai aur number nahi milega). Payment 100% safe.');
         L.push('  Follow rule: Inform UPC fail ho gaya hai aur yeh number nahi milega. Payment 100% safe hai. Option dein: aap koi doosra naya VIP number select kar sakte hain, ya refund ke liye support executive aapse connect karenge. 🛑 NEVER mention credit note number, never promise you can process refund, and never give fake links!');
@@ -1913,6 +1914,16 @@ export function isNumberOwnershipConfirmationQuery(text) {
   return patterns.some(rx => rx.test(t));
 }
 
+export function isUpcInquiry(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+  const patterns = [
+    /\bupc\b/i,
+    /\b(?:porting\s*code|unique\s*porting\s*code)\b/i
+  ];
+  return patterns.some(rx => rx.test(t));
+}
+
 // ─────────────────────────────────────────────────────────────────
 // MAIN EXPORT
 // ─────────────────────────────────────────────────────────────────
@@ -2024,7 +2035,7 @@ export async function runAgent(opts) {
         pdfUrl: purchasedProd.pdfUrl || null,
         pdfFilename: purchasedProd.pdfFilename || null,
         upcStatus: purchasedProd.upcStatus || 'pending',
-        upcCode: purchasedProd.upcCode || null,
+        upcCode: null,
         elapsedHours: purchasedProd.elapsedHours != null ? purchasedProd.elapsedHours : null,
         remainingWorkingHours: accurateRemaining,
         processedAt: purchasedProd.processedAt || null,
@@ -2113,7 +2124,7 @@ export async function runAgent(opts) {
         pdfUrl: purchasedProd.pdfUrl || null,
         pdfFilename: purchasedProd.pdfFilename || null,
         upcStatus: purchasedProd.upcStatus || 'pending',
-        upcCode: purchasedProd.upcCode || null,
+        upcCode: null,
         elapsedHours: purchasedProd.elapsedHours != null ? purchasedProd.elapsedHours : null,
         remainingWorkingHours: calculateRemaining(purchasedProd),
         processedAt: purchasedProd.processedAt || null,
@@ -2183,6 +2194,39 @@ export async function runAgent(opts) {
       model: 'rule-guard',
       escalate: false
     };
+  }
+
+  // ── CRM Fast Intercept 0.5: Customer asking for / about UPC ──
+  if (isUpcInquiry(userMessage)) {
+    const hasActivePurchased = activeOrders.length > 0 || (customerContext.targetProduct && customerContext.targetProduct.isPurchasedByCustomer);
+    if (hasActivePurchased) {
+      const target = (customerContext.targetProduct && customerContext.targetProduct.isPurchasedByCustomer)
+        ? customerContext.targetProduct
+        : (activeOrders.length === 1 ? activeOrders[0] : null);
+
+      let upcReply = '';
+      const numStr = target ? `*${target.formattedNumber || target.number}* (Order: #${target.orderNumber || 'N/A'})` : '';
+
+      if (lang === 'English') {
+        upcReply = `Thank you for purchasing with Numberwale! 😊\n\n${numStr ? `For ${numStr}, ` : ''}for your UPC code and further assistance, our team will coordinate with you directly.`;
+      } else if (lang === 'Hindi') {
+        upcReply = `Numberwale से purchase करने के लिए बहुत-बहुत धन्यवाद! 😊\n\n${numStr ? `${numStr} के ` : ''}UPC कोड और आगे की सहायता के लिए हमारी टीम आपसे सीधे संपर्क करेगी।`;
+      } else if (lang === 'Gujarati') {
+        upcReply = `Numberwale માંથી ખરીદી કરવા બદલ ખૂબ ખૂબ આભાર! 😊\n\n${numStr ? `${numStr} ના ` : ''}UPC કોડ અને આગળની સહાય માટે અમારી ટીમ તમારો સીધો સંપર્ક કરશે.`;
+      } else if (lang === 'Marathi') {
+        upcReply = `Numberwale मधून खरेदी केल्याबद्दल खूप खूप धन्यवाद! 😊\n\n${numStr ? `${numStr} च्या ` : ''}UPC कोड आणि पुढील मदतीसाठी आमची टीम तुमच्याशी थेट संपर्क करेल.`;
+      } else {
+        upcReply = `Numberwale se purchase karne ke liye bohot bohot shukriya! 😊\n\n${numStr ? `${numStr} ke ` : ''}UPC code aur aage ke assistance ke liye hamari team aapse directly coordinate karegi.`;
+      }
+
+      return {
+        reply: upcReply,
+        conversationalIntro: upcReply,
+        searchJSON: null,
+        model: 'crm-upc-guard',
+        escalate: false
+      };
+    }
   }
 
   // ── CRM Fast Intercept 1: Customer asking for their numbers ("mere kitne number hain", "mera kaun sa number hai", etc.) ──
@@ -2456,6 +2500,15 @@ export async function runAgent(opts) {
     conversationalText = `Aapka number *${activeP.formattedNumber || activeP.number}* (Order: #${activeP.orderNumber || 'N/A'}) hamare CRM system mein confirmed hai aur UPC generation process operator ke saath active hai. Yeh number fail ya cancel nahi hua hai!\n\n` +
       `UPC code 24 working hours ke andar (~${remainingHrs} working hours remaining) SMS dwara aapko deliver ho jayega. Humari team poori koshish kar rahi hai ki jald se jald provide karein.${scheduleNotice}\n\n` +
       `Agar operator end se UPC delivery me koi issue aata hai, tabhi refund ya replacement ka option hota hai, par abhi aapka number bilkul safely processing mein hai. Chinta ki koi baat nahi hai! 😊`;
+  }
+
+  // ── Post-LLM Anti-Leak Safety Guard: Never disclose any UPC code in chat ──
+  if (/(?:upc\s*(?:code)?\s*(?:hai|is|:)\s*[*`]?[A-Z0-9]{5,15}[*`]?)/i.test(conversationalText)) {
+    console.warn('[Agent] 🚨 Intercepted and sanitized direct UPC code disclosure from LLM text.');
+    conversationalText = conversationalText.replace(
+      /(?:upc\s*(?:code)?\s*(?:hai|is|:)\s*[*`]?[A-Z0-9]{5,15}[*`]?)/gi,
+      'Aapke UPC code aur aage ke assistance ke liye hamari team aapse directly coordinate karegi'
+    );
   }
 
   const conversationalIntro = conversationalText;
