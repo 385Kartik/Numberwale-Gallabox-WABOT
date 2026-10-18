@@ -1918,8 +1918,13 @@ export function isUpcInquiry(text) {
   if (!text || typeof text !== 'string') return false;
   const t = text.trim().toLowerCase();
   const patterns = [
-    /\bupc\b/i,
-    /\b(?:porting\s*code|unique\s*porting\s*code)\b/i
+    /\bu[\s.-]*p[\s.-]*c\b/i,
+    /\bupc\w*/i,
+    /\b(?:porting\s*code|unique\s*porting\s*code|port\s*code)\b/i,
+    /(?:यूपीसी|यू\.पी\.सी|યુપીસી|यूपीसी\s*कोड)/i,
+    /\b(?:mera|my|hamara|apna)\s*(?:upc|porting\s*code|code)\b/i,
+    /\b(?:send|give|bhejo|bhejna|share|batao|provide|generate)\s*(?:the\s*)?(?:upc|code)\b/i,
+    /\b(?:upc|code)\s*(?:bhejo|bhejna|batao|chahiye|de\s*do|dedo|send\s*karo|share\s*karo)\b/i
   ];
   return patterns.some(rx => rx.test(t));
 }
@@ -2199,34 +2204,42 @@ export async function runAgent(opts) {
   // ── CRM Fast Intercept 0.5: Customer asking for / about UPC ──
   if (isUpcInquiry(userMessage)) {
     const hasActivePurchased = activeOrders.length > 0 || (customerContext.targetProduct && customerContext.targetProduct.isPurchasedByCustomer);
-    if (hasActivePurchased) {
-      const target = (customerContext.targetProduct && customerContext.targetProduct.isPurchasedByCustomer)
-        ? customerContext.targetProduct
-        : (activeOrders.length === 1 ? activeOrders[0] : null);
+    const target = (customerContext.targetProduct && customerContext.targetProduct.isPurchasedByCustomer)
+      ? customerContext.targetProduct
+      : (activeOrders.length === 1 ? activeOrders[0] : null);
 
-      let upcReply = '';
-      const numStr = target ? `*${target.formattedNumber || target.number}* (Order: #${target.orderNumber || 'N/A'})` : '';
+    let upcReply = '';
+    const numStr = target ? `*${target.formattedNumber || target.number}* (Order: #${target.orderNumber || 'N/A'})` : '';
 
-      if (lang === 'English') {
-        upcReply = `Thank you for purchasing with Numberwale! 😊\n\n${numStr ? `For ${numStr}, ` : ''}for your UPC code and further assistance, our team will coordinate with you directly.`;
-      } else if (lang === 'Hindi') {
-        upcReply = `Numberwale से purchase करने के लिए बहुत-बहुत धन्यवाद! 😊\n\n${numStr ? `${numStr} के ` : ''}UPC कोड और आगे की सहायता के लिए हमारी टीम आपसे सीधे संपर्क करेगी।`;
-      } else if (lang === 'Gujarati') {
-        upcReply = `Numberwale માંથી ખરીદી કરવા બદલ ખૂબ ખૂબ આભાર! 😊\n\n${numStr ? `${numStr} ના ` : ''}UPC કોડ અને આગળની સહાય માટે અમારી ટીમ તમારો સીધો સંપર્ક કરશે.`;
-      } else if (lang === 'Marathi') {
-        upcReply = `Numberwale मधून खरेदी केल्याबद्दल खूप खूप धन्यवाद! 😊\n\n${numStr ? `${numStr} च्या ` : ''}UPC कोड आणि पुढील मदतीसाठी आमची टीम तुमच्याशी थेट संपर्क करेल.`;
-      } else {
-        upcReply = `Numberwale se purchase karne ke liye bohot bohot shukriya! 😊\n\n${numStr ? `${numStr} ke ` : ''}UPC code aur aage ke assistance ke liye hamari team aapse directly coordinate karegi.`;
-      }
-
-      return {
-        reply: upcReply,
-        conversationalIntro: upcReply,
-        searchJSON: null,
-        model: 'crm-upc-guard',
-        escalate: false
-      };
+    if (lang === 'English') {
+      upcReply = hasActivePurchased
+        ? `Thank you for purchasing with Numberwale! 😊\n\n${numStr ? `For ${numStr}, ` : ''}for your UPC code and further assistance, our team will coordinate with you directly.`
+        : `Thank you for contacting Numberwale! 😊\n\nFor your UPC code and porting assistance, our team will coordinate with you directly.`;
+    } else if (lang === 'Hindi') {
+      upcReply = hasActivePurchased
+        ? `Numberwale से purchase करने के लिए बहुत-बहुत धन्यवाद! 😊\n\n${numStr ? `${numStr} के ` : ''}UPC कोड और आगे की सहायता के लिए हमारी टीम आपसे सीधे संपर्क करेगी।`
+        : `Numberwale से संपर्क करने के लिए धन्यवाद! 😊\n\nUPC कोड और सहायता के लिए हमारी टीम आपसे सीधे संपर्क करेगी।`;
+    } else if (lang === 'Gujarati') {
+      upcReply = hasActivePurchased
+        ? `Numberwale માંથી ખરીદી કરવા બદલ ખૂબ ખૂબ આભાર! 😊\n\n${numStr ? `${numStr} ના ` : ''}UPC કોડ અને આગળની સહાય માટે અમારી ટીમ તમારો સીધો સંપર્ક કરશે.`
+        : `Numberwale નો સંપર્ક કરવા બદલ આભાર! 😊\n\nUPC કોડ અને સહાય માટે અમારી ટીમ તમારો સીધો સંપર્ક કરશે.`;
+    } else if (lang === 'Marathi') {
+      upcReply = hasActivePurchased
+        ? `Numberwale मधून खरेदी केल्याबद्दल खूप खूप धन्यवाद! 😊\n\n${numStr ? `${numStr} च्या ` : ''}UPC कोड आणि पुढील मदतीसाठी आमची टीम तुमच्याशी थेट संपर्क करेल.`
+        : `Numberwale शी संपर्क साधल्याबद्दल धन्यवाद! 😊\n\nUPC कोड आणि मदतीसाठी आमची टीम तुमच्याशी थेट संपर्क करेल.`;
+    } else {
+      upcReply = hasActivePurchased
+        ? `Numberwale se purchase karne ke liye bohot bohot shukriya! 😊\n\n${numStr ? `${numStr} ke ` : ''}UPC code aur aage ke assistance ke liye hamari team aapse directly coordinate karegi.`
+        : `Numberwale se contact karne ke liye shukriya! 😊\n\nUPC code aur aage ke assistance ke liye hamari team aapse directly coordinate karegi.`;
     }
+
+    return {
+      reply: upcReply,
+      conversationalIntro: upcReply,
+      searchJSON: null,
+      model: 'crm-upc-guard',
+      escalate: false
+    };
   }
 
   // ── CRM Fast Intercept 1: Customer asking for their numbers ("mere kitne number hain", "mera kaun sa number hai", etc.) ──
@@ -2401,9 +2414,13 @@ export async function runAgent(opts) {
     }
   }
 
-  // Build conversation history for LLM
+  // Build conversation history for LLM (redacting any UPC codes so LLM never reads past UPCs)
   const messages = history.slice(-8).map(function(h) {
-    return { role: h.role === 'bot' ? 'assistant' : 'user', content: h.text };
+    const rawText = h.text || '';
+    const sanitizedText = rawText
+      .replace(/\b[A-Za-z]{2}\d{6}\b/g, '[UPC Redacted]')
+      .replace(/\b(?:upc\s*(?:code)?\s*[:\-]?\s*)[A-Za-z0-9]{5,15}\b/gi, '[UPC Redacted]');
+    return { role: h.role === 'bot' ? 'assistant' : 'user', content: sanitizedText };
   });
   messages.push({ role: 'user', content: userMessage });
 
@@ -2503,10 +2520,12 @@ export async function runAgent(opts) {
   }
 
   // ── Post-LLM Anti-Leak Safety Guard: Never disclose any UPC code in chat ──
-  if (/(?:upc\s*(?:code)?\s*(?:hai|is|:)\s*[*`]?[A-Z0-9]{5,15}[*`]?)/i.test(conversationalText)) {
+  const upcPattern = /\b[A-Za-z]{2}\d{6}\b|(?:upc\s*(?:code)?\s*(?:hai|is|:)?\s*[*\x60]?[A-Za-z0-9]{5,15}[*\x60]?)/i;
+  if (upcPattern.test(conversationalText)) {
     console.warn('[Agent] 🚨 Intercepted and sanitized direct UPC code disclosure from LLM text.');
+    conversationalText = conversationalText.replace(/\b[A-Za-z]{2}\d{6}\b/g, '[Protected]');
     conversationalText = conversationalText.replace(
-      /(?:upc\s*(?:code)?\s*(?:hai|is|:)\s*[*`]?[A-Z0-9]{5,15}[*`]?)/gi,
+      /(?:upc\s*(?:code)?\s*(?:hai|is|:)?\s*[*\x60]?[A-Za-z0-9]{5,15}[*\x60]?)/gi,
       'Aapke UPC code aur aage ke assistance ke liye hamari team aapse directly coordinate karegi'
     );
   }

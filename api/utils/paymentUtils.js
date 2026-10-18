@@ -207,8 +207,10 @@ export async function fetchCustomerOrders(customerPhone) {
             if (prod.number) {
               const raw10 = String(prod.number).replace(/\D/g, '').slice(-10);
               purchasedNumbers.push(raw10);
+              const { upc, upcCode, ...safeProd } = prod;
               activeProducts.push({
-                ...prod,
+                ...safeProd,
+                upcCode: null,
                 number: raw10,
                 orderNumber: ord.orderNumber,
                 invoiceNumber: ord.invoiceNumber || prod.invoiceNumber || null,
@@ -231,8 +233,10 @@ export async function fetchCustomerOrders(customerPhone) {
             if (prod.number) {
               const raw10 = String(prod.number).replace(/\D/g, '').slice(-10);
               pendingPaymentNumbers.push(raw10);
+              const { upc, upcCode, ...safeProd } = prod;
               pendingPaymentProducts.push({
-                ...prod,
+                ...safeProd,
+                upcCode: null,
                 number: raw10,
                 orderNumber: ord.orderNumber,
                 orderStatus: ord.orderStatus,
