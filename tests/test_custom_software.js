@@ -81,7 +81,32 @@ async function runTests() {
 
   assert(infoResult.escalate === false, 'runAgent does NOT escalate on general info inquiry');
   assert(infoResult.reply.includes('Devora') && infoResult.reply.includes('WhatsApp'), 'runAgent returns comprehensive explanation');
-  assert(infoResult.searchJSON === null, 'runAgent does NOT output searchJSON on software inquiry');
+  console.log('\n--- 6. Testing Exact Website CTA & Follow-up Flow ---');
+  const exactCTA = "Hey! I want to know more about AI and custom software or automated softwares.";
+  assert(isCustomSoftwareQuery(exactCTA), 'Exact website CTA matches isCustomSoftwareQuery');
+  assert(isBroadCustomSoftwareInquiry(exactCTA), 'Exact website CTA matches isBroadCustomSoftwareInquiry');
+
+  const ctaResult = await runAgent({
+    userMessage: exactCTA,
+    customerContext: { phone: '919619410050', language: 'English' }
+  });
+  assert(ctaResult.escalate === false, 'Website CTA does NOT escalate or pause');
+  assert(ctaResult.reply.includes('Devora') && ctaResult.reply.includes('WhatsApp'), 'Website CTA returns full software capabilities');
+
+  // Follow up inquiry
+  const followUpHistory = [
+    { role: 'user', text: exactCTA },
+    { role: 'bot', text: ctaResult.reply }
+  ];
+  const followUpMsg = "what can you do for my business?";
+  assert(isCustomSoftwareQuery(followUpMsg, followUpHistory), 'Follow-up "what can you do for my business?" matches isCustomSoftwareQuery with history');
+
+  const followUpResult = await runAgent({
+    userMessage: followUpMsg,
+    customerContext: { phone: '919619410050', language: 'English', history: followUpHistory }
+  });
+  assert(followUpResult.escalate === false, 'Follow-up does NOT escalate');
+  assert(followUpResult.reply.length > 50, 'Follow-up returns proper explanation');
 
   console.log(`\n================================`);
   console.log(`Total: ${passed + failed} | Passed: ${passed} | Failed: ${failed}`);

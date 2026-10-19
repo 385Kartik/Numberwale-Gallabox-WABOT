@@ -2018,7 +2018,7 @@ export function isUpcInquiry(text) {
 // ─────────────────────────────────────────────────────────────────
 // MAIN EXPORT
 // ─────────────────────────────────────────────────────────────────
-export function isCustomSoftwareQuery(text) {
+export function isCustomSoftwareQuery(text, history = []) {
   if (!text || typeof text !== 'string') return false;
   const t = text.trim().toLowerCase();
 
@@ -2032,10 +2032,24 @@ export function isCustomSoftwareQuery(text) {
     /\b(?:custom\s*crm|bespoke\s*crm|crm\s*development|erp\s*development|management\s*system)\b/i,
     /\b(?:waveconnect|chatwoot)\b/i,
     /\b(?:bot|chatbot|website|software|automation|crm|extension)\s*(?:bhi\s*)?(?:banate|bana\s*sakte|banwan?[ai]|banan?[ai]|chahiye|develop|provide)\b/i,
-    /\b(?:bana\s*(?:te|sakoge|denge)|develop\s*karte)\s*(?:ho|hai)?\s*(?:kya)?\s*(?:software|website|bot|automation|extension)\b/i
+    /\b(?:bana\s*(?:te|sakoge|denge)|develop\s*karte)\s*(?:ho|hai)?\s*(?:kya)?\s*(?:software|website|bot|automation|extension)\b/i,
+    /\b(?:automated\s*softwares?|automation\s*software|ai\s*(?:software|solution|system|integration)s?)\b/i,
+    /\b(?:i\s*want\s*to\s*know\s*more\s*about\s*ai|know\s*more\s*about\s*ai\s*and\s*custom\s*software)\b/i
   ];
 
-  return patterns.some(rx => rx.test(t));
+  if (patterns.some(rx => rx.test(t))) return true;
+
+  // Contextual check: If recent history discussed software/devora and user asks follow-up questions
+  const hasSoftwareContext = (history && Array.isArray(history)) && history.slice(-4).some(h => isCustomSoftwareQuery(h.text || ''));
+  if (hasSoftwareContext) {
+    const isSoftwareFollowUp = /\b(what\s*can\s*you\s*do|what\s*can\s*you\s*do\s*for\s*(?:my\s*)?business|help\s*my\s*business|how\s*can\s*you\s*help|how\s*does\s*it\s*work|features?|details?|examples?|demos?|portfolio|kya\s*kya\s*kar\s*sakte|kaise\s*kaam\s*karta|batao|explain|services?)\b/i.test(t);
+    const has10Digit = extract10DigitNumber(text);
+    if (isSoftwareFollowUp && !has10Digit) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function isCustomSoftwareQuoteQuery(text, history = []) {
@@ -2069,7 +2083,9 @@ export function isBroadCustomSoftwareInquiry(text) {
     /\b(?:kya\s*(?:kya|hai|services?|provide|banate|karte)|services?|offerings?|what\s*(?:do\s*you|can\s*you|services?|is)|tell\s*me\s*about|details?|jaankari|janna\s*hai|explain)\b/i,
     /\b(?:banate\s*ho|bana\s*sakte|kar\s*sakte|possible\s*hai|provide\s*karte|options?)\b/i,
     /\b(?:devora|devoraaa)\b/i,
-    /^(?:custom\s*software|software|whatsapp\s*bot|vendor\s*bot|automation|chrome\s*extension|website)\??$/i
+    /^(?:custom\s*software|software|whatsapp\s*bot|vendor\s*bot|automation|chrome\s*extension|website)\??$/i,
+    /\b(?:what\s*can\s*you\s*do\s*for\s*(?:my\s*)?business|what\s*can\s*you\s*do|how\s*can\s*you\s*help\s*(?:my\s*)?business)\b/i,
+    /\bi\s*want\s*to\s*know\s*more\s*about\s*ai/i
   ];
   return broadPatterns.some(rx => rx.test(t));
 }
@@ -2243,7 +2259,7 @@ export async function runAgent(opts) {
   }
 
   // ── CRM Fast Intercept 0.2: Broad Custom Software / Devora / Automation Inquiries ──
-  if (isCustomSoftwareQuery(userMessage) && !extract10DigitNumber(userMessage) && isBroadCustomSoftwareInquiry(userMessage)) {
+  if (isCustomSoftwareQuery(userMessage, history) && !extract10DigitNumber(userMessage) && isBroadCustomSoftwareInquiry(userMessage)) {
     console.log(`[Agent] 🚀 Fast Intercept: Broad Custom Software / Devora Inquiry for ${customerContext.phone || 'customer'}`);
     const explanationReply = getCustomSoftwareExplanation(lang, customerContext.name || '');
     return {
@@ -2833,7 +2849,7 @@ export async function runAgent(opts) {
   }
 
   // ── Post-LLM Safety Guard: If user asked about custom software, strip SEARCH_JSON ──
-  if (isCustomSoftwareQuery(userMessage) && !extract10DigitNumber(userMessage)) {
+  if (isCustomSoftwareQuery(userMessage, history) && !extract10DigitNumber(userMessage)) {
     searchJSON = null;
   }
 

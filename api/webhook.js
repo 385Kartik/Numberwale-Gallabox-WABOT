@@ -15,7 +15,7 @@ import {
 } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber, fetchCustomerOrders } from './utils/paymentUtils.js';
 import { sendToGallabox, sendGallaboxDocument, unassignConversation, addGallaboxTag, removeGallaboxTag, postGallaboxNote } from './utils/gallabox.js';
-import { formatProducts, cleanCustomerName, parseNameAndPincode, extract10DigitNumber, stripThinkTags, isCustomSoftwareQuery } from './utils/aiAgent.js';
+import { formatProducts, cleanCustomerName, parseNameAndPincode, extract10DigitNumber, stripThinkTags, isCustomSoftwareQuery, isCustomSoftwareQuoteQuery } from './utils/aiAgent.js';
 import { validateIndianPincode } from './utils/pincodeValidator.js';
 
 function extractNameAndPincode(userMessage, existingName = null) {
@@ -408,6 +408,20 @@ export default async function handler(req, res) {
       }
 
       if (currentState === 'PAUSED') {
+        // Auto-unpause if customer is sending a software inquiry and no human agent has replied yet
+        const isSoftware = isCustomSoftwareQuery(userMessage, customerContext.history || []);
+        if (!customerContext.agentReplied && isSoftware && !isCustomSoftwareQuoteQuery(userMessage, customerContext.history || [])) {
+          console.log(`[Webhook] 🔄 Auto-unpausing bot for software inquiry from ${customerPhone} (no agent reply yet).`);
+          resumeBot(customerPhone);
+          await updateCustomerInfo(customerPhone, { botState: 'ACTIVE', agentReplied: false });
+          addGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
+          removeGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
+          currentState = 'ACTIVE';
+          customerContext.botState = 'ACTIVE';
+        }
+      }
+
+      if (currentState === 'PAUSED') {
         const isMoreOrBuy = lowerMsg === 'more' || lowerMsg.startsWith('buy');
         
         // If agent has already replied, bot MUST stay completely silent
@@ -426,28 +440,19 @@ export default async function handler(req, res) {
     const resetRegex = /^(menu|restart|reset|clear|start|शुरू|वापस)\b/i;
     const languageRegex = /^(language|change language|bhasha|bhasa|select language|ભાષા|भाषा)\b/i;
 
-    // ── Direct Website CTA Click for AI & Custom Software ───────────────────
+    // ── Inbound Software Lead Sync (Non-blocking background notification to CRM) ──
     const isDirectWebsiteSoftwareCTA =
       lowerMsg.includes('i want to know more about ai and custom software') ||
       lowerMsg.includes('i want to discuss a custom solution') ||
       lowerMsg.includes('i want to discuss custom engineering');
 
-    if (isDirectWebsiteSoftwareCTA) {
-      console.log(`[Webhook] 💻 AI & Custom Software inquiry received from ${customerPhone}: "${userMessage}". Syncing to Software Leads.`);
-      
+    if (isDirectWebsiteSoftwareCTA || isCustomSoftwareQuery(userMessage, customerContext.history || [])) {
       const convId = body?.conversationId || body?.data?.conversationId || body?.request?.data?.conversationId || '';
       if (convId) {
         saveConversationId(customerPhone, convId).catch(() => {});
       }
 
-      // 1. Tag in Gallabox → REQUIRE_AGENT & pause VIP bot
-      await addGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
-      removeGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
-      stopDrip(customerPhone).catch(() => {});
-      pauseBot(customerPhone);
-      await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: false });
-
-      // 2. Sync to Software Leads in CRM (Completely isolated from regular VIP leads)
+      // Non-blocking sync to Software Leads in CRM (Completely isolated from VIP leads)
       const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
       const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
       fetch(`${ADMIN_API}/api/v1/software-leads/from-gallabox`, {
@@ -457,7 +462,7 @@ export default async function handler(req, res) {
           phone: customerPhone,
           name: effectiveCustomerName !== 'Unknown' ? effectiveCustomerName : 'WhatsApp Visitor',
           message: userMessage,
-          source: 'WhatsApp Inbound (AI & Software Page)',
+          source: isDirectWebsiteSoftwareCTA ? 'WhatsApp Inbound (AI & Software Page)' : 'WhatsApp Inbound (Custom Software Inquiry)',
           conversationId: convId,
         }),
       }).then(r => {
@@ -465,24 +470,7 @@ export default async function handler(req, res) {
       }).catch(err => {
         console.error('[Webhook] Failed to sync software lead to CRM:', err.message);
       });
-
-      // 3. Send professional software inquiry confirmation to customer
-      const softwareReply = "Hello! 👋 Thank you for reaching out to Numberwale Tech & Software Solutions.\n\nWe have received your requirement regarding AI & Custom Software / Automation. 💻🚀\n\nOur engineering team has been notified and a technical expert will connect with you here shortly to discuss your requirements and share live demos.\n\nIn the meantime, feel free to share your business name and specific use case or features you need!";
-
-      await sendToGallabox(customerPhone, softwareReply, channelID);
-      await logInteraction({
-        phone: customerPhone,
-        name: effectiveCustomerName,
-        userText: userMessage,
-        botText: softwareReply,
-        isFail: false,
-        model: 'software-lead-handler',
-        tokensUsed: 0,
-        jsonQuery: null,
-        page: 1,
-      }).catch(() => {});
-
-      return res.status(200).json({ success: true, reason: 'software_lead_captured' });
+      // Note: Bot is NOT paused here. Eva will dynamically explain software capabilities and answer follow-ups!
     }
 
     if (cancellationRefundRegex.test(lowerMsg)) {
@@ -722,7 +710,7 @@ export default async function handler(req, res) {
     const hasProfileInUserMgmt = customerOrdersData?.hasOrders || (customerOrdersData?.customerName && (customerOrdersData?.customerPinCode || customerContext.pinCode));
     const alreadyHasNameAndPin = customerContext.name && customerContext.name !== 'Unknown' && customerContext.pinCode;
 
-    const isSoftwareInquiry = isCustomSoftwareQuery(userMessage);
+    const isSoftwareInquiry = isCustomSoftwareQuery(userMessage, customerContext.history || []);
 
     if (hasCapturedPayment || hasProfileInUserMgmt || alreadyHasNameAndPin || isSoftwareInquiry) {
       if (currentState === 'NEW' || currentState === 'AWAITING_INFO' || currentState === 'AWAITING_LANGUAGE') {
