@@ -126,7 +126,7 @@ export async function validateIndianPincode(rawPin) {
           isValid: false,
           reason: 'not_found',
           pinCode: cleanPin,
-          message: result.Message || 'Invalid PIN code. No records found in India Post.'
+          message: 'Invalid PIN code.'
         };
       }
     }

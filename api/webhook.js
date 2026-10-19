@@ -748,7 +748,7 @@ export default async function handler(req, res) {
           customerContext.language = 'English';
 
           const greetName = (parsed.name || knownName) ? `Hi ${parsed.name || knownName}! ` : '';
-          const invalidReply = `${greetName}Welcome to Numberwale! 😊\n\nThe pincode *${parsed.pin}* appears to be invalid or was not found in India Post records.\n\nPlease share your *Name* and a valid *6-digit Indian Pincode* to check VIP numbers available in your area.\n\nExample: _Rahul 400001_`;
+          const invalidReply = `${greetName}Welcome to Numberwale! 😊\n\nThe pincode *${parsed.pin}* is not valid.\n\nPlease share your *Name* and a valid *6-digit Indian Pincode* to check VIP numbers available in your area.\n\nExample: _Rahul 400001_`;
           await sendToGallabox(customerPhone, invalidReply, channelID);
           return res.status(200).json({ success: true, reason: 'invalid_pincode_in_new' });
         }
@@ -875,14 +875,14 @@ export default async function handler(req, res) {
           }
           const greetName = (parsed.name || knownName) ? `Hi ${parsed.name || knownName}! ` : '';
           const lang = customerContext.language || 'English';
-          let errInvalid = `${greetName}The pincode *${parsed.pin}* appears to be invalid or was not found in India Post records. 😊\n\nPlease share a valid 6-digit Indian PIN code to proceed.\n\nExample: _400001_`;
+          let errInvalid = `${greetName}The pincode *${parsed.pin}* is not valid. 😊\n\nPlease share a valid 6-digit PIN code to proceed.\n\nExample: _400001_`;
 
           if (lang === 'Hindi') {
-            errInvalid = `${greetName}आपका पिनकोड *${parsed.pin}* India Post रिकॉर्ड्स में मान्य नहीं मिला। 😊\n\nकृपया अपना सही 6-अंकों का भारतीय पिनकोड भेजें।\n\nउदाहरण: _400001_`;
+            errInvalid = `${greetName}यह पिनकोड *${parsed.pin}* valid नहीं है। 😊\n\nकृपया अपना सही 6-अंकों का पिनकोड भेजें।\n\nउदाहरण: _400001_`;
           } else if (lang === 'Gujarati') {
-            errInvalid = `${greetName}તમારો પિનકોડ *${parsed.pin}* India Post રેકોર્ડમાં માન્ય નથી મળ્યો. 😊\n\nકૃપા કરીને સાચો 6-આંકડાનો પિનકોડ મોકલો.\n\nઉદાહરણ: _400001_`;
+            errInvalid = `${greetName}આ પિનકોડ *${parsed.pin}* valid નથી. 😊\n\nકૃપા કરીને તમારો સાચો 6-આંકડાનો પિનકોડ મોકલો.\n\nઉદાહરણ: _400001_`;
           } else if (lang === 'Marathi') {
-            errInvalid = `${greetName}तुमचा पिनकोड *${parsed.pin}* India Post रेकॉर्डमध्ये वैध आढळला नाही. 😊\n\nकृपया योग्य ६-अंकी पिनकोड पाठवा.\n\nउदाहरण: _400001_`;
+            errInvalid = `${greetName}हा पिनकोड *${parsed.pin}* valid नाही. 😊\n\nकृपया तुमचा योग्य ६-अंकी पिनकोड पाठवा.\n\nउदाहरण: _400001_`;
           }
 
           await sendToGallabox(customerPhone, errInvalid, channelID);
