@@ -26,7 +26,7 @@ export function cleanCustomerName(rawName) {
   name = name.replace(/\b(?:numberwale|number\s*wale|nw|admin|vip|store|shop)\b/gi, '');
 
   // 2. Remove common prefix labels like "Name", "Naam", "Mera naam", "My name is"
-  name = name.replace(/\b(?:mera\s*naam(?:\s*hai)?|my\s*name\s*is|this\s*is|i\s*am|im|name\s*is|naam|name|pincode|pin\s*code|pin)\b[:\s-]*/gi, '');
+  name = name.replace(/\b(?:mera\s*naam(?:\s*hai)?|my\s*name\s*is|this\s*is|i\s*am|im|name\s*is|naam|name|pincode|pin\s*code|pin|code)\b[:\s-]*/gi, '');
 
   // 3. Remove common titles/honorifics if followed by a name
   name = name.replace(/\b(?:mr|mrs|ms|shri|shree|dr)\b\.?\s+/gi, '');
@@ -43,12 +43,65 @@ export function cleanCustomerName(rawName) {
   if (!name || name.length < 2) return null;
 
   // Split into words, filter out any leftover common stop words
-  const parts = name.split(' ').filter(w => !/^(is|hai|am|ji|bhai|sir|madam)$/i.test(w) && w.length >= 2);
+  const stopWords = /^(is|hai|am|ji|bhai|sir|madam|aur|and|the|a|an|from|se|hu|hoon|h|mera|meri|apna|apni)$/i;
+  const parts = name.split(' ').filter(w => !stopWords.test(w) && w.length >= 2);
   if (parts.length === 0) return null;
 
-  // Capitalize first letter of name
-  const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
-  return cap(parts[0]);
+  // Capitalize each word of full name (up to 3 words, e.g. "Kartik Parmar")
+  const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  return parts.slice(0, 3).map(cap).join(' ');
+}
+
+/**
+ * Robust parser for customer messages containing Name, Pincode, or both in ANY format.
+ * Handles:
+ * - "kartik 401105", "kartik401105", "401105 kartik", "401105kartik"
+ * - "kartik   401105", "401105   kartik"
+ * - "kartik\n401105", "401105\nkartik"
+ * - "kartik, 401105", "name: kartik pincode: 401105"
+ * - "kartik parmar 401105", "401105 kartik parmar"
+ * - "401105" (when existingName is already known, returns { name: existingName, pin: '401105' })
+ * - "kartik" (returns { name: 'Kartik', pin: null })
+ */
+export function parseNameAndPincode(userMessage, existingName = null) {
+  if (!userMessage || typeof userMessage !== 'string') return null;
+  const msg = userMessage.trim();
+  if (!msg) return null;
+
+  let pin = null;
+  let rawPinMatch = null;
+
+  // 1. Look for standard 6-digit Indian PIN code (digits preceded/followed by non-digits, starting with 1-9)
+  const pin6Match = msg.match(/(?<!\d)([1-9]\d{5})(?!\d)/);
+  if (pin6Match) {
+    pin = pin6Match[1];
+    rawPinMatch = pin6Match[0];
+  } else {
+    // Also support 3-space-3 or 3-dash-3 e.g. '401 105' or '401-105'
+    const pinSplitMatch = msg.match(/(?<!\d)([1-9]\d{2})[\s.-](\d{3})(?!\d)/);
+    if (pinSplitMatch) {
+      pin = pinSplitMatch[1] + pinSplitMatch[2];
+      rawPinMatch = pinSplitMatch[0];
+    }
+  }
+
+  // 2. Extract Name after removing the PIN code pattern
+  let cleanName = null;
+  if (rawPinMatch) {
+    const textWithoutPin = msg.replace(rawPinMatch, ' ');
+    cleanName = cleanCustomerName(textWithoutPin);
+  } else {
+    cleanName = cleanCustomerName(msg);
+  }
+
+  // If name couldn't be extracted from current text but is already known from CRM/context
+  if (!cleanName && existingName && existingName !== 'Unknown') {
+    cleanName = existingName;
+  }
+
+  if (!cleanName && !pin) return null;
+
+  return { name: cleanName, pin };
 }
 
 export function extract10DigitNumber(text) {
