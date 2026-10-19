@@ -271,6 +271,39 @@ export function buildSystemPrompt(ctx) {
   }
   L.push('⚠️ NEVER say you are OpenAI, ChatGPT, Groq, Meta, or Llama! You are exclusively Eva, Numberwale\'s assistant created by Kartik Parmar.');
   L.push('');
+  L.push('## 🚀 DEVORA & NUMBERWALE AI, AUTOMATION & CUSTOM SOFTWARE SOLUTIONS (OFFICIAL CAPABILITIES & QUOTE POLICY)');
+  L.push('Numberwale\'s tech engineering division Devora (founded & engineered by Kartik Parmar — https://devora.page and https://www.numberwale.com/custom-solutions) builds cutting-edge AI systems, bespoke software, and end-to-end business automation.');
+  L.push('If a customer asks about custom software, websites, AI chatbots, vendor bots, whatsapp interface/CRM, extensions, or automation:');
+  L.push('Eva must enthusiastically, warmly and professionally explain what is possible across our 6 core engineering pillars:');
+  L.push('1. 🤖 AI-Powered WhatsApp & Messaging Bots:');
+  L.push('   • Customer Support Bots: 24/7 autonomous replies, <5s response time, live catalog lookup, FAQs, and instant human handoff.');
+  L.push('   • Vendor & Supplier Bots: Automated quote polling (RFQ), live price comparisons across multiple suppliers, purchase order broadcasts, and inventory status reconciliation via WhatsApp.');
+  L.push('   • WhatsApp Team Inbox (WaveConnect): Manage 50+ sales & support agents on a single official WhatsApp number with live chat routing, internal team notes, and ZERO per-seat licensing fees.');
+  L.push('2. 🌐 Custom Websites & Full-Stack Web Applications:');
+  L.push('   • High-speed digital storefronts, e-commerce platforms, and SaaS web apps (Next.js & React 19 architecture).');
+  L.push('   • Atomic E-Commerce with database inventory locks to prevent overselling on flash drops, integrated with UPI & Card payment gateways.');
+  L.push('   • Passwordless OTP authentication, custom customer & partner portals, and responsive admin dashboards.');
+  L.push('3. ⚡ End-to-End Business Automation:');
+  L.push('   • Eliminate manual spreadsheets (Excel/Google Sheets) and repetitive administrative operations.');
+  L.push('   • Instant PDF Invoices sent automatically on WhatsApp within 2 seconds.');
+  L.push('   • Real-time 2-way sync between WhatsApp, Google Sheets, CRM, and ERP with dispatch alerts.');
+  L.push('4. 🗄️ Custom Software & Bespoke CRM:');
+  L.push('   • Tailor-made CRM, ERP, and inventory management systems built around your exact business workflows.');
+  L.push('   • 100% sovereign ownership with ZERO recurring monthly per-user software fees.');
+  L.push('   • Role-Based Access Control (RBAC) and executive intelligence dashboards.');
+  L.push('5. 🧩 Browser Extensions (Chrome Extensions Manifest V3):');
+  L.push('   • Real-time multi-store price scrapers (e.g., comparing Amazon, Flipkart, Croma in real-time).');
+  L.push('   • 1-click web-to-CRM data entry and autofill extensions to accelerate daily employee workflows.');
+  L.push('6. ✨ AI Systems & Semantic Search:');
+  L.push('   • Enterprise document intelligence, RAG (Retrieval-Augmented Generation) on company PDFs/manuals, and intelligent vector search.');
+  L.push('');
+  L.push('🛑 STRICT QUOTE & PRICING ESCALATION RULE:');
+  L.push('- If customer asks for a QUOTE, PRICING, COST, BUDGET, ESTIMATE, CHARGES, OR "KITNA LAGEGA / KHARCHA HOGA" for custom software, bot, website, or automation:');
+  L.push('  1. NEVER guess or invent prices! Software pricing depends on project scope, features, and scale.');
+  L.push('  2. Explain that pricing is customized based on requirements, and that you are transferring their chat directly to our technical solutions executive / engineering team.');
+  L.push('  3. You MUST append "[ESCALATE: CUSTOM_SOFTWARE_QUOTE]" at the end of your response so our system automatically transfers them to an executive!');
+  L.push('🛑 NEVER output SEARCH_JSON for software / bot inquiries! (SEARCH_JSON is strictly for VIP mobile number catalog queries).');
+  L.push('');
   L.push('## LANGUAGE POLICY (STRICT MIRRORING)');
   L.push(`- Customer's active language: **${lang.toUpperCase()}**`);
   L.push(`- You MUST write your ENTIRE conversational message in **${lang}**.`);
@@ -1985,6 +2018,181 @@ export function isUpcInquiry(text) {
 // ─────────────────────────────────────────────────────────────────
 // MAIN EXPORT
 // ─────────────────────────────────────────────────────────────────
+export function isCustomSoftwareQuery(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+
+  const patterns = [
+    /\bdevora(?:aa)?\b/i,
+    /\b(?:custom\s*software|software\s*development|software\s*(?:banwan?[ai]|banan?[ai]|develop|engineer|solution|service)s?)\b/i,
+    /\b(?:whatsapp\s*(?:bot|chatbot|interface|automation|crm|team\s*inbox|inbox)|vendor\s*bot|customer\s*bot|ai\s*bot|support\s*bot)\b/i,
+    /\b(?:custom\s*website|website\s*(?:development|design|banwan?[ai]|banan?[ai]|develop)|web\s*app|web\s*application|digital\s*storefront|ecommerce\s*website)\b/i,
+    /\b(?:chrome\s*extension|browser\s*extension|price\s*scraper|extension\s*(?:banwan?[ai]|banan?[ai]|development|developer))\b/i,
+    /\b(?:business\s*automation|workflow\s*automation|automation\s*in\s*business|sheets\s*automation|process\s*automation|zero-touch\s*pipeline)\b/i,
+    /\b(?:custom\s*crm|bespoke\s*crm|crm\s*development|erp\s*development|management\s*system)\b/i,
+    /\b(?:waveconnect|chatwoot)\b/i,
+    /\b(?:bot|chatbot|website|software|automation|crm|extension)\s*(?:bhi\s*)?(?:banate|bana\s*sakte|banwan?[ai]|banan?[ai]|chahiye|develop|provide)\b/i,
+    /\b(?:bana\s*(?:te|sakoge|denge)|develop\s*karte)\s*(?:ho|hai)?\s*(?:kya)?\s*(?:software|website|bot|automation|extension)\b/i
+  ];
+
+  return patterns.some(rx => rx.test(t));
+}
+
+export function isCustomSoftwareQuoteQuery(text, history = []) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+
+  const isExplicitSoftwareQuote = (
+    /\b(?:software|bot|chatbot|website|automation|crm|extension|app|interface|devora|solution)\b/i.test(t) &&
+    /\b(?:quote|quotation|pricing|charges?|estimate|budget|kharche?|fees?|price|cost|rate|kitna\s*(?:lagega|hoga|lega|padega|charge|paisa|rupaye?)|kya\s*(?:charge|cost|rate|price)\s*hai)\b/i.test(t)
+  );
+
+  if (isExplicitSoftwareQuote) return true;
+
+  // Contextual check: If recent history discussed software/devora and user asks for quote/pricing without giving a 10-digit number
+  const hasSoftwareContext = (history && Array.isArray(history)) && history.slice(-4).some(h => isCustomSoftwareQuery(h.text || ''));
+  if (hasSoftwareContext) {
+    const isAskingPrice = /\b(?:quote|quotation|pricing|charges?|estimate|budget|kharche?|fees?|price|cost|rate|kitna\s*(?:lagega|hoga|charge|kharcha)|kitne\s*me)\b/i.test(t);
+    const has10Digit = extract10DigitNumber(text);
+    if (isAskingPrice && !has10Digit) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function isBroadCustomSoftwareInquiry(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim().toLowerCase();
+  const broadPatterns = [
+    /\b(?:kya\s*(?:kya|hai|services?|provide|banate|karte)|services?|offerings?|what\s*(?:do\s*you|can\s*you|services?|is)|tell\s*me\s*about|details?|jaankari|janna\s*hai|explain)\b/i,
+    /\b(?:banate\s*ho|bana\s*sakte|kar\s*sakte|possible\s*hai|provide\s*karte|options?)\b/i,
+    /\b(?:devora|devoraaa)\b/i,
+    /^(?:custom\s*software|software|whatsapp\s*bot|vendor\s*bot|automation|chrome\s*extension|website)\??$/i
+  ];
+  return broadPatterns.some(rx => rx.test(t));
+}
+
+export function getCustomSoftwareQuoteHandoff(lang) {
+  if (lang === 'English') {
+    return "Custom software, AI bot, and automation pricing is tailored based on the exact scope, features, and scale of your project. 💼\n\nI am transferring your chat directly to our technical solutions team / executive. They will connect with you here shortly to understand your requirements and share a customized quote and timeline! 👨‍💻\n\nIn the meantime, feel free to share any specific features, workflows, or ideas you have in mind! 😊";
+  } else if (lang === 'Hindi') {
+    return "कस्टम सॉफ्टवेयर, AI बॉट्स और बिजनेस ऑटोमेशन की कीमत आपके प्रोजेक्ट के सटीक स्कोप, फीचर्स और आवश्यकताओं के आधार पर तय की जाती है। 💼\n\nमैं आपकी चैट सीधे हमारी टेक्निकल सॉल्यूशंस टीम / एग्जीक्यूटिव को ट्रांसफर कर रही हूँ, वे जल्द ही आपसे यहाँ संपर्क करेंगे और आपकी रिक्वायरमेंट समझकर एक कस्टमाइज्ड कोट (Quote) व टाइमलाइन शेयर करेंगे! 👨‍💻\n\nतब तक यदि आप अपने प्रोजेक्ट से जुड़े कोई खास फीचर्स या वर्कफ़्लो बताना चाहें, तो यहाँ लिख सकते हैं! 😊";
+  } else if (lang === 'Gujarati') {
+    return "કસ્ટમ સૉફ્ટવેર, AI બોટ્સ અને ઓટોમેશન સોલ્યુશન્સનું પ્રાઇસિંગ પ્રોજેક્ટના સ્કોપ અને જરૂરિયાતો મુજબ નક્કી કરવામાં આવે છે. 💼\n\nહું તમારી ચેટ સીધી અમારા ટેકનિકલ સોલ્યુશન્સ એક્ઝિક્યુટિવ / એન્જિનિયરિંગ ટીમને ટ્રાન્સફર કરી રહી છું, તેઓ ટૂંક સમયમાં તમારી સાથે અહીં જોડાશે અને કસ્ટમ ક્વોટ શેર કરશે! 👨‍💻\n\nત્યાં સુધી તમારા પ્રોજેક્ટ વિશે કોઈ ચોક્કસ જરૂરિયાત હોય તો અહીં શેર કરી શકો છો! 😊";
+  } else if (lang === 'Marathi') {
+    return "कस्टम सॉफ्टवेअर, AI बॉट्स आणि बिझनेस ऑटोमेशनचे प्रायसिंग प्रोजेक्टच्या नेमक्या व्याप्ती आणि आवश्यकतांवर आधारित असते. 💼\n\nमी तुमची चॅट थेट आमच्या टेक्निकल सोल्यूशन्स एक्झिक्युटिव्ह / टीमकडे ट्रान्सफर करत आहे, ते लवकरच तुमच्याशी येथे संपर्क साधतील आणि सविस्तर कोट (Quote) शेअर करतील! 👨‍💻\n\nतोपर्यंत तुमच्या प्रोजेक्टबद्दल काही विशिष्ट आवश्यकता असल्यास तुम्ही इथे सांगू शकता! 😊";
+  } else {
+    // Hinglish
+    return "Hamare custom software, AI bots aur business automation solutions ka pricing project ke exact scope, features aur scale ke hisaab se customized hota hai. 💼\n\nMain aapki chat seedha hamare technical solutions executive / engineering team ko transfer kar rahi hoon, wo jald hi aapse yahan connect karke aapke project ki requirements discuss karenge aur tailored quote share karenge! 👨‍💻\n\nTab tak agar aapke project se related koi specific feature, reference ya workflow ho, toh aap yahan share kar sakte hain! 😊";
+  }
+}
+
+export function getCustomSoftwareExplanation(lang, customerTitle = '') {
+  if (lang === 'English') {
+    return `Through **Devora** and **Numberwale Tech Solutions**, we engineer cutting-edge AI systems, bespoke software, and end-to-end business automations! 🚀\n\n` +
+      `Here is what we build and provide:\n\n` +
+      `🤖 **1. AI-Powered WhatsApp & Messaging Bots:**\n` +
+      `• *Customer Support Bot:* 24/7 autonomous replies (<5s response time), live catalog search, FAQs, and instant human handoff.\n` +
+      `• *Vendor & Supplier Bot:* Automated quote polling (RFQ), multi-vendor price comparison, and purchase order broadcasts via WhatsApp.\n` +
+      `• *WhatsApp Team Inbox (WaveConnect):* Manage 50+ sales & support agents on a single official WhatsApp number with ZERO per-seat license costs.\n\n` +
+      `🌐 **2. Custom Websites & Full-Stack Web Apps:**\n` +
+      `• High-performance digital storefronts, e-commerce platforms, and SaaS web apps (Next.js & React 19).\n` +
+      `• Atomic inventory management preventing overselling on flash drops, integrated with UPI/Card payment gateways.\n\n` +
+      `⚡ **3. End-to-End Business Automation:**\n` +
+      `• Eliminate manual spreadsheets with self-running operational pipelines.\n` +
+      `• Instant PDF Invoices sent automatically on WhatsApp within 2 seconds.\n` +
+      `• 2-way live sync between WhatsApp, Google Sheets, CRM, and ERP with dispatch alerts.\n\n` +
+      `🗄️ **4. Custom Software & Bespoke CRM:**\n` +
+      `• Tailor-made CRM, ERP, and inventory management systems built around your exact business workflows.\n` +
+      `• 100% sovereign ownership with ZERO recurring monthly per-user software fees.\n\n` +
+      `🧩 **5. Chrome Extensions & Web Scrapers:**\n` +
+      `• Real-time multi-platform price scrapers (e.g., comparing Amazon, Flipkart, Croma).\n` +
+      `• 1-click web-to-CRM data entry and workflow automation tools.\n\n` +
+      `What kind of system, bot, or automation are you looking to build for your business? Please share your requirements! 😊`;
+  } else if (lang === 'Hindi') {
+    return `हम **Devora** और **Numberwale Tech Solutions** के माध्यम से कटिंग-एज AI सिस्टम्स, कस्टम सॉफ्टवेयर और सम्पूर्ण बिजनेस ऑटोमेशन तैयार करते हैं! 🚀\n\n` +
+      `आपके बिजनेस के लिए हम ये सभी समाधान प्रदान करते हैं:\n\n` +
+      `🤖 **1. WhatsApp AI कस्टमर और वेंडर बॉट्स:**\n` +
+      `• *कस्टमर सपोर्ट बॉट:* 24/7 त्वरित उत्तर (<5 सेकंड रिस्पॉन्स), कैटलॉग सर्च, FAQs और ऑटोमेटेड लीड क्वालिफिकेशन।\n` +
+      `• *वेंडर बॉट:* WhatsApp पर वेंडर्स से कोट्स मंगाना, लाइव प्राइस कम्पेरिजन और PO ब्रॉडकास्ट।\n` +
+      `• *WhatsApp टीम इनबॉक्स (WaveConnect):* एक ही ऑफिशियल WhatsApp नंबर पर 50+ एजेंट्स का मैनेजमेंट, वो भी बिना किसी प्रति-यूजर मासिक लाइसेंस फीस के!\n\n` +
+      `🌐 **2. कस्टम वेबसाइट्स और वेब ऐप्स:**\n` +
+      `• हाई-स्पीड डिजिटल स्टोरफ्रंट्स और SaaS पोर्टल्स (Next.js & React 19)।\n` +
+      `• एटॉमिक ई-कॉमर्स विथ जीरो-ओवरसेल प्रोटेक्शन और डायरेक्ट UPI / पेमेंट गेटवे इंटीग्रेशन।\n\n` +
+      `⚡ **3. एंड-टू-एंड बिजनेस ऑटोमेशन:**\n` +
+      `• मैनुअल एक्सेल/गूगल शीट्स के झंझट को खत्म करके ऑटोमेटेड पाइपलाइन्स।\n` +
+      `• WhatsApp पर मात्र 2 सेकंड में ब्रांडेड GST इनवॉइस PDF ऑटो-जनरेट होकर सेंड।\n` +
+      `• शीट्स, CRM और ERP के बीच 2-वे रियल-टाइम सिंक और डिस्पैच अलर्ट्स।\n\n` +
+      `🗄️ **4. कस्टम सॉफ्टवेयर और बेस्पोक CRM:**\n` +
+      `• आपके बिजनेस वर्कफ़्लो के अनुसार खास तैयार CRM/ERP और इन्वेंट्री सिस्टम।\n` +
+      `• कोई मासिक प्रति-सीट SaaS शुल्क नहीं, आपका डेटा और सिस्टम पूरी तरह से आपका!\n\n` +
+      `🧩 **5. क्रोम एक्सटेंशन्स और वेब स्क्रेपर्स:**\n` +
+      `• रियल-टाइम मल्टी-स्टोर प्राइस स्क्रेपर (Amazon, Flipkart, Croma से लाइव प्राइस कम्पेरिजन)।\n` +
+      `• 1-क्लिक वेब-टू-CRM फॉर्म ऑटोफिल एक्सटेंशन्स।\n\n` +
+      `आप अपने बिजनेस के लिए किस तरह का सॉल्यूशन या ऑटोमेशन एक्सप्लोर करना चाहते हैं? अपनी आवश्यकताएं शेयर करें! 😊`;
+  } else if (lang === 'Gujarati') {
+    return `અમે **Devora** અને **Numberwale Tech Solutions** દ્વારા આધુનિક AI સિસ્ટમ્સ, કસ્ટમ સૉફ્ટવેર અને સંપૂર્ણ બિઝનેસ ઓટોમેશન પ્રદાન કરીએ છીએ! 🚀\n\n` +
+      `તમારા વ્યવસાય માટે અમે નીચે મુજબના સોલ્યુશન્સ ઉપલબ્ધ કરાવીએ છીએ:\n\n` +
+      `🤖 **1. WhatsApp AI કસ્ટમર અને વેન્ડર બોટ્સ:**\n` +
+      `• *કસ્ટમર સપોર્ટ બોટ:* 24/7 તાત્કાલિક જવાબો (<5 સેકન્ડ), કેટલોગ સર્ચ અને સપોર્ટ.\n` +
+      `• *વેન્ડર બોટ:* WhatsApp પર વેન્ડર્સ પાસેથી ક્વોટ્સ મંગાવવા અને ભાવની સરખામણી.\n` +
+      `• *WhatsApp ટીમ ઇનબોક્સ (WaveConnect):* એક જ WhatsApp નંબર પર 50+ એજન્ટ્સનું મેનેજમેન્ટ, કોઈ માસિક એજન્ટ ફી વગર!\n\n` +
+      `🌐 **2. કસ્ટમ વેબસાઇટ્સ અને વેબ એપ્સ:**\n` +
+      `• હાઇ-સ્પીડ ડિજિટલ સ્ટોરફ્રન્ટ્સ અને ઈ-કોમર્સ પ્લેટફોર્મ્સ (Next.js & React 19).\n` +
+      `• ડાયરેક્ટ UPI અને પેમેન્ટ ગેટવે ઇન્ટિગ્રેશન.\n\n` +
+      `⚡ **3. બિઝનેસ ઓટોમેશન:**\n` +
+      `• મેન્યુઅલ એક્સેલ વર્કફ્લો બંધ કરીને ઑટોમેટેડ પાઇપલાઇન્સ.\n` +
+      `• WhatsApp પર 2 સેકન્ડમાં બ્રાન્ડેડ GST ઇનવોઇસ PDF જનરેશન.\n\n` +
+      `🗄️ **4. કસ્ટમ સૉફ્ટવેર અને CRM:**\n` +
+      `• તમારા બિઝનેસ મુજબ તૈયાર CRM / ERP અને ઇન્વેન્ટરી સિસ્ટમ.\n\n` +
+      `🧩 **5. ક્રોમ એક્સ્ટેન્શન્સ:**\n` +
+      `• મલ્ટી-પ્લેટફોર્મ પ્રાઇસ સ્ક્રેપર્સ (Amazon, Flipkart) અને વેબ ઓટોમેશન.\n\n` +
+      `તમારે તમારા બિઝનેસ માટે કયા પ્રકારનું સોલ્યુશન બનાવવું છે? તમારી જરૂરિયાત જણાવો! 😊`;
+  } else if (lang === 'Marathi') {
+    return `आम्ही **Devora** आणि **Numberwale Tech Solutions** द्वारे अत्याधुनिक AI सिस्टीम्स, कस्टम सॉफ्टवेअर आणि संपूर्ण बिझनेस ऑटोमेशन तयार करतो! 🚀\n\n` +
+      `तुमच्या व्यवसायासाठी आम्ही हे सर्व सोल्यूशन्स पुरवतो:\n\n` +
+      `🤖 **1. WhatsApp AI कस्टमर आणि व्हेंडर बॉट्स:**\n` +
+      `• *कस्टमर सपोर्ट बॉट:* 24/7 तात्काळ उत्तरे (<5 सेकंद), कॅटलॉग सर्च आणि सपोर्ट.\n` +
+      `• *व्हेंडर बॉट:* WhatsApp वर व्हेंडर्सकडून कोट्स मागवणे आणि किमतींची तुलना करणे.\n` +
+      `• *WhatsApp टीम इनबॉक्स (WaveConnect):* एकाच WhatsApp नंबरवर 50+ एजंट्सचे व्यवस्थापन, शून्य पर-युझर लायसन्स फीसह!\n\n` +
+      `🌐 **2. कस्टम वेबसाइट्स आणि वेब ॲप्स:**\n` +
+      `• हाय-स्पीड डिजिटल स्टोअरफ्रंट्स आणि ई-कॉमर्स प्लॅटफॉर्म्स (Next.js & React 19).\n` +
+      `• ॲटॉमिक इन्व्हेंटरी मॅनेजमेंट आणि UPI / पेमेंट गेटवे इंटिग्रेशन.\n\n` +
+      `⚡ **3. एंड-टू-एंड बिझनेस ऑटोमेशन:**\n` +
+      `• मॅन्युअल एक्सेल/शीट्स बंद करून ऑटोमेटेड वर्कफ्लो.\n` +
+      `• WhatsApp वर 2 सेकंदात ब्रँडेड GST इनव्हॉइस PDF ऑटो-जनरेट होऊन पाठवणे.\n\n` +
+      `🗄️ **4. कस्टम सॉफ्टवेअर आणि CRM:**\n` +
+      `• तुमच्या बिझनेसच्या गरजेनुसार टेलर-मेड CRM/ERP आणि इन्व्हेंटरी सिस्टीम.\n\n` +
+      `🧩 **5. क्रोम एक्सटेंशन्स आणि वेब स्क्रॅपर्स:**\n` +
+      `• Amazon, Flipkart, Croma वरून लाईव्ह प्राईस स्क्रॅपिंग आणि फॉर्म ऑटोफिल.\n\n` +
+      `तुम्हाला तुमच्या व्यवसायासाठी कोणत्या प्रकारचे सोल्यूशन बनवायचे आहे? तुमची रिक्वायरमेंट सांगा! 😊`;
+  } else {
+    // Hinglish
+    return `Hum **Devora** aur **Numberwale Tech Solutions** ke through cutting-edge AI systems, custom software aur complete business automation build karte hain! 🚀\n\n` +
+      `Aapke business ke liye hum yeh sab provide kar sakte hain:\n\n` +
+      `🤖 **1. WhatsApp AI Customer & Vendor Bots:**\n` +
+      `• *Customer Support Bot:* 24/7 instant replies (<5s response), catalog search, FAQ, aur lead qualification.\n` +
+      `• *Vendor Bot:* WhatsApp par hi vendors se quotes mangwana, live price comparison, aur PO broadcast.\n` +
+      `• *WhatsApp Team Inbox (WaveConnect):* Ek hi official WhatsApp number par 50+ agents ko manage karein, zero per-agent license fee ke saath!\n\n` +
+      `🌐 **2. Custom Websites & Full-Stack Web Apps:**\n` +
+      `• High-speed digital storefronts aur SaaS portals (Next.js & React 19 architecture).\n` +
+      `• Atomic E-Commerce with zero-oversell stock protection aur instant UPI/Payment gateway sync.\n\n` +
+      `⚡ **3. End-to-End Business Automation:**\n` +
+      `• Manual Excel/Sheets ko band karke automated self-running pipelines.\n` +
+      `• WhatsApp par instant PDF Invoices (2 seconds me branded GST invoice send).\n` +
+      `• Multi-warehouse inventory sync aur automated courier dispatch alerts.\n\n` +
+      `🗄️ **4. Custom Software & Bespoke CRM:**\n` +
+      `• Aapke business workflow ke hisaab se tailor-made CRM/ERP aur inventory management.\n` +
+      `• Zero monthly per-user SaaS license fees! Complete sovereign data control.\n\n` +
+      `🧩 **5. Chrome Extensions & Web Scrapers:**\n` +
+      `• Real-time multi-store price scraper (Amazon, Flipkart, Croma auto-compare).\n` +
+      `• 1-Click web-to-CRM form autofill extensions.\n\n` +
+      `Aapko apne business ke liye kis type ka system ya automation build karwana hai? Aap apni requirements share karein! 😊`;
+  }
+}
+
 export async function runAgent(opts) {
   const userMessage = opts.userMessage;
   const customerContext = opts.customerContext || {};
@@ -2017,6 +2225,33 @@ export async function runAgent(opts) {
       model: 'cancellation-refund-guard',
       escalate: true,
       escalateReason: 'Customer requested order cancellation / refund'
+    };
+  }
+
+  // ── CRM Fast Intercept 0.1: Custom Software / AI Solutions Pricing or Quote Request ──
+  if (isCustomSoftwareQuoteQuery(userMessage, history)) {
+    console.log(`[Agent] 💼 Fast Intercept: Custom Software Quote / Pricing request detected for ${customerContext.phone || 'customer'}`);
+    const quoteHandoffReply = getCustomSoftwareQuoteHandoff(lang);
+    return {
+      reply: quoteHandoffReply,
+      conversationalIntro: quoteHandoffReply,
+      searchJSON: null,
+      model: 'custom-software-quote-guard',
+      escalate: true,
+      escalateReason: 'Customer requested quote/pricing for Custom Software / AI Solutions'
+    };
+  }
+
+  // ── CRM Fast Intercept 0.2: Broad Custom Software / Devora / Automation Inquiries ──
+  if (isCustomSoftwareQuery(userMessage) && !extract10DigitNumber(userMessage) && isBroadCustomSoftwareInquiry(userMessage)) {
+    console.log(`[Agent] 🚀 Fast Intercept: Broad Custom Software / Devora Inquiry for ${customerContext.phone || 'customer'}`);
+    const explanationReply = getCustomSoftwareExplanation(lang, customerContext.name || '');
+    return {
+      reply: explanationReply,
+      conversationalIntro: explanationReply,
+      searchJSON: null,
+      model: 'custom-software-info-guard',
+      escalate: false
     };
   }
 
@@ -2581,6 +2816,25 @@ export async function runAgent(opts) {
       /(?:upc\s*(?:code)?\s*(?:hai|is|:)?\s*[*\x60]?[A-Za-z0-9]{5,15}[*\x60]?)/gi,
       'Aapke UPC code aur aage ke assistance ke liye hamari team aapse directly coordinate karegi'
     );
+  }
+
+  // ── Post-LLM Guard: Custom Software Quote / Pricing Tag or Content Intercept ──
+  if (conversationalText.includes('[ESCALATE: CUSTOM_SOFTWARE_QUOTE]') || isCustomSoftwareQuoteQuery(userMessage, history)) {
+    conversationalText = conversationalText.replace(/\[ESCALATE:\s*CUSTOM_SOFTWARE_QUOTE\]/gi, '').trim();
+    console.log('[Agent] 💼 Post-LLM Escalation: Custom Software Quote request detected.');
+    return {
+      reply: conversationalText,
+      conversationalIntro: conversationalText,
+      searchJSON: null,
+      model: 'custom-software-quote-post-llm',
+      escalate: true,
+      escalateReason: 'Customer requested quote/pricing for Custom Software / AI Solutions'
+    };
+  }
+
+  // ── Post-LLM Safety Guard: If user asked about custom software, strip SEARCH_JSON ──
+  if (isCustomSoftwareQuery(userMessage) && !extract10DigitNumber(userMessage)) {
+    searchJSON = null;
   }
 
   const conversationalIntro = conversationalText;

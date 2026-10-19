@@ -15,7 +15,7 @@ import {
 } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber, fetchCustomerOrders } from './utils/paymentUtils.js';
 import { sendToGallabox, sendGallaboxDocument, unassignConversation, addGallaboxTag, removeGallaboxTag, postGallaboxNote } from './utils/gallabox.js';
-import { formatProducts, cleanCustomerName, parseNameAndPincode, extract10DigitNumber, stripThinkTags } from './utils/aiAgent.js';
+import { formatProducts, cleanCustomerName, parseNameAndPincode, extract10DigitNumber, stripThinkTags, isCustomSoftwareQuery } from './utils/aiAgent.js';
 import { validateIndianPincode } from './utils/pincodeValidator.js';
 
 function extractNameAndPincode(userMessage, existingName = null) {
@@ -426,6 +426,65 @@ export default async function handler(req, res) {
     const resetRegex = /^(menu|restart|reset|clear|start|शुरू|वापस)\b/i;
     const languageRegex = /^(language|change language|bhasha|bhasa|select language|ભાષા|भाषा)\b/i;
 
+    // ── Direct Website CTA Click for AI & Custom Software ───────────────────
+    const isDirectWebsiteSoftwareCTA =
+      lowerMsg.includes('i want to know more about ai and custom software') ||
+      lowerMsg.includes('i want to discuss a custom solution') ||
+      lowerMsg.includes('i want to discuss custom engineering');
+
+    if (isDirectWebsiteSoftwareCTA) {
+      console.log(`[Webhook] 💻 AI & Custom Software inquiry received from ${customerPhone}: "${userMessage}". Syncing to Software Leads.`);
+      
+      const convId = body?.conversationId || body?.data?.conversationId || body?.request?.data?.conversationId || '';
+      if (convId) {
+        saveConversationId(customerPhone, convId).catch(() => {});
+      }
+
+      // 1. Tag in Gallabox → REQUIRE_AGENT & pause VIP bot
+      await addGallaboxTag(customerPhone, "REQUIRE_AGENT").catch(() => {});
+      removeGallaboxTag(customerPhone, "BOT_ACTIVE").catch(() => {});
+      stopDrip(customerPhone).catch(() => {});
+      pauseBot(customerPhone);
+      await updateCustomerInfo(customerPhone, { botState: 'PAUSED', agentReplied: false });
+
+      // 2. Sync to Software Leads in CRM (Completely isolated from regular VIP leads)
+      const ADMIN_API = process.env.ADMIN_API_URL || process.env.MAIN_API_URL || 'https://api.numberwale.com';
+      const ADMIN_SECRET = process.env.ADMIN_BOT_SECRET || process.env.ADMIN_SECRET || '';
+      fetch(`${ADMIN_API}/api/v1/software-leads/from-gallabox`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
+        body: JSON.stringify({
+          phone: customerPhone,
+          name: effectiveCustomerName !== 'Unknown' ? effectiveCustomerName : 'WhatsApp Visitor',
+          message: userMessage,
+          source: 'WhatsApp Inbound (AI & Software Page)',
+          conversationId: convId,
+        }),
+      }).then(r => {
+        console.log(`[Webhook] Software lead synced with status: ${r.status}`);
+      }).catch(err => {
+        console.error('[Webhook] Failed to sync software lead to CRM:', err.message);
+      });
+
+      // 3. Send professional software inquiry confirmation to customer
+      const softwareReply = "Hello! 👋 Thank you for reaching out to Numberwale Tech & Software Solutions.\n\nWe have received your requirement regarding AI & Custom Software / Automation. 💻🚀\n\nOur engineering team has been notified and a technical expert will connect with you here shortly to discuss your requirements and share live demos.\n\nIn the meantime, feel free to share your business name and specific use case or features you need!";
+
+      await sendToGallabox(customerPhone, softwareReply, channelID);
+      await logInteraction({
+        phone: customerPhone,
+        name: effectiveCustomerName,
+        userText: userMessage,
+        botText: softwareReply,
+        isFail: false,
+        model: 'software-lead-handler',
+        tokensUsed: 0,
+        jsonQuery: null,
+        page: 1,
+      }).catch(() => {});
+
+      return res.status(200).json({ success: true, reason: 'software_lead_captured' });
+    }
+
     if (cancellationRefundRegex.test(lowerMsg)) {
       console.log(`[Webhook] 🚨 Cancellation/Refund request received from ${customerPhone}: "${userMessage}". Transferring to human executive.`);
       pauseBot(customerPhone);
@@ -663,7 +722,9 @@ export default async function handler(req, res) {
     const hasProfileInUserMgmt = customerOrdersData?.hasOrders || (customerOrdersData?.customerName && (customerOrdersData?.customerPinCode || customerContext.pinCode));
     const alreadyHasNameAndPin = customerContext.name && customerContext.name !== 'Unknown' && customerContext.pinCode;
 
-    if (hasCapturedPayment || hasProfileInUserMgmt || alreadyHasNameAndPin) {
+    const isSoftwareInquiry = isCustomSoftwareQuery(userMessage);
+
+    if (hasCapturedPayment || hasProfileInUserMgmt || alreadyHasNameAndPin || isSoftwareInquiry) {
       if (currentState === 'NEW' || currentState === 'AWAITING_INFO' || currentState === 'AWAITING_LANGUAGE') {
         console.log(`[Webhook] ⚡ Auto-bypassing Name & Pincode onboarding for ${customerPhone} (Payment captured: ${!!hasCapturedPayment}, Name: "${customerContext.name}", Pin: "${customerContext.pinCode}")`);
         currentState = 'ACTIVE';
@@ -1266,6 +1327,21 @@ export default async function handler(req, res) {
           })
         }).then(r => console.log(`[Webhook] Admin notified for AI agent escalation: ${r.status}`))
           .catch(e => console.error(`[Webhook] Admin notification for AI agent escalation failed:`, e.message));
+
+        // If it's a software lead escalation, also sync to /api/v1/software-leads/from-gallabox
+        if (agentResult.escalateReason && agentResult.escalateReason.includes('Custom Software')) {
+          fetch(`${ADMIN_API}/api/v1/software-leads/from-gallabox`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-bot-secret': ADMIN_SECRET },
+            body: JSON.stringify({
+              phone: customerPhone,
+              name: effectiveCustomerName !== 'Unknown' ? effectiveCustomerName : 'WhatsApp Visitor',
+              message: userMessage,
+              source: 'WhatsApp Inbound (Software / AI Quote Inquiry)',
+              conversationId: convId,
+            }),
+          }).catch(e => console.error('[Webhook] Failed to sync software lead on quote escalation:', e.message));
+        }
 
         console.log(`[Webhook] 🔴 Bot PAUSED for ${customerPhone} — escalated to human agent (${agentResult.escalateReason || 'general'})`);
         await logInteraction({
