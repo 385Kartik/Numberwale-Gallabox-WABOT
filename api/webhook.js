@@ -15,7 +15,7 @@ import {
 } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber, fetchCustomerOrders } from './utils/paymentUtils.js';
 import { sendToGallabox, sendGallaboxDocument, unassignConversation, addGallaboxTag, removeGallaboxTag, postGallaboxNote } from './utils/gallabox.js';
-import { formatProducts, cleanCustomerName, parseNameAndPincode, extract10DigitNumber, stripThinkTags, isCustomSoftwareQuery, isCustomSoftwareQuoteQuery } from './utils/aiAgent.js';
+import { formatProducts, cleanCustomerName, parseNameAndPincode, extract10DigitNumber, stripThinkTags, isCustomSoftwareQuery, isCustomSoftwareQuoteQuery, scrubDevoraName } from './utils/aiAgent.js';
 import { validateIndianPincode } from './utils/pincodeValidator.js';
 
 function extractNameAndPincode(userMessage, existingName = null) {
@@ -1252,6 +1252,7 @@ export default async function handler(req, res) {
 
       const tAi = Date.now() - t0Ai;
       let replyText = stripThinkTags(agentResult.reply || '');
+      replyText = scrubDevoraName(replyText);
       const searchJSON = agentResult.searchJSON;
 
       if (!replyText || replyText.trim().length === 0) {

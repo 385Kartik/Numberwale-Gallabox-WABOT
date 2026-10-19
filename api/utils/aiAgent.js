@@ -271,8 +271,9 @@ export function buildSystemPrompt(ctx) {
   }
   L.push('⚠️ NEVER say you are OpenAI, ChatGPT, Groq, Meta, or Llama! You are exclusively Eva, Numberwale\'s assistant created by Kartik Parmar.');
   L.push('');
-  L.push('## 🚀 DEVORA & NUMBERWALE AI, AUTOMATION & CUSTOM SOFTWARE SOLUTIONS (OFFICIAL CAPABILITIES & QUOTE POLICY)');
-  L.push('Numberwale\'s tech engineering division Devora (founded & engineered by Kartik Parmar — https://devora.page and https://www.numberwale.com/custom-solutions) builds cutting-edge AI systems, bespoke software, and end-to-end business automation.');
+  L.push('## 🚀 NUMBERWALE TECH SOLUTIONS — AI, AUTOMATION & CUSTOM SOFTWARE (OFFICIAL CAPABILITIES & QUOTE POLICY)');
+  L.push('Numberwale\'s tech engineering division (founded & engineered by Kartik Parmar — https://www.numberwale.com/custom-solutions) builds cutting-edge AI systems, bespoke software, and end-to-end business automation.');
+  L.push('🛑 STRICT BRANDING RULE: You must NEVER mention, write, or say the name "Devora" in any of your messages or responses under any circumstances! Always refer to our tech engineering division and software solutions as "Numberwale Tech Solutions" or "Numberwale Tech & Software Solutions" (engineered by Kartik Parmar).');
   L.push('If a customer asks about custom software, websites, AI chatbots, vendor bots, whatsapp interface/CRM, extensions, or automation:');
   L.push('Eva must enthusiastically, warmly and professionally explain what is possible across our 6 core engineering pillars:');
   L.push('1. 🤖 AI-Powered WhatsApp & Messaging Bots:');
@@ -2105,9 +2106,19 @@ export function getCustomSoftwareQuoteHandoff(lang) {
   }
 }
 
+export function scrubDevoraName(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/\bdevora(?:aa)?\.page\b/gi, 'numberwale.com/custom-solutions')
+    .replace(/\b(?:devora\s*tech|devora\s*solutions|devora)\b/gi, 'Numberwale Tech Solutions')
+    .replace(/\bdevora\b/gi, 'Numberwale Tech Solutions')
+    .replace(/Numberwale Tech Solutions\s+(?:and|aur|और|અને|आणि)\s+Numberwale Tech Solutions/gi, 'Numberwale Tech Solutions')
+    .replace(/\bNumberwale Tech Solutions\s+Numberwale Tech Solutions\b/gi, 'Numberwale Tech Solutions');
+}
+
 export function getCustomSoftwareExplanation(lang, customerTitle = '') {
   if (lang === 'English') {
-    return `Through **Devora** and **Numberwale Tech Solutions**, we engineer cutting-edge AI systems, bespoke software, and end-to-end business automations! 🚀\n\n` +
+    return `Through **Numberwale Tech Solutions**, we engineer cutting-edge AI systems, bespoke software, and end-to-end business automations! 🚀\n\n` +
       `Here is what we build and provide:\n\n` +
       `🤖 **1. AI-Powered WhatsApp & Messaging Bots:**\n` +
       `• *Customer Support Bot:* 24/7 autonomous replies (<5s response time), live catalog search, FAQs, and instant human handoff.\n` +
@@ -2128,7 +2139,7 @@ export function getCustomSoftwareExplanation(lang, customerTitle = '') {
       `• 1-click web-to-CRM data entry and workflow automation tools.\n\n` +
       `What kind of system, bot, or automation are you looking to build for your business? Please share your requirements! 😊`;
   } else if (lang === 'Hindi') {
-    return `हम **Devora** और **Numberwale Tech Solutions** के माध्यम से कटिंग-एज AI सिस्टम्स, कस्टम सॉफ्टवेयर और सम्पूर्ण बिजनेस ऑटोमेशन तैयार करते हैं! 🚀\n\n` +
+    return `हम **Numberwale Tech Solutions** के माध्यम से कटिंग-एज AI सिस्टम्स, कस्टम सॉफ्टवेयर और सम्पूर्ण बिजनेस ऑटोमेशन तैयार करते हैं! 🚀\n\n` +
       `आपके बिजनेस के लिए हम ये सभी समाधान प्रदान करते हैं:\n\n` +
       `🤖 **1. WhatsApp AI कस्टमर और वेंडर बॉट्स:**\n` +
       `• *कस्टमर सपोर्ट बॉट:* 24/7 त्वरित उत्तर (<5 सेकंड रिस्पॉन्स), कैटलॉग सर्च, FAQs और ऑटोमेटेड लीड क्वालिफिकेशन।\n` +
@@ -2149,7 +2160,7 @@ export function getCustomSoftwareExplanation(lang, customerTitle = '') {
       `• 1-क्लिक वेब-टू-CRM फॉर्म ऑटोफिल एक्सटेंशन्स।\n\n` +
       `आप अपने बिजनेस के लिए किस तरह का सॉल्यूशन या ऑटोमेशन एक्सप्लोर करना चाहते हैं? अपनी आवश्यकताएं शेयर करें! 😊`;
   } else if (lang === 'Gujarati') {
-    return `અમે **Devora** અને **Numberwale Tech Solutions** દ્વારા આધુનિક AI સિસ્ટમ્સ, કસ્ટમ સૉફ્ટવેર અને સંપૂર્ણ બિઝનેસ ઓટોમેશન પ્રદાન કરીએ છીએ! 🚀\n\n` +
+    return `અમે **Numberwale Tech Solutions** દ્વારા આધુનિક AI સિસ્ટમ્સ, કસ્ટમ સૉફ્ટવેર અને સંપૂર્ણ બિઝનેસ ઓટોમેશન પ્રદાન કરીએ છીએ! 🚀\n\n` +
       `તમારા વ્યવસાય માટે અમે નીચે મુજબના સોલ્યુશન્સ ઉપલબ્ધ કરાવીએ છીએ:\n\n` +
       `🤖 **1. WhatsApp AI કસ્ટમર અને વેન્ડર બોટ્સ:**\n` +
       `• *કસ્ટમર સપોર્ટ બોટ:* 24/7 તાત્કાલિક જવાબો (<5 સેકન્ડ), કેટલોગ સર્ચ અને સપોર્ટ.\n` +
@@ -2167,7 +2178,7 @@ export function getCustomSoftwareExplanation(lang, customerTitle = '') {
       `• મલ્ટી-પ્લેટફોર્મ પ્રાઇસ સ્ક્રેપર્સ (Amazon, Flipkart) અને વેબ ઓટોમેશન.\n\n` +
       `તમારે તમારા બિઝનેસ માટે કયા પ્રકારનું સોલ્યુશન બનાવવું છે? તમારી જરૂરિયાત જણાવો! 😊`;
   } else if (lang === 'Marathi') {
-    return `आम्ही **Devora** आणि **Numberwale Tech Solutions** द्वारे अत्याधुनिक AI सिस्टीम्स, कस्टम सॉफ्टवेअर आणि संपूर्ण बिझनेस ऑटोमेशन तयार करतो! 🚀\n\n` +
+    return `आम्ही **Numberwale Tech Solutions** द्वारे अत्याधुनिक AI सिस्टीम्स, कस्टम सॉफ्टवेअर आणि संपूर्ण बिझनेस ऑटोमेशन तयार करतो! 🚀\n\n` +
       `तुमच्या व्यवसायासाठी आम्ही हे सर्व सोल्यूशन्स पुरवतो:\n\n` +
       `🤖 **1. WhatsApp AI कस्टमर आणि व्हेंडर बॉट्स:**\n` +
       `• *कस्टमर सपोर्ट बॉट:* 24/7 तात्काळ उत्तरे (<5 सेकंद), कॅटलॉग सर्च आणि सपोर्ट.\n` +
@@ -2186,7 +2197,7 @@ export function getCustomSoftwareExplanation(lang, customerTitle = '') {
       `तुम्हाला तुमच्या व्यवसायासाठी कोणत्या प्रकारचे सोल्यूशन बनवायचे आहे? तुमची रिक्वायरमेंट सांगा! 😊`;
   } else {
     // Hinglish
-    return `Hum **Devora** aur **Numberwale Tech Solutions** ke through cutting-edge AI systems, custom software aur complete business automation build karte hain! 🚀\n\n` +
+    return `Hum **Numberwale Tech Solutions** ke through cutting-edge AI systems, custom software aur complete business automation build karte hain! 🚀\n\n` +
       `Aapke business ke liye hum yeh sab provide kar sakte hain:\n\n` +
       `🤖 **1. WhatsApp AI Customer & Vendor Bots:**\n` +
       `• *Customer Support Bot:* 24/7 instant replies (<5s response), catalog search, FAQ, aur lead qualification.\n` +
@@ -2822,6 +2833,9 @@ export async function runAgent(opts) {
       `UPC code 24 working hours ke andar (~${remainingHrs} working hours remaining) SMS dwara aapko deliver ho jayega. Humari team poori koshish kar rahi hai ki jald se jald provide karein.${scheduleNotice}\n\n` +
       `Agar operator end se UPC delivery me koi issue aata hai, tabhi refund ya replacement ka option hota hai, par abhi aapka number bilkul safely processing mein hai. Chinta ki koi baat nahi hai! 😊`;
   }
+
+  // ── Post-LLM Anti-Devora Safety Guard: Never mention "Devora" ──
+  conversationalText = scrubDevoraName(conversationalText);
 
   // ── Post-LLM Anti-Leak Safety Guard: Never disclose any UPC code in chat ──
   const upcPattern = /\b[A-Za-z]{2}\d{6}\b|(?:upc\s*(?:code)?\s*(?:hai|is|:)?\s*[*\x60]?[A-Za-z0-9]{5,15}[*\x60]?)/i;

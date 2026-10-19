@@ -56,11 +56,14 @@ async function runTests() {
 
   console.log('\n--- 3. Testing getCustomSoftwareExplanation & Handoff Text ---');
   const expHinglish = getCustomSoftwareExplanation('Hinglish');
-  assert(expHinglish.includes('Devora') && expHinglish.includes('WhatsApp AI') && expHinglish.includes('Chrome Extensions'), 'Hinglish explanation covers all modules');
+  assert(!expHinglish.includes('Devora'), 'Hinglish explanation does NOT mention Devora');
+  assert(expHinglish.includes('Numberwale Tech Solutions') && expHinglish.includes('WhatsApp AI') && expHinglish.includes('Chrome Extensions'), 'Hinglish explanation covers Numberwale Tech Solutions & all modules');
   const expEng = getCustomSoftwareExplanation('English');
-  assert(expEng.includes('Devora') && expEng.includes('Customer Support Bot') && expEng.includes('Atomic'), 'English explanation covers all modules');
+  assert(!expEng.includes('Devora'), 'English explanation does NOT mention Devora');
+  assert(expEng.includes('Numberwale Tech Solutions') && expEng.includes('Customer Support Bot') && expEng.includes('Atomic'), 'English explanation covers Numberwale Tech Solutions & all modules');
 
   const handoffHinglish = getCustomSoftwareQuoteHandoff('Hinglish');
+  assert(!handoffHinglish.includes('Devora'), 'Handoff does NOT mention Devora');
   assert(handoffHinglish.includes('technical solutions') && handoffHinglish.includes('customized'), 'Handoff mentions technical team');
 
   console.log('\n--- 4. Testing runAgent for Custom Software Quote Escalation ---');
@@ -72,6 +75,7 @@ async function runTests() {
   assert(quoteResult.escalate === true, 'runAgent escalates on custom software quote');
   assert(quoteResult.escalateReason.includes('Custom Software / AI'), 'runAgent sets correct escalateReason');
   assert(quoteResult.searchJSON === null, 'runAgent does NOT output searchJSON on software inquiry');
+  assert(!quoteResult.reply.includes('Devora'), 'Quote handoff does NOT mention Devora');
 
   console.log('\n--- 5. Testing runAgent for General Custom Software Inquiry ---');
   const infoResult = await runAgent({
@@ -80,7 +84,8 @@ async function runTests() {
   });
 
   assert(infoResult.escalate === false, 'runAgent does NOT escalate on general info inquiry');
-  assert(infoResult.reply.includes('Devora') && infoResult.reply.includes('WhatsApp'), 'runAgent returns comprehensive explanation');
+  assert(!infoResult.reply.includes('Devora'), 'Eva NEVER mentions Devora in general software inquiry');
+  assert(infoResult.reply.includes('Numberwale Tech Solutions') && infoResult.reply.includes('WhatsApp'), 'runAgent returns comprehensive explanation as Numberwale Tech Solutions');
   console.log('\n--- 6. Testing Exact Website CTA & Follow-up Flow ---');
   const exactCTA = "Hey! I want to know more about AI and custom software or automated softwares.";
   assert(isCustomSoftwareQuery(exactCTA), 'Exact website CTA matches isCustomSoftwareQuery');
@@ -91,7 +96,8 @@ async function runTests() {
     customerContext: { phone: '919619410050', language: 'English' }
   });
   assert(ctaResult.escalate === false, 'Website CTA does NOT escalate or pause');
-  assert(ctaResult.reply.includes('Devora') && ctaResult.reply.includes('WhatsApp'), 'Website CTA returns full software capabilities');
+  assert(!ctaResult.reply.includes('Devora'), 'Website CTA reply NEVER mentions Devora');
+  assert(ctaResult.reply.includes('Numberwale Tech Solutions') && ctaResult.reply.includes('WhatsApp'), 'Website CTA returns Numberwale Tech Solutions');
 
   // Follow up inquiry
   const followUpHistory = [
@@ -106,6 +112,7 @@ async function runTests() {
     customerContext: { phone: '919619410050', language: 'English', history: followUpHistory }
   });
   assert(followUpResult.escalate === false, 'Follow-up does NOT escalate');
+  assert(!followUpResult.reply.includes('Devora'), 'Follow-up reply NEVER mentions Devora');
   assert(followUpResult.reply.length > 50, 'Follow-up returns proper explanation');
 
   console.log(`\n================================`);
