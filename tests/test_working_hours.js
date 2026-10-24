@@ -227,7 +227,7 @@ async function testFastInterceptResponses() {
   };
 
   await runAsyncTest('Customer asking status after 7:00 PM -> Eva gives non-working hours notice (office hours 10am-7pm)', async () => {
-    const res = await runAgent({ userMessage: 'mera upc status kya hai', history: [], customerContext: customerContextNight });
+    const res = await runAgent({ userMessage: 'mere number ka status kya hai', history: [], customerContext: customerContextNight });
     assert.match(res.reply, /10:00 AM se shaam 7:00 PM/i);
     assert.match(res.reply, /agle working hours/i);
   });

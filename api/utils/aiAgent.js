@@ -7,7 +7,7 @@
  *
  * Returns: { reply, searchJSON, model, escalate, totalCount, totalPages, currentPage }
  */
-import { fetchNumbers } from './searchApi.js';
+import { fetchNumbers, VALID_CATEGORIES, normalizeCategorySlug } from './searchApi.js';
 import { fetchProductByNumber, fetchActiveBotCoupon, fetchActiveBotCoupons } from './paymentUtils.js';
 import { detectLanguage } from './agentEngine.js';
 import { findAlternativeNumbers } from './numberClassifier.js';
@@ -17,10 +17,91 @@ import {
   calculateWorkingHoursRemaining 
 } from './workingHoursHelper.js';
 
+export const NON_NAME_WORDS = new Set([
+  // English & Hinglish Greetings
+  'hi', 'hello', 'hey', 'heyy', 'hiya', 'hola', 'namaste', 'namaskar', 'pranam', 'kemcho', 'kem', 'cho',
+  'salam', 'salaam', 'ram', 'shree', 'shri', 'jai', 'welcome', 'thanks', 'thank', 'thankyou', 'thx',
+  'please', 'pls', 'plz', 'sorry', 'good', 'morning', 'afternoon', 'evening', 'night', 'alright',
+  'ok', 'okay', 'okk', 'hmm', 'hmmm', 'yes', 'yeah', 'yep', 'ya', 'no', 'nope', 'nahi', 'haan', 'haa',
+  
+  // Sentential pronouns, verbs, question words
+  'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'you', 'your', 'yours', 'he', 'him', 'his',
+  'she', 'her', 'hers', 'it', 'its', 'they', 'them', 'their', 'theirs',
+  'what', 'which', 'who', 'whom', 'whose', 'where', 'when', 'why', 'how',
+  'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing',
+  'want', 'wants', 'wanted', 'wanting', 'need', 'needs', 'needed', 'looking', 'search', 'searching',
+  'find', 'found', 'give', 'gives', 'gave', 'tell', 'tells', 'told', 'show', 'shows', 'showed',
+  'batao', 'bataiye', 'dikhao', 'dikhaye', 'chahiye', 'bhejo', 'bhejna', 'lena', 'dena', 'karo', 'kare',
+  'mil', 'milega', 'sakta', 'sakti', 'hoon', 'hai', 'hain', 'ho', 'hoga',
+  
+  // Prepositions & Conjunctions
+  'a', 'an', 'the', 'and', 'or', 'but', 'if', 'because', 'as', 'until', 'while', 'of', 'at',
+  'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before',
+  'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under',
+  'again', 'further', 'then', 'once', 'here', 'there', 'all', 'any', 'both', 'each', 'few', 'more',
+  'most', 'other', 'some', 'such', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just',
+  'aur', 'ya', 'par', 'se', 'ko', 'ka', 'ke', 'ki', 'me', 'mein', 'pe',
+  
+  // Telecom, SIM & Brand Terms
+  'number', 'numbers', 'no', 'nos', 'num', 'vip', 'fancy', 'choice', 'lucky', 'mobile', 'phone',
+  'sim', 'card', 'esim', 'call', 'calling', 'contact', 'postpaid', 'prepaid', 'airtel', 'jio',
+  'vodafone', 'vi', 'bsnl', 'port', 'porting', 'upc', 'operator', 'circle', 'telecom', 'delivery',
+  'numberwale', 'store', 'shop', 'website', 'site', 'page', 'online', 'link', 'whatsapp', 'bot',
+  
+  // Number/Catalog search keywords
+  'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'zero', 'ten',
+  'ek', 'do', 'teen', 'char', 'paanch', 'panch', 'che', 'chhah', 'saat', 'sat', 'aath', 'ath', 'nau', 'das',
+  'first', 'last', 'start', 'starting', 'end', 'ending', 'middle', 'anywhere', 'contain', 'contains',
+  'repeat', 'repeated', 'repeating', 'without', 'bina', 'mirror', 'total', 'sum', 'ank', 'numerology',
+  'triple', 'tetra', 'penta', 'hexa', 'septa', 'octa', 'doubling', 'counting', 'series', 'sequence',
+  
+  // Budget & Commercial words
+  'price', 'cost', 'rate', 'budget', 'rs', 'rupee', 'rupees', 'inr', 'k', 'lakh', 'crore', 'hazar', 'thousand',
+  'cheap', 'sasta', 'costly', 'expensive', 'discount', 'offer', 'best', 'top', 'low', 'high',
+  'payment', 'paid', 'capture', 'captured', 'order', 'orders', 'buy', 'purchase', 'book', 'booking',
+  'invoice', 'bill', 'receipt', 'gst', 'report',
+  
+  // Religious & Cultural words
+  'allah', 'shukar', 'bhagwan', 'khuda', 'om', 'ganesh', 'shiva', 'krishna',
+  
+  // Software / Tech words
+  'software', 'ai', 'crm', 'erp', 'extension', 'automation', 'developer', 'demo', 'quote', 'custom'
+]);
+
+export function isValidHumanName(candidate) {
+  if (!candidate || typeof candidate !== 'string') return false;
+  const trimmed = candidate.trim();
+  if (trimmed.length < 2 || trimmed.length > 35) return false;
+  if (/^(unknown|null|undefined|none|friend|sir|ji|bhai|customer|client)$/i.test(trimmed)) return false;
+
+  // Must not have digits or punctuation/symbols
+  if (/[\d_!@#$%^&*()=+\/\\\[\]{}|;:"<>?~`,.]/.test(trimmed)) return false;
+
+  const words = trimmed.split(/\s+/).map(w => w.toLowerCase());
+  if (words.length < 1 || words.length > 3) return false;
+
+  for (const w of words) {
+    if (NON_NAME_WORDS.has(w)) return false;
+    if (w.length < 2) return false;
+  }
+  return true;
+}
+
 export function cleanCustomerName(rawName) {
   if (!rawName || typeof rawName !== 'string') return null;
   let name = rawName.trim();
   if (!name || /^(unknown|null|undefined|none)$/i.test(name)) return null;
+
+  // If the raw text contains question marks, exclamation marks, or has > 4 words, it is a sentence/query, not a name!
+  if (/[?!]/.test(name) || name.split(/\s+/).length > 4) {
+    const introMatch = name.match(/\b(?:mera\s*naam(?:\s*hai)?|my\s*name\s*is|this\s*is|i\s*am)\s+([a-zA-Z\u0900-\u097F\u0A80-\u0AFF\s]{2,30})/i);
+    if (introMatch) {
+      name = introMatch[1];
+    } else {
+      return null;
+    }
+  }
 
   // 1. Remove common brand/admin terms
   name = name.replace(/\b(?:numberwale|number\s*wale|nw|admin|vip|store|shop)\b/gi, '');
@@ -42,14 +123,16 @@ export function cleanCustomerName(rawName) {
 
   if (!name || name.length < 2) return null;
 
-  // Split into words, filter out any leftover common stop words
+  // Split into words, filter out common stop words and words shorter than 2 chars
   const stopWords = /^(is|hai|am|ji|bhai|sir|madam|aur|and|the|a|an|from|se|hu|hoon|h|mera|meri|apna|apni)$/i;
   const parts = name.split(' ').filter(w => !stopWords.test(w) && w.length >= 2);
-  if (parts.length === 0) return null;
+  if (parts.length === 0 || parts.length > 3) return null;
 
   // Capitalize each word of full name (up to 3 words, e.g. "Kartik Parmar")
   const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-  return parts.slice(0, 3).map(cap).join(' ');
+  const formatted = parts.map(cap).join(' ');
+
+  return isValidHumanName(formatted) ? formatted : null;
 }
 
 /**
@@ -95,8 +178,8 @@ export function parseNameAndPincode(userMessage, existingName = null) {
   }
 
   // If name couldn't be extracted from current text but is already known from CRM/context
-  if (!cleanName && existingName && existingName !== 'Unknown') {
-    cleanName = existingName;
+  if (!cleanName && existingName && existingName !== 'Unknown' && isValidHumanName(existingName)) {
+    cleanName = cleanCustomerName(existingName);
   }
 
   if (!cleanName && !pin) return null;
@@ -119,16 +202,6 @@ export function extract10DigitNumber(text) {
   }
   return null;
 }
-
-const VALID_CATEGORIES = [
-  'without-248-numbers', 'mirror-numbers', 'semi-mirror-numbers',
-  'three-digit-numbers', 'two-digit-numbers', 'counting-numbers',
-  'doubling-numbers', 'triple-numbers', 'tetra-numbers', 'penta-numbers',
-  'hexa-numbers', 'septa-numbers', 'octa-numbers', 'abc-abc-abc-numbers',
-  'abc-abc-numbers', 'ab-ab-ab-numbers', 'start-ab-ab-numbers',
-  'middle-ab-ab-numbers', 'ending-ab-ab-numbers', 'aaa-bbb-numbers',
-  'ab-ab-xy-xy-numbers', '108-numbers', '786-numbers', 'unique-numbers'
-];
 
 export function parseDOB(text) {
   if (!text) return null;
@@ -483,9 +556,13 @@ export function buildSystemPrompt(ctx) {
   L.push('- "without 248" / "bina 248" / "avoid 248" → "category": "without-248-numbers"');
   L.push('- "786" / "bismillah" → "category": "786-numbers"');
   L.push('- "108" → "category": "108-numbers"');
-  L.push('- "unique" → "category": "unique-numbers"');
+  L.push('- "unique" / "without repeat" / "without repeat number" / "no repeat" / "bina repeat" / "non repeating" → "category": "unique-numbers"');
+  L.push('- "total six" / "total number six" / "total 6" / "sum 6" / "lucky total 6" / "ank 6" → "scoreSum": 6 (convert word numbers to digits: one=1, two=2, three=3, four=4, five=5, six=6, seven=7, eight=8, nine=9)');
+  L.push('- Standalone digit patterns like "020202", "9999", "007" → SEARCH_JSON:{"anywhere":"020202"}. 🛑 NEVER treat standalone digit patterns as a rupee budget or price!');
+  L.push('- "not very costly" / "not costly" / "cheap" / "sasta" / "budget friendly" → "sortPrice":"lowToHigh" and add "maxPrice":15000 if customer did not state an exact budget.');
   L.push('');
   L.push('MULTI-FILTER COMBINATIONS (always combine when customer refines):');
+  L.push('- "total number six without repeat number" → SEARCH_JSON:{"category":"unique-numbers","scoreSum":6}');
   L.push('- "mere numerology / lucky sum ke hisaab se abc abc dena" with lucky sum 9 → SEARCH_JSON:{"category":"abc-abc-numbers","scoreSum":9}');
   L.push('- "budget 15000 me" with existing search → add "maxPrice":15000 to active filters');
   L.push('- "saste / cheapest" → add "sortPrice":"lowToHigh"');
@@ -1262,9 +1339,9 @@ export function normalizeSearchQuery(raw) {
 
   // 1. Category
   if (raw.category && typeof raw.category === 'string') {
-    const cat = raw.category.trim().toLowerCase();
-    if (VALID_CATEGORIES.includes(cat)) {
-      clean.category = cat;
+    const normCat = normalizeCategorySlug(raw.category);
+    if (normCat) {
+      clean.category = normCat;
     } else {
       console.log('[Agent] Stripped invalid category: ' + raw.category);
     }
@@ -1607,6 +1684,22 @@ export function extractFallbackSearchJSON(text, activeFilters = {}) {
     }
   }
 
+  // 2c. Numerology / Sum Total pattern: e.g. "total number six", "total 6", "sum 6", "lucky total 6", "ank 6", "total six"
+  const wordToNum = {
+    one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+    ek: 1, do: 2, teen: 3, char: 4, paanch: 5, panch: 5, che: 6, chhah: 6, saat: 7, sat: 7, aath: 8, ath: 8, nau: 9
+  };
+  const scoreSumMatch = t.match(/\b(?:total\s*(?:number)?|sum\s*(?:total)?|lucky\s*(?:total|sum)?|ank)\s*[:\-\s.]*\s*([1-9]|one|two|three|four|five|six|seven|eight|nine|ek|do|teen|char|paanch|panch|che|chhah|saat|sat|aath|ath|nau)\b/i)
+    || t.match(/\b([1-9]|one|two|three|four|five|six|seven|eight|nine|ek|do|teen|char|paanch|panch|che|chhah|saat|sat|aath|ath|nau)\s*(?:total|sum|ank)\b/i);
+  if (scoreSumMatch) {
+    const rawVal = scoreSumMatch[1].toLowerCase();
+    const numVal = wordToNum[rawVal] || parseInt(rawVal, 10);
+    if (numVal >= 1 && numVal <= 9) {
+      query.scoreSum = numVal;
+      detected = true;
+    }
+  }
+
   // 3. Budget extraction: e.g. "3k", "under 3k", "budget 3000", "under 5000", "3000 budget", "3k budget", "15000 me"
   let budgetVal = null;
   const kMatch = t.match(/\b(?:under|below|budget|max|upto|tak|me)?\s*(?:₹|rs\.?|inr)?\s*(\d{1,3})\s*k\b/i);
@@ -1620,14 +1713,35 @@ export function extractFallbackSearchJSON(text, activeFilters = {}) {
     }
   }
 
-  // If user simply entered a standalone 3-6 digit number and already has active filters (like endsWith), treat as budget
-  if (!budgetVal && activeFilters && (activeFilters.endsWith || activeFilters.category || activeFilters.startsWith || activeFilters.scoreSum)) {
-    const standaloneNum = t.match(/^\s*(?:₹|rs\.?|inr)?\s*(\d{3,7})\s*$/i);
-    if (standaloneNum) {
-      const val = parseInt(standaloneNum[1], 10);
-      if (val >= 500 && val <= 1000000) {
-        budgetVal = val;
-      }
+  // "not very costly", "not costly", "not too expensive", "cheap", "sasta"
+  if (/\b(?:not\s*(?:very\s*)?costly|not\s*(?:too\s*)?expensive|budget\s*friendly|sast[aei]|cheap|affordable)\b/i.test(lower)) {
+    query.sortPrice = 'lowToHigh';
+    if (!budgetVal && (!activeFilters || !activeFilters.maxPrice)) {
+      budgetVal = 15000;
+    }
+    detected = true;
+  }
+
+  // Standalone digits: e.g. "020202", "9999", "007", "786", "111", "1234"
+  const standaloneDigitsMatch = t.match(/^\s*(\d{2,6})\s*$/);
+  if (standaloneDigitsMatch) {
+    const digits = standaloneDigitsMatch[1];
+    const val = parseInt(digits, 10);
+
+    const isRepeatingPattern = /^(\d)\1+$/.test(digits) // 9999, 111
+      || /^(\d{2})\1+$/.test(digits) // 020202, 121212
+      || /^(\d{3})\1+$/.test(digits) // 123123
+      || digits.startsWith('0') // 007, 020202
+      || ['786', '108', '1234', '4321', '2345'].includes(digits);
+
+    // Only treat as budget if explicit budget words weren't provided, BUT user has active filters,
+    // and it's a round number (divisible by 500, >= 1000), not starting with 0, and not a repeating pattern
+    if (!budgetVal && activeFilters && Object.keys(activeFilters).length > 0 && !isRepeatingPattern && !digits.startsWith('0') && val >= 1000 && val <= 1000000 && val % 500 === 0) {
+      budgetVal = val;
+    } else if (!detected) {
+      // Standalone pattern search (e.g. "020202", "9999", "007")
+      query.anywhere = digits;
+      detected = true;
     }
   }
 
@@ -1637,11 +1751,20 @@ export function extractFallbackSearchJSON(text, activeFilters = {}) {
   }
 
   // 4. Category keywords
-  if (/\b(?:mirror|mirror\s*numbers)\b/i.test(lower)) {
+  if (/\b(?:without\s*repeat(?:ing)?(?:\s*numbers?)?|no\s*repeat(?:ing)?|bina\s*repeat|non\s*repeating|unique(?:\s*numbers?)?)\b/i.test(lower)) {
+    query.category = 'unique-numbers';
+    detected = true;
+  } else if (/\b(?:mirror|mirror\s*numbers)\b/i.test(lower)) {
     query.category = 'mirror-numbers';
+    detected = true;
+  } else if (/\b(?:semi\s*mirror)\b/i.test(lower)) {
+    query.category = 'semi-mirror-numbers';
     detected = true;
   } else if (/\b(?:786|bismillah)\b/i.test(lower)) {
     query.category = '786-numbers';
+    detected = true;
+  } else if (/\b(?:108)\b/i.test(lower)) {
+    query.category = '108-numbers';
     detected = true;
   } else if (/\b(?:doubling|doubling\s*numbers)\b/i.test(lower)) {
     query.category = 'doubling-numbers';
@@ -1664,11 +1787,20 @@ export function extractFallbackSearchJSON(text, activeFilters = {}) {
   } else if (/\b(?:ab\s*ab)\b/i.test(lower)) {
     query.category = 'ab-ab-numbers';
     detected = true;
+  } else if (/\b(?:aaa\s*bbb)\b/i.test(lower)) {
+    query.category = 'aaa-bbb-numbers';
+    detected = true;
   } else if (/\b(?:triple|triplet)\b/i.test(lower)) {
     query.category = 'triple-numbers';
     detected = true;
   } else if (/\b(?:tetra|4\s*same)\b/i.test(lower)) {
     query.category = 'tetra-numbers';
+    detected = true;
+  } else if (/\b(?:penta|5\s*same)\b/i.test(lower)) {
+    query.category = 'penta-numbers';
+    detected = true;
+  } else if (/\b(?:hexa|6\s*same)\b/i.test(lower)) {
+    query.category = 'hexa-numbers';
     detected = true;
   }
 
@@ -1677,6 +1809,10 @@ export function extractFallbackSearchJSON(text, activeFilters = {}) {
   // Merge with existing activeFilters if refining
   if (activeFilters && typeof activeFilters === 'object' && Object.keys(activeFilters).length > 0) {
     const merged = { ...activeFilters, ...query };
+    // If a new anywhere pattern is searched, discard conflicting old category
+    if (query.anywhere && activeFilters.category) {
+      delete merged.category;
+    }
     // Conflict resolution: if budget is under 50k and category is luxury mirror, drop category
     if (merged.maxPrice && merged.maxPrice < 50000 && merged.category === 'mirror-numbers') {
       delete merged.category;
@@ -2881,7 +3017,14 @@ export async function runAgent(opts) {
   // Active filter stateful merge: If effectiveSearchJSON exists and activeFilters exist, merge them
   if (effectiveSearchJSON && customerContext.activeFilters && typeof customerContext.activeFilters === 'object' && Object.keys(customerContext.activeFilters).length > 0) {
     const af = customerContext.activeFilters;
-    effectiveSearchJSON = { ...af, ...effectiveSearchJSON };
+    // If effectiveSearchJSON is searching for an anywhere pattern (like "020202") and didn't specify a category,
+    // clear the old category so it doesn't restrict the pattern search to a wrong category!
+    if (effectiveSearchJSON.anywhere && !effectiveSearchJSON.category && af.category) {
+      const { category, ...restAf } = af;
+      effectiveSearchJSON = { ...restAf, ...effectiveSearchJSON };
+    } else {
+      effectiveSearchJSON = { ...af, ...effectiveSearchJSON };
+    }
   }
 
   // History recovery: if effectiveSearchJSON is missing startsWith, endsWith, category, or notContain,
@@ -2897,7 +3040,7 @@ export async function runAgent(opts) {
           if (!effectiveSearchJSON.endsWith && pastFilters.endsWith) {
             effectiveSearchJSON.endsWith = pastFilters.endsWith;
           }
-          if (!effectiveSearchJSON.category && pastFilters.category) {
+          if (!effectiveSearchJSON.category && !effectiveSearchJSON.anywhere && pastFilters.category) {
             effectiveSearchJSON.category = pastFilters.category;
           }
           if (!effectiveSearchJSON.notContain && pastFilters.notContain) {

@@ -15,7 +15,7 @@ import {
 } from './utils/analytics.js';
 import { createRazorpayPaymentLink, fetchProductByNumber, fetchCustomerOrders } from './utils/paymentUtils.js';
 import { sendToGallabox, sendGallaboxDocument, unassignConversation, addGallaboxTag, removeGallaboxTag, postGallaboxNote } from './utils/gallabox.js';
-import { formatProducts, cleanCustomerName, parseNameAndPincode, extract10DigitNumber, stripThinkTags, isCustomSoftwareQuery, isCustomSoftwareQuoteQuery, scrubDevoraName } from './utils/aiAgent.js';
+import { formatProducts, cleanCustomerName, isValidHumanName, parseNameAndPincode, extract10DigitNumber, stripThinkTags, isCustomSoftwareQuery, isCustomSoftwareQuoteQuery, scrubDevoraName } from './utils/aiAgent.js';
 import { validateIndianPincode } from './utils/pincodeValidator.js';
 
 function extractNameAndPincode(userMessage, existingName = null) {
@@ -354,7 +354,8 @@ export default async function handler(req, res) {
 
     // Fetch state from MongoDB early alongside active customer orders
     const rawCustomerName = body?.contact?.name || 'Unknown';
-    const customerName = cleanCustomerName(rawCustomerName) || 'Unknown';
+    const validRawContactName = isValidHumanName(rawCustomerName) ? cleanCustomerName(rawCustomerName) : null;
+    const customerName = validRawContactName || 'Unknown';
     const t0Context = Date.now();
     const [customerContext, customerOrdersData] = await Promise.all([
       getCustomerContext(customerPhone, customerName),
@@ -373,8 +374,11 @@ export default async function handler(req, res) {
     customerContext.pendingPaymentNumbers = customerOrdersData?.pendingPaymentNumbers || [];
     customerContext.pendingPaymentProducts = customerOrdersData?.pendingPaymentProducts || [];
     customerContext.numerologyReports = customerOrdersData?.numerologyReports || [];
-    if (customerOrdersData?.customerName && (!customerContext.name || customerContext.name === 'Unknown')) {
-      customerContext.name = cleanCustomerName(customerOrdersData.customerName) || customerContext.name;
+    if (customerOrdersData?.customerName && (!customerContext.name || customerContext.name === 'Unknown' || !isValidHumanName(customerContext.name))) {
+      const orderName = cleanCustomerName(customerOrdersData.customerName);
+      if (orderName && isValidHumanName(orderName)) {
+        customerContext.name = orderName;
+      }
     }
     if (customerOrdersData?.customerPinCode && !customerContext.pinCode) {
       customerContext.pinCode = customerOrdersData.customerPinCode;
@@ -383,8 +387,16 @@ export default async function handler(req, res) {
       customerContext.paymentCaptured = true;
     }
 
-    // Self-provided name takes absolute precedence over Gallabox contact name!
-    const effectiveCustomerName = (customerContext.name && customerContext.name !== 'Unknown')
+    // 🧹 Purge poisoned/corrupted names stored in MongoDB (e.g. "Hi Found Your", "Total Number Six")
+    if (customerContext.name && !isValidHumanName(customerContext.name)) {
+      console.log(`[Webhook] 🧹 Purged invalid stored name: "${customerContext.name}" for ${customerPhone}`);
+      customerContext.name = null;
+      customerContext.selfProvidedName = false;
+      updateCustomerInfo(customerPhone, { name: null, selfProvidedName: false }).catch(() => {});
+    }
+
+    // Self-provided valid name takes precedence over Gallabox contact name!
+    const effectiveCustomerName = (customerContext.name && customerContext.name !== 'Unknown' && isValidHumanName(customerContext.name))
       ? customerContext.name
       : (customerName !== 'Unknown' ? customerName : 'Unknown');
     customerContext.name = effectiveCustomerName;
@@ -730,15 +742,16 @@ export default async function handler(req, res) {
 
     // ── State Machine: Onboarding (Direct to Name & Pincode in English -> Active Sales Flow) ──
     if (currentState === 'NEW') {
-      const knownName = (customerContext.name && customerContext.name !== 'Unknown') ? customerContext.name : null;
+      const knownName = (customerContext.name && customerContext.name !== 'Unknown' && isValidHumanName(customerContext.name)) ? customerContext.name : null;
       const parsed = parseNameAndPincode(userMessage, knownName);
+      const validParsedName = (parsed && parsed.name && isValidHumanName(parsed.name)) ? parsed.name : null;
 
       if (parsed && parsed.pin) {
         // Validate with India Post API
         const pinCheck = await validateIndianPincode(parsed.pin);
         if (pinCheck.isValid) {
           const extractedPin = pinCheck.pinCode;
-          const extractedName = parsed.name || knownName || 'Friend';
+          const extractedName = validParsedName || knownName || 'Friend';
           const defaultLang = 'English';
           const locationDisplay = pinCheck.locationDisplay || pinCheck.city || extractedPin;
 
@@ -749,7 +762,7 @@ export default async function handler(req, res) {
             name: extractedName,
             city: pinCheck.city || null,
             state: pinCheck.state || null,
-            selfProvidedName: !!(parsed.name && parsed.name !== knownName) || customerContext.selfProvidedName
+            selfProvidedName: !!(validParsedName && validParsedName !== knownName) || customerContext.selfProvidedName
           });
           customerContext.pinCode = extractedPin;
           customerContext.name = extractedName;
@@ -787,35 +800,35 @@ export default async function handler(req, res) {
           return res.status(200).json({ success: true, reason: 'onboarded_direct' });
         } else {
           // Pincode is invalid from India Post
-          if (parsed.name && (!knownName || knownName === 'Unknown')) {
-            await updateCustomerInfo(customerPhone, { name: parsed.name, selfProvidedName: true, botState: 'AWAITING_INFO', language: 'English' });
-            customerContext.name = parsed.name;
+          if (validParsedName && (!knownName || knownName === 'Unknown')) {
+            await updateCustomerInfo(customerPhone, { name: validParsedName, selfProvidedName: true, botState: 'AWAITING_INFO', language: 'English' });
+            customerContext.name = validParsedName;
           } else {
             await updateCustomerInfo(customerPhone, { botState: 'AWAITING_INFO', language: 'English' });
           }
           customerContext.botState = 'AWAITING_INFO';
           customerContext.language = 'English';
 
-          const greetName = (parsed.name || knownName) ? `Hi ${parsed.name || knownName}! ` : '';
+          const greetName = (validParsedName || knownName) ? `Hi ${validParsedName || knownName}! ` : '';
           const invalidReply = `${greetName}Welcome to Numberwale! 😊\n\nThe pincode *${parsed.pin}* is not valid.\n\nPlease share your *Name* and a valid *6-digit Indian Pincode* to check VIP numbers available in your area.\n\nExample: _Rahul 400001_`;
           await sendToGallabox(customerPhone, invalidReply, channelID);
           return res.status(200).json({ success: true, reason: 'invalid_pincode_in_new' });
         }
       }
 
-      if (parsed && parsed.name && !parsed.pin) {
-        await updateCustomerInfo(customerPhone, { name: parsed.name, selfProvidedName: true, botState: 'AWAITING_INFO', language: 'English' });
-        customerContext.name = parsed.name;
+      if (validParsedName && !parsed?.pin) {
+        await updateCustomerInfo(customerPhone, { name: validParsedName, selfProvidedName: true, botState: 'AWAITING_INFO', language: 'English' });
+        customerContext.name = validParsedName;
         customerContext.botState = 'AWAITING_INFO';
         customerContext.language = 'English';
 
-        const nameOnlyReply = `Welcome to Numberwale, ${parsed.name}! 🎉\n\nHi, I'm Eva, Numberwale's assistant! 😊\n\nTo check the best available VIP numbers and telecom circle availability for your area, please share your *6-digit Pincode*.\n\nExample: _400001_`;
+        const nameOnlyReply = `Welcome to Numberwale, ${validParsedName}! 🎉\n\nHi, I'm Eva, Numberwale's assistant! 😊\n\nTo check the best available VIP numbers and telecom circle availability for your area, please share your *6-digit Pincode*.\n\nExample: _400001_`;
         await sendToGallabox(customerPhone, nameOnlyReply, channelID);
         return res.status(200).json({ success: true, reason: 'awaiting_pincode' });
       }
 
-      // Default language to English and ask for Name & Pincode
-      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_INFO', language: 'English' });
+      // Default language to English and ask for Name & Pincode (store initial inquiry in pendingQuery)
+      await updateCustomerInfo(customerPhone, { botState: 'AWAITING_INFO', language: 'English', pendingQuery: userMessage });
       customerContext.language = 'English';
       customerContext.botState = 'AWAITING_INFO';
       const welcomeReply = "Welcome to Numberwale! 🎉\n\nHi, I'm Eva, Numberwale's assistant! 😊\n\nTo check the best available VIP numbers and telecom circle availability for your area, please type your *Name* and *6-digit Pincode*.\n\nExample: _Rahul 400001_";
@@ -834,15 +847,16 @@ export default async function handler(req, res) {
     }
 
     if (currentState === 'AWAITING_INFO') {
-      const knownName = (customerContext.name && customerContext.name !== 'Unknown') ? customerContext.name : null;
+      const knownName = (customerContext.name && customerContext.name !== 'Unknown' && isValidHumanName(customerContext.name)) ? customerContext.name : null;
       const parsed = parseNameAndPincode(userMessage, knownName);
+      const validParsedName = (parsed && parsed.name && isValidHumanName(parsed.name)) ? parsed.name : null;
 
       if (parsed && parsed.pin) {
         // Validate with India Post
         const pinCheck = await validateIndianPincode(parsed.pin);
         if (pinCheck.isValid) {
           const extractedPin = pinCheck.pinCode;
-          const extractedName = parsed.name || knownName || 'Friend';
+          const extractedName = validParsedName || knownName || 'Friend';
           const locationDisplay = pinCheck.locationDisplay || pinCheck.city || extractedPin;
 
           await updateCustomerInfo(customerPhone, { 
@@ -851,7 +865,7 @@ export default async function handler(req, res) {
             name: extractedName,
             city: pinCheck.city || null,
             state: pinCheck.state || null,
-            selfProvidedName: !!(parsed.name && parsed.name !== knownName) || customerContext.selfProvidedName
+            selfProvidedName: !!(validParsedName && validParsedName !== knownName) || customerContext.selfProvidedName
           });
           customerContext.pinCode = extractedPin;
           customerContext.name = extractedName;
@@ -918,11 +932,11 @@ export default async function handler(req, res) {
           return res.status(200).json({ success: true, reason: 'onboarding_complete' });
         } else {
           // Pincode is invalid from India Post
-          if (parsed.name && (!knownName || knownName === 'Unknown')) {
-            await updateCustomerInfo(customerPhone, { name: parsed.name, selfProvidedName: true });
-            customerContext.name = parsed.name;
+          if (validParsedName && (!knownName || knownName === 'Unknown')) {
+            await updateCustomerInfo(customerPhone, { name: validParsedName, selfProvidedName: true });
+            customerContext.name = validParsedName;
           }
-          const greetName = (parsed.name || knownName) ? `Hi ${parsed.name || knownName}! ` : '';
+          const greetName = (validParsedName || knownName) ? `Hi ${validParsedName || knownName}! ` : '';
           const lang = customerContext.language || 'English';
           let errInvalid = `${greetName}The pincode *${parsed.pin}* is not valid. 😊\n\nPlease share a valid 6-digit PIN code to proceed.\n\nExample: _400001_`;
 
@@ -940,17 +954,17 @@ export default async function handler(req, res) {
       }
 
       // If user only provided a Name
-      if (parsed && parsed.name && !parsed.pin) {
-        await updateCustomerInfo(customerPhone, { name: parsed.name, selfProvidedName: true });
-        customerContext.name = parsed.name;
+      if (validParsedName && !parsed?.pin) {
+        await updateCustomerInfo(customerPhone, { name: validParsedName, selfProvidedName: true });
+        customerContext.name = validParsedName;
         const lang = customerContext.language || 'English';
-        let askPin = `Hello ${parsed.name}! 😊 To check the best available VIP numbers and telecom circle delivery for your area, please share your *6-digit Pincode*.\n\nExample: _400001_`;
+        let askPin = `Hello ${validParsedName}! 😊 To check the best available VIP numbers and telecom circle delivery for your area, please share your *6-digit Pincode*.\n\nExample: _400001_`;
         if (lang === 'Hindi') {
-          askPin = `नमस्ते ${parsed.name}! 😊 आपके एरिया में उपलब्ध बेस्ट VIP नंबर और डिलीवरी चेक करने के लिए कृपया अपना *6-अंकों का पिनकोड* भेजें।\n\nउदाहरण: _400001_`;
+          askPin = `नमस्ते ${validParsedName}! 😊 आपके एरिया में उपलब्ध बेस्ट VIP नंबर और डिलीवरी चेक करने के लिए कृपया अपना *6-अंकों का पिनकोड* भेजें।\n\nउदाहरण: _400001_`;
         } else if (lang === 'Gujarati') {
-          askPin = `નમસ્તે ${parsed.name}! 😊 તમારા વિસ્તાર માટે શ્રેષ્ઠ VIP નંબર્સ ચકાસવા માટે કૃપા કરીને તમારો *6-આંકડાનો પિનકોડ* મોકલો.\n\nઉદાહરણ: _400001_`;
+          askPin = `નમસ્તે ${validParsedName}! 😊 તમારા વિસ્તાર માટે શ્રેષ્ઠ VIP નંબર્સ ચકાસવા માટે કૃપા કરીને તમારો *6-આંકડાનો પિનકોડ* મોકલો.\n\nઉદાહરણ: _400001_`;
         } else if (lang === 'Marathi') {
-          askPin = `नमस्ते ${parsed.name}! 😊 तुमच्या भागासाठी सर्वोत्तम VIP नंबर तपासण्यासाठी कृपया तुमचा *६-अंकी पिनकोड* पाठवा.\n\nउदाहरण: _400001_`;
+          askPin = `नमस्ते ${validParsedName}! 😊 तुमच्या भागासाठी सर्वोत्तम VIP नंबर तपासण्यासाठी कृपया तुमचा *६-अंकी पिनकोड* पाठवा.\n\nउदाहरण: _400001_`;
         }
         await sendToGallabox(customerPhone, askPin, channelID);
         return res.status(200).json({ success: true, reason: 'awaiting_pincode_only' });

@@ -1,6 +1,55 @@
 import axios from 'axios';
 import { classifyEngine } from './numberClassifier.js';
 
+export const VALID_CATEGORIES = [
+  'without-248-numbers', 'mirror-numbers', 'semi-mirror-numbers',
+  'three-digit-numbers', 'two-digit-numbers', 'counting-numbers',
+  'doubling-numbers', 'triple-numbers', 'tetra-numbers', 'penta-numbers',
+  'hexa-numbers', 'septa-numbers', 'octa-numbers', 'abc-abc-abc-numbers',
+  'abc-abc-numbers', 'ab-ab-ab-numbers', 'start-ab-ab-numbers',
+  'middle-ab-ab-numbers', 'ending-ab-ab-numbers', 'aaa-bbb-numbers',
+  'ab-ab-xy-xy-numbers', '108-numbers', '786-numbers', 'unique-numbers'
+];
+
+/**
+ * Normalizes user/LLM category inputs to the exact backend slug.
+ * Returns null if unrecognized so the caller can safely prune it without causing a 404.
+ */
+export function normalizeCategorySlug(rawSlug) {
+  if (!rawSlug || typeof rawSlug !== 'string') return null;
+  const slug = rawSlug.trim().toLowerCase().replace(/\s+/g, '-');
+  if (VALID_CATEGORIES.includes(slug)) return slug;
+
+  if (/^(?:without-repeat|no-repeat|without-repeating|non-repeating|bina-repeat|unique)(?:-numbers)?$/i.test(slug)) {
+    return 'unique-numbers';
+  }
+  if (/^mirror(?:-numbers)?$/i.test(slug)) return 'mirror-numbers';
+  if (/^semi-mirror(?:-numbers)?$/i.test(slug)) return 'semi-mirror-numbers';
+  if (/^counting(?:-numbers)?$/i.test(slug)) return 'counting-numbers';
+  if (/^doubling(?:-numbers)?$/i.test(slug)) return 'doubling-numbers';
+  if (/^triple(?:-numbers)?$/i.test(slug)) return 'triple-numbers';
+  if (/^tetra(?:-numbers)?$/i.test(slug)) return 'tetra-numbers';
+  if (/^penta(?:-numbers)?$/i.test(slug)) return 'penta-numbers';
+  if (/^hexa(?:-numbers)?$/i.test(slug)) return 'hexa-numbers';
+  if (/^septa(?:-numbers)?$/i.test(slug)) return 'septa-numbers';
+  if (/^octa(?:-numbers)?$/i.test(slug)) return 'octa-numbers';
+  if (/^without-248(?:-numbers)?$/i.test(slug)) return 'without-248-numbers';
+  if (/^786(?:-numbers)?$/i.test(slug)) return '786-numbers';
+  if (/^108(?:-numbers)?$/i.test(slug)) return '108-numbers';
+  if (/^abc-abc-abc(?:-numbers)?$/i.test(slug)) return 'abc-abc-abc-numbers';
+  if (/^abc-abc(?:-numbers)?$/i.test(slug)) return 'abc-abc-numbers';
+  if (/^ab-ab-ab(?:-numbers)?$/i.test(slug)) return 'ab-ab-ab-numbers';
+  if (/^ab-ab-xy-xy(?:-numbers)?$/i.test(slug)) return 'ab-ab-xy-xy-numbers';
+  if (/^aaa-bbb(?:-numbers)?$/i.test(slug)) return 'aaa-bbb-numbers';
+  if (/^two-digit(?:-numbers)?$/i.test(slug)) return 'two-digit-numbers';
+  if (/^three-digit(?:-numbers)?$/i.test(slug)) return 'three-digit-numbers';
+  if (/^ending-ab-ab(?:-numbers)?$/i.test(slug)) return 'ending-ab-ab-numbers';
+  if (/^start-ab-ab(?:-numbers)?$/i.test(slug)) return 'start-ab-ab-numbers';
+  if (/^middle-ab-ab(?:-numbers)?$/i.test(slug)) return 'middle-ab-ab-numbers';
+
+  return null;
+}
+
 /**
  * Format a 10-digit number with spaces for WhatsApp
  * If product has customDesignProductMobileNumber (e.g. 967-*167*-72-*167*):
@@ -117,7 +166,14 @@ export async function fetchNumbers(jsonQuery, page = 1) {
     }
 
     const finalQuery = { search: searchParams, page, limit: PAGE_SIZE };
-    if (jsonQuery.category) finalQuery.category = jsonQuery.category;
+    if (jsonQuery.category) {
+      const normCat = normalizeCategorySlug(jsonQuery.category);
+      if (normCat) {
+        finalQuery.category = normCat;
+      } else {
+        console.warn(`[Search] Invalid category "${jsonQuery.category}" pruned to avoid 404.`);
+      }
+    }
     if (priceRangeStr) finalQuery.priceRange = priceRangeStr;
     // Auto sort by price ascending when budget is provided (so cheapest options surface first)
     const sortPrice = jsonQuery.sortPrice || (jsonQuery.maxPrice ? 'lowToHigh' : null);
