@@ -1351,7 +1351,18 @@ export function normalizeSearchQuery(raw) {
   const starts = raw.startsWith != null ? raw.startsWith : raw.startWith;
   if (starts != null) {
     const digits = String(starts).replace(/\D/g, '');
-    if (digits) clean.startsWith = digits;
+    if (digits) {
+      // In India, all mobile numbers strictly start with 6, 7, 8, or 9.
+      // Digit patterns starting with 0-5 (e.g. "0018", "007", "420", "18") cannot be an Indian mobile number prefix.
+      // Automatically convert to anywhere so customers get matching numbers instead of 0 results!
+      if (!/^[6-9]/.test(digits)) {
+        if (!clean.anywhere) {
+          clean.anywhere = digits;
+        }
+      } else {
+        clean.startsWith = digits;
+      }
+    }
   }
 
   // 3. endsWith (and alias endWith)
@@ -1623,8 +1634,8 @@ export function stripThinkTags(text) {
 export function stripPhantomQuestions(text) {
   if (!text || typeof text !== 'string') return '';
   let cleaned = text
-    // English phantom closing questions
-    .replace(/(?:which\s*of\s*these[^\?\n]*\?|which\s*one[^\?\n]*\?|shall\s*i\s*reserve\s*one\s*of\s*these[^\?\n]*\?)/gi, '')
+    // English phantom closing questions (e.g. "Which of these patterns catches your eye?", "Would you like to reserve one of these for you?")
+    .replace(/(?:which\s*of\s*these[^\?\n]*\?|which\s*one[^\?\n]*\?|(?:shall|would)\s*you\s*like\s*(?:me\s*)?to\s*reserve[^\?\n]*\?)/gi, '')
     // Hinglish phantom closing questions
     .replace(/(?:aapko\s*inme\s*se\s*kaun[^\?\n]*\?|inme\s*se\s*kaun[^\?\n]*\?|inme\s*se\s*kya[^\?\n]*\?|kaunsa\s*number\s*reserve\s*karein[^\?\n]*\?)/gi, '')
     // Hindi phantom closing questions
@@ -1633,8 +1644,9 @@ export function stripPhantomQuestions(text) {
     .replace(/(?:આમાંથી\s*કયો[^\?\n]*\?|આમાંથી\s*કોઈ\s*નંબર[^\?\n]*\?)/gi, '')
     // Marathi phantom closing questions
     .replace(/(?:यापैकी\s*कोणता[^\?\n]*\?|यातला\s*कोणता\s*नंबर[^\?\n]*\?)/gi, '')
-    // Also remove empty hanging lead-ins like "Here are the top picks:" or "These patterns are highly memorable:" if no numbers follow
-    .replace(/(?:^|\n)[^\n]+(?:top picks|suggested numbers|picks|options|series|following numbers)[^\n]*:\s*(?=\n\s*\n|\s*$)/gi, '')
+    // Also remove empty hanging lead-ins like "Here are the top picks:" or "Here are some VIP numbers...:" if no numbers follow
+    .replace(/(?:^|\n)[^\n]*(?:numbers?|options?|picks?|choices?|series|patterns?|budget|following)[^\n]*:\s*(?=\n\s*\n|\s*$)/gi, '')
+    .replace(/(?:^|\n)[^\n]*:\s*(?=\n\s*\n|\s*$)/gi, '')
     .replace(/\n\s*\n\s*\n+/g, '\n\n');
   return cleaned.trim();
 }
@@ -1707,7 +1719,9 @@ export function extractFallbackSearchJSON(text, activeFilters = {}) {
     budgetVal = parseInt(kMatch[1], 10) * 1000;
   } else {
     const numBudgetMatch = t.match(/\b(?:under|below|budget|max|upto|tak)\s*(?:₹|rs\.?|inr)?\s*(\d{3,7})\b/i)
-      || t.match(/\b(\d{3,7})\s*(?:₹|rs\.?|inr)?\s*(?:budget|ke\s*andar|tak|me)\b/i);
+      || t.match(/\b(\d{3,7})\s*(?:₹|rs\.?|inr)?\s*(?:budget|ke\s*andar|tak|me|hai)\b/i)
+      || t.match(/\b(\d{3,7})\s*(?:₹|rs\.?|inr|rupees?)\b/i)
+      || (t.match(/\b(\d{3,7})\b/) && /\b(?:rs\.?|inr|rupees?|budget|price|cost|rate)\b/i.test(t));
     if (numBudgetMatch) {
       budgetVal = parseInt(numBudgetMatch[1], 10);
     }
@@ -1745,9 +1759,32 @@ export function extractFallbackSearchJSON(text, activeFilters = {}) {
     }
   }
 
+  // Digit pattern with inquiry words: e.g. "Price of 0018..?", "0018 rate", "007 price", "9999 chahiye"
+  if (!detected && !query.anywhere) {
+    const patternWordMatch = t.match(/\b(?:price\s*(?:of)?|rate\s*(?:of)?|cost\s*(?:of)?|chahiye|number|wala|waala)?\s*[:\-\s.]*([0-9]{2,6})\s*(?:price|rate|cost|chahiye|number|wala|waala|\?)*\b/i);
+    if (patternWordMatch) {
+      const digits = patternWordMatch[1];
+      const val = parseInt(digits, 10);
+      const isRepeatingOrSpecial = /^(\d)\1+$/.test(digits) || /^(\d{2})\1+$/.test(digits) || digits.startsWith('0') || ['786', '108', '1234', '4321', '0018', '007'].includes(digits);
+      if (digits.startsWith('0') || isRepeatingOrSpecial || val < 1000 || val % 500 !== 0 || !budgetVal) {
+        if (!budgetVal || budgetVal !== val) {
+          query.anywhere = digits;
+          detected = true;
+        }
+      }
+    }
+  }
+
   if (budgetVal && budgetVal >= 500 && budgetVal <= 5000000) {
     query.maxPrice = budgetVal;
     detected = true;
+  }
+
+  // Continuation / Affirmation when activeFilters exist: e.g. "ok", "yes", "haan", "theek hai", "dikhao", "options", "bhejo"
+  if (!detected && activeFilters && Object.keys(activeFilters).length > 0) {
+    if (/^(ok|okay|yes|haan|ha|theek hai|thik hai|dikhao|options|bhejo|show|send|sure|fine|yep|yeah|pls|please)$/i.test(lower)) {
+      return { ...activeFilters };
+    }
   }
 
   // 4. Category keywords
@@ -1931,8 +1968,9 @@ export function sanitizeHallucinatedNumbers(text, allowedNumbers = []) {
   });
   
   let res = filtered.join('\n');
-  // Clean empty header lines left hanging
-  res = res.replace(/(?:^|\n)[^\n]+(?:top picks|suggested numbers|picks|options|series)[^\n]*:\s*(?=\n\s*\n|\s*$)/gi, '');
+  // Clean empty header lines left hanging (e.g. "Here are some VIP numbers...:" when bullets were stripped)
+  res = res.replace(/(?:^|\n)[^\n]*(?:numbers?|options?|picks?|choices?|list|series)[^\n]*:\s*(?=\n\s*\n|\s*$)/gi, '');
+  res = res.replace(/(?:^|\n)[^\n]*:\s*(?=\n\s*\n|\s*$)/gi, '');
   return res.trim();
 }
 
@@ -3011,6 +3049,14 @@ export async function runAgent(opts) {
     if (fallbackJSON && Object.keys(fallbackJSON).length > 0) {
       console.log('[Agent] ⚡ Intercepted missing SEARCH_JSON with fallback parser:', JSON.stringify(fallbackJSON));
       effectiveSearchJSON = fallbackJSON;
+    } else if (
+      customerContext.activeFilters &&
+      Object.keys(customerContext.activeFilters).length > 0 &&
+      (/^(ok|okay|yes|haan|ha|theek hai|thik hai|dikhao|options|bhejo|show|send|sure|fine|yep|yeah|pls|please)$/i.test(userMessage.trim().toLowerCase()) ||
+       /(?:here\s*(?:are|is)|yeh\s*rahe|ye\s*rahe|options\s*hain|list\s*of|options\s*for\s*you)/i.test(agentText))
+    ) {
+      console.log('[Agent] ⚡ Re-activating activeFilters on customer confirmation/affirmation:', JSON.stringify(customerContext.activeFilters));
+      effectiveSearchJSON = { ...customerContext.activeFilters };
     }
   }
 
@@ -3172,6 +3218,25 @@ export async function runAgent(opts) {
               fallbackNote = `\n\n📌 *Note:* Here are top numbers featuring your requested digits:`;
             } else {
               fallbackNote = `\n\n📌 *Note:* Aapke pasandeeda digits ke saath ye top VIP numbers available hain:`;
+            }
+          }
+        }
+
+        // 4. startsWith yielded 0 results: try relaxing startsWith to anywhere!
+        else if (effectiveSearchJSON.startsWith) {
+          const relaxedS = { ...effectiveSearchJSON, anywhere: effectiveSearchJSON.startsWith };
+          delete relaxedS.startsWith;
+          const resS = await fetchNumbers(relaxedS, 1);
+          const validS = validateProductsAgainstConstraints(resS.products, relaxedS);
+          if (validS && validS.length > 0) {
+            result = { ...resS, products: validS };
+            effectiveSearchJSON = relaxedS;
+            if (lang === 'English') {
+              fallbackNote = `\n\n📌 *Note:* Exact numbers starting with *${effectiveSearchJSON.anywhere}* are currently rare, but here are outstanding VIP numbers featuring *${effectiveSearchJSON.anywhere}*:`;
+            } else if (lang === 'Hindi') {
+              fallbackNote = `\n\n📌 *नोट:* *${effectiveSearchJSON.anywhere}* से शुरू होने वाले नंबर अभी सीमित हैं, लेकिन *${effectiveSearchJSON.anywhere}* वाले शानदार VIP नंबर ये रहे:`;
+            } else {
+              fallbackNote = `\n\n📌 *Note:* Starting *${effectiveSearchJSON.anywhere}* mein filhal exact number nahi mila, lekin *${effectiveSearchJSON.anywhere}* wale top VIP numbers ye rahe:`;
             }
           }
         }
