@@ -45,7 +45,7 @@ export const NUMBERWALE_KNOWLEDGE = {
 
   // Pricing, Payments & Discounts
   pricing: {
-    gst: "All prices are transparent and include official 18% GST invoice (business clients can claim GST input credit).",
+    gst: "All prices are transparent and include official 18% GST invoice (business clients can claim GST input credit). Official GSTIN: 27BQXPS4248A1ZE (PAN: BQXPS4248A).",
     maintenance: "One-time cost only. Zero monthly maintenance fees to Numberwale. Afterwards, you only pay your regular operator recharge plan.",
     cod: "Cash on Delivery (COD) is not possible because the Unique Porting Code (UPC) is delivered digitally within 24 hours.",
     discounts: "Website listed prices already include maximum up to 50% discount. For high-value VIP numbers or bulk/family packs, a senior manager can assist with exclusive offers."
@@ -285,7 +285,7 @@ FACTS TO USE STRICTLY:
 - Office Hours & Calls: 10:00 AM to 7:00 PM, Monday to Saturday (Closed on Sundays). Calls cannot be answered after office hours.
 - Networks: Works with any operator (Jio, Airtel, Vi, BSNL). Works on 4G/5G, can be activated as Prepaid or Postpaid, can convert to eSIM.
 - Guarantee: 100% Money Back Guarantee if porting fails. UPC is valid for limited days; if expired, Numberwale provides a fresh UPC free of cost.
-- Payments: 100% online & secure (UPI, Google Pay, PhonePe, Cards, Netbanking, Credit Card EMI). No COD because UPC is digital. Official GST invoice provided.
+- Payments: 100% online & secure (UPI, Google Pay, PhonePe, Cards, Netbanking, Credit Card EMI). No COD because UPC is digital. Official 18% GST invoice provided. Official GSTIN: 27BQXPS4248A1ZE (PAN: BQXPS4248A).
 - Office: Head office in Bhayandar East, Thane / Mumbai, Maharashtra. Helpline: +91 9222 222 007 (10am–7pm Mon–Sat).
 - Invoice & Report Access:
   • Official GST Invoice: Customer can download anytime by logging into website (https://www.numberwale.com) -> My Account -> My Orders.

@@ -8,7 +8,7 @@
  * Returns: { reply, searchJSON, model, escalate, totalCount, totalPages, currentPage }
  */
 import { fetchNumbers, VALID_CATEGORIES, normalizeCategorySlug } from './searchApi.js';
-import { fetchProductByNumber, fetchActiveBotCoupon, fetchActiveBotCoupons } from './paymentUtils.js';
+import { fetchProductByNumber, fetchActiveBotCoupon, fetchActiveBotCoupons, getMatchingBotCoupon } from './paymentUtils.js';
 import { detectLanguage } from './agentEngine.js';
 import { findAlternativeNumbers } from './numberClassifier.js';
 import { 
@@ -420,7 +420,9 @@ export function buildSystemPrompt(ctx) {
   L.push('');
   L.push('## NUMBERWALE FACTS (use strictly, never guess)');
   L.push('- Founded 2010 | 1 Lakh+ clients | Helpline: +91 9222 222 007 | support@numberwale.com');
-  L.push('- Office: Bhayandar East, Thane/Mumbai, Maharashtra 401105 (Working Hours: 10:00 AM to 7:00 PM, Mon–Sat)');
+  L.push('- Office: Office No. 005, Bldg No. 12-B, Sangeet Complex, Jesal Park, Bhayandar East, Thane/Mumbai, Maharashtra 401105 (Working Hours: 10:00 AM to 7:00 PM, Mon–Sat)');
+  L.push('- Official GSTIN / GST Number: *27BQXPS4248A1ZE* (PAN: *BQXPS4248A* | Legal Entity: Numberwale / Numberwale Tech Solutions)');
+  L.push('  🚨 STRICT GST NUMBER RULE: If customer asks for our GST number, GSTIN, tax registration, or billing details ("GST number kya hai", "send GST number", "what is your GSTIN"): Eva MUST provide ONLY *27BQXPS4248A1ZE*! NEVER hallucinate, invent, or guess any other GST number!');
   L.push('- Networks: All operators (Jio, Airtel, Vi, BSNL) | 4G/5G | Prepaid or Postpaid | eSIM convertible');
   L.push('- Payment: UPI / Cards / NetBanking / Credit Card EMI | NO COD (UPC is digital delivery)');
   L.push('- Guarantee: 100% Money-Back if porting fails | Re-UPC may be charged ₹299 depending on circumstances');
@@ -855,18 +857,18 @@ export function buildSystemPrompt(ctx) {
         : (ctx && ctx.activeCoupon ? [ctx.activeCoupon] : []);
 
       if (targetCoupons.length > 0) {
-        // Pick best coupon for this specific target number
-        const bestCoupon = targetCoupons.find(c => tp.totalWithGst >= (c.minOrderValue || 0)) || targetCoupons[0];
+        // Pick best matching coupon slab for this specific target number price
+        const bestCoupon = getMatchingBotCoupon(targetCoupons, tp.totalWithGst) || targetCoupons[0];
         const discountText = bestCoupon.discountType === 'percentage' ? `${bestCoupon.discountValue}% extra discount` : `₹${bestCoupon.discountValue} flat extra discount`;
         const minNote = bestCoupon.minOrderValue > 0 ? ` (valid on cart value above ₹${bestCoupon.minOrderValue.toLocaleString('en-IN')})` : '';
         L.push('3. If customer asks about price, final rate, discount, or negotiations ("kitna final hoga", "best price", "discount", "kam karo"):');
         if (lang === 'English') {
           L.push(`   - Explain in English that ${priceGst} is already direct wholesale discounted on Numberwale.`);
-          L.push(`   - BUT warmly offer them our exclusive coupon code: *${bestCoupon.code}* for ${discountText}${minNote} on checkout cart!`);
+          L.push(`   - BUT warmly offer them our exclusive coupon code for this slab: *${bestCoupon.code}* for ${discountText}${minNote} on checkout cart!`);
           L.push(`   - Instruct them to click the booking link and apply coupon *${bestCoupon.code}* in cart to claim the savings.`);
         } else {
           L.push(`   - Explain that ${priceGst} is already direct wholesale discounted on Numberwale.`);
-          L.push(`   - BUT warmly offer them our exclusive coupon code: *${bestCoupon.code}* for ${discountText}${minNote} on checkout cart!`);
+          L.push(`   - BUT warmly offer them our exclusive coupon code for this slab: *${bestCoupon.code}* for ${discountText}${minNote} on checkout cart!`);
           L.push(`   - Tell them to click the booking link and enter coupon *${bestCoupon.code}* in cart to apply the discount.`);
         }
       } else {
@@ -887,21 +889,51 @@ export function buildSystemPrompt(ctx) {
     : (ctx && ctx.activeCoupon ? [ctx.activeCoupon] : []);
 
   if (botCoupons.length > 0) {
+    const sortedCoupons = [...botCoupons].sort((a, b) => (Number(a.minOrderValue) || 0) - (Number(b.minOrderValue) || 0));
+
     L.push('');
     L.push('## 🚨 STRICT COUPON RULES (CRITICAL — READ CAREFULLY!)');
     L.push('1. NEVER EVER mention coupon codes, promo codes, or extra discounts UNLESS the customer specifically and explicitly asks for a discount, concession, deal, cheaper price, or best price ("discount hai kya", "kam karo", "best price", "offers kya hai", "koi coupon code hai?").');
     L.push('2. On greetings, normal number searches, category recommendations, or numerology discussions: NEVER mention coupon codes! Keep focus 100% on the numbers and customer requirements.');
     L.push('3. When (and ONLY when) customer asks for discount, best price, or negotiation:');
-    L.push('   Offer the following exclusive coupon codes according to their order value:');
-    botCoupons.forEach(c => {
-      const disc = c.discountType === 'percentage' ? `${c.discountValue}% OFF` : `₹${c.discountValue} FLAT OFF`;
-      const minCond = c.minOrderValue > 0 ? `(Valid on cart value above ₹${Number(c.minOrderValue).toLocaleString('en-IN')})` : `(Valid on any cart value — No minimum order)`;
-      L.push(`   • Code *${c.code}*: ${disc} ${minCond}`);
+    L.push('   Offer the matching coupon code according to customer\'s budget or order value slabs:');
+
+    sortedCoupons.forEach((c, idx) => {
+      const min = Number(c.minOrderValue) || 0;
+      const max = c.maxOrderValue != null ? Number(c.maxOrderValue) : null;
+      const minStr = `₹${min.toLocaleString('en-IN')}`;
+      const maxStr = max != null ? `₹${max.toLocaleString('en-IN')}` : null;
+      let rangeText = '';
+      if (min === 0 && max != null) {
+        rangeText = `budget/orders up to ${maxStr}`;
+      } else if (max != null) {
+        rangeText = `budget/orders between ${minStr} and ${maxStr}`;
+      } else if (min > 0) {
+        rangeText = `budget/orders of ${minStr} and above`;
+      } else {
+        rangeText = `any budget/order value`;
+      }
+
+      const disc = c.discountType === 'percentage'
+        ? `${c.discountValue}% OFF${c.maxDiscount ? ` (up to ₹${c.maxDiscount})` : ''}`
+        : `₹${c.discountValue} FLAT OFF`;
+      L.push(`   • Slab Tier #${idx + 1} (${rangeText}): Recommend code *${c.code}* for ${disc}!`);
     });
-    L.push('   Rules for selecting coupon:');
-    L.push('   - If customer\'s selected number or budget is ₹5,000 or more: recommend *SPECIAL200* for ₹200 instant savings!');
-    L.push('   - If customer\'s order or budget is below ₹5,000: recommend *SPECIAL75* for ₹75 instant savings!');
-    L.push('   - If general inquiry ("any discount?"): warmly share both options so they know they get discounts at every price point!');
+
+    // Check if customer has a known budget or active price filter
+    const activeBudget = (ctx.activeFilters && ctx.activeFilters.maxPrice)
+      ? Number(ctx.activeFilters.maxPrice)
+      : (ctx.budget ? Number(ctx.budget) : null);
+
+    if (activeBudget && !isNaN(activeBudget) && activeBudget > 0) {
+      const budgetCoupon = getMatchingBotCoupon(sortedCoupons, activeBudget);
+      if (budgetCoupon) {
+        const disc = budgetCoupon.discountType === 'percentage' ? `${budgetCoupon.discountValue}% OFF` : `₹${budgetCoupon.discountValue} OFF`;
+        L.push(`   🎯 CUSTOMER BUDGET DETECTED AS ₹${activeBudget.toLocaleString('en-IN')}: Pitch code *${budgetCoupon.code}* (${disc}) matching this slab!`);
+      }
+    }
+
+    L.push('   - If general inquiry with no specific number or budget ("any discount?", "offers kya hai?"): summarize available coupon slabs briefly so customer knows they get discounts at every price point!');
     if (lang === 'English') {
       L.push('   - Explain politely: "Our website prices are already up to 50% discounted, but you can apply coupon *[CODE]* at checkout for extra direct savings!"');
     } else if (lang === 'Hindi') {
@@ -2394,6 +2426,81 @@ export function getCustomSoftwareExplanation(lang, customerTitle = '') {
   }
 }
 
+export function isGstNumberQuery(message) {
+  if (!message || typeof message !== 'string') return false;
+  const msg = message.toLowerCase().trim();
+
+  // Explicit keywords: gstin, gst number, gst no, gst details, company gst, gst certificate
+  if (/\b(?:gstin|gst\s*(?:no|num|number|certificate|details|id|code))\b/i.test(msg)) {
+    return true;
+  }
+  // Questions like: "aapka gst kya hai", "what is your gst", "send your gst", "gst batao", "gst do", "gst number please"
+  if (/\bgst\b/i.test(msg) && /\b(?:kya\s*hai|what\s*is|bhejo|do|dijiye|share|send|give|provide|batao|bataiye|chahiye)\b/i.test(msg) && !/\b(?:invoice|bill|receipt|report)\b/i.test(msg)) {
+    return true;
+  }
+  return false;
+}
+
+export function getGstNumberExplanation(lang, rawName) {
+  const name = cleanCustomerName(rawName);
+  let greeting = '';
+  if (name) {
+    if (lang === 'English') greeting = ` ${name}`;
+    else if (lang === 'Hindi') greeting = ` ${name} जी`;
+    else if (lang === 'Gujarati') greeting = ` ${name} ભાઈ`;
+    else if (lang === 'Marathi') greeting = ` ${name} भाऊ`;
+    else greeting = ` ${name} ji`;
+  }
+
+  if (lang === 'English') {
+    return `Hello${greeting}! 😊\n\n` +
+      `Here are the official tax & GST registration details for Numberwale:\n\n` +
+      `• *GSTIN (GST Number):* 27BQXPS4248A1ZE\n` +
+      `• *PAN Number:* BQXPS4248A\n` +
+      `• *Registered Entity:* Numberwale / Numberwale Tech Solutions\n` +
+      `• *Registered Office:* Office No. 005, Bldg No. 12-B, Sangeet Complex, Jesal Park, Bhayandar (East), Thane, Maharashtra 401105\n\n` +
+      `📄 *Note:* Every order at Numberwale comes with an official 18% GST Tax Invoice, allowing business clients to claim 100% Input Tax Credit (ITC).\n\n` +
+      `Would you like to book a VIP mobile number with your company's GST billing, or need help finding a specific number?`;
+  } else if (lang === 'Hindi') {
+    return `नमस्ते${greeting}! 😊\n\n` +
+      `Numberwale के आधिकारिक GST और टैक्स रजिस्ट्रेशन विवरण निम्नलिखित हैं:\n\n` +
+      `• *GSTIN (GST नंबर):* 27BQXPS4248A1ZE\n` +
+      `• *PAN नंबर:* BQXPS4248A\n` +
+      `• *पंजीकृत नाम:* Numberwale / Numberwale Tech Solutions\n` +
+      `• *पंजीकृत कार्यालय:* ऑफिस नंबर 005, बिल्डिंग 12-B, संगीत कॉम्प्लेक्स, जेसल पार्क, भायंदर (ईस्ट), ठाणे, महाराष्ट्र 401105\n\n` +
+      `📄 *सूचना:* Numberwale पर हर खरीदारी के साथ पक्का 18% GST टैक्स इनवॉइस मिलता है, जिससे आप अपने बिज़नेस के लिए Input Tax Credit (ITC) आसानी से क्लेम कर सकते हैं।\n\n` +
+      `क्या आप अपने कंपनी GST बिलिंग के साथ कोई VIP नंबर बुक करना चाहते हैं, या किसी पसंदीदा नंबर की तलाश में हैं?`;
+  } else if (lang === 'Gujarati') {
+    return `નમસ્તે${greeting}! 😊\n\n` +
+      `Numberwale ની અધિકૃત GST અને ટેક્સ વિગતો નીચે મુજબ છે:\n\n` +
+      `• *GSTIN (GST નંબર):* 27BQXPS4248A1ZE\n` +
+      `• *PAN નંબર:* BQXPS4248A\n` +
+      `• *રજિસ્ટર્ડ નામ:* Numberwale / Numberwale Tech Solutions\n` +
+      `• *રજિસ્ટર્ડ ઓફિસ:* ભાયંદર (ઇસ્ટ), થાણે, મહારાષ્ટ્ર 401105\n\n` +
+      `📄 દરેક ઓર્ડર સાથે અધિકૃત 18% GST ઇનવોઇસ આપવામાં આવે છે, જેથી તમે બિઝનેસ માટે ITC ક્લેમ કરી શકો.\n\n` +
+      `શું તમારે કંપની GST બિલિંગ સાથે કોઈ VIP નંબર બુક કરવો છે?`;
+  } else if (lang === 'Marathi') {
+    return `नमस्कार${greeting}! 😊\n\n` +
+      `Numberwale चे अधिकृत GST आणि कर नोंदणी तपशील खालीलप्रमाणे आहेत:\n\n` +
+      `• *GSTIN (GST नंबर):* 27BQXPS4248A1ZE\n` +
+      `• *PAN नंबर:* BQXPS4248A\n` +
+      `• *नोंदणीकृत नाव:* Numberwale / Numberwale Tech Solutions\n` +
+      `• *नोंदणीकृत कार्यालय:* भाईंदर (पूर्व), ठाणे, महाराष्ट्र 401105\n\n` +
+      `📄 Numberwale वरील प्रत्येक खरेदीवर अधिकृत 18% GST टॅक्स इनव्हॉइस मिळते, ज्याद्वारे तुम्ही ITC चा लाभ घेऊ शकता.\n\n` +
+      `तुम्हाला कंपनीच्या GST बिलिंगसह एखादा VIP नंबर बुक करायचा आहे का?`;
+  } else {
+    // Hinglish
+    return `Namaste${greeting}! 😊\n\n` +
+      `Hamare official tax & GST registration details yeh hain:\n\n` +
+      `• *GSTIN (GST Number):* 27BQXPS4248A1ZE\n` +
+      `• *PAN Number:* BQXPS4248A\n` +
+      `• *Registered Entity:* Numberwale / Numberwale Tech Solutions\n` +
+      `• *Registered Office:* Office No. 005, Bldg No. 12-B, Sangeet Complex, Jesal Park, Bhayandar (East), Thane, Maharashtra 401105\n\n` +
+      `📄 *Note:* Numberwale par har order ke sath 100% official 18% GST tax invoice milta hai, jisse aap apne business ke liye Input Tax Credit (ITC) claim kar sakte hain.\n\n` +
+      `Aapko company GST billing ke sath koi VIP number book karna hai, ya kisi specific pattern ka number dekh rahe hain?`;
+  }
+}
+
 export async function runAgent(opts) {
   const userMessage = opts.userMessage;
   const customerContext = opts.customerContext || {};
@@ -2452,6 +2559,19 @@ export async function runAgent(opts) {
       conversationalIntro: explanationReply,
       searchJSON: null,
       model: 'custom-software-info-guard',
+      escalate: false
+    };
+  }
+
+  // ── CRM Fast Intercept 0.3: Customer asking for Company GST Number / GSTIN ──
+  if (isGstNumberQuery(userMessage) && !extract10DigitNumber(userMessage)) {
+    console.log(`[Agent] 🏛️ Fast Intercept: GST Number query for ${customerContext.phone || 'customer'}`);
+    const gstReply = getGstNumberExplanation(lang, customerContext.name || '');
+    return {
+      reply: gstReply,
+      conversationalIntro: gstReply,
+      searchJSON: null,
+      model: 'gst-number-guard',
       escalate: false
     };
   }
@@ -3010,6 +3130,15 @@ export async function runAgent(opts) {
 
   // ── Post-LLM Anti-Devora Safety Guard: Never mention "Devora" ──
   conversationalText = scrubDevoraName(conversationalText);
+
+  // ── Post-LLM Anti-Hallucination Safety Guard: Replace any fake GSTIN with actual Numberwale GSTIN ──
+  conversationalText = conversationalText.replace(/\b[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z]{1}[1-9A-Za-z]{1}[Zz][0-9A-Za-z]{1}\b/g, (matched) => {
+    if (matched.toUpperCase() !== '27BQXPS4248A1ZE') {
+      console.warn(`[Agent] 🚨 Intercepted hallucinated GST number "${matched}"! Replaced with 27BQXPS4248A1ZE.`);
+      return '27BQXPS4248A1ZE';
+    }
+    return matched;
+  });
 
   // ── Post-LLM Anti-Leak Safety Guard: Never disclose any UPC code in chat ──
   const upcPattern = /\b[A-Za-z]{2}\d{6}\b|(?:upc\s*(?:code)?\s*(?:hai|is|:)?\s*[*\x60]?[A-Za-z0-9]{5,15}[*\x60]?)/i;

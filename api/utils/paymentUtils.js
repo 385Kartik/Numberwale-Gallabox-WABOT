@@ -113,29 +113,17 @@ export async function fetchActiveBotCoupons() {
       }
     }
 
-    // Safety fallback: If only SPECIAL200 is returned (before server deploy updates findOne -> find),
-    // ensure SPECIAL75 is also available if not already in list
-    const hasSpecial200 = list.some(c => c.code === 'SPECIAL200');
-    const hasSpecial75 = list.some(c => c.code === 'SPECIAL75');
-    if (hasSpecial200 && !hasSpecial75) {
-      list.push({
-        code: 'SPECIAL75',
-        description: 'Save ₹75 on any VIP number!',
-        discountType: 'fixed',
-        discountValue: 75,
-        minOrderValue: 0,
-        maxDiscount: null
-      });
-    }
-
-    cachedBotCoupons = list.map(c => ({
-      code: c.code,
-      discountType: c.discountType, // "percentage" or "fixed"
-      discountValue: c.discountValue,
-      minOrderValue: c.minOrderValue || 0,
-      maxDiscount: c.maxDiscount || null,
-      description: c.description || ''
-    }));
+    cachedBotCoupons = list
+      .map(c => ({
+        code: c.code,
+        discountType: c.discountType, // "percentage", "flat", or "fixed"
+        discountValue: Number(c.discountValue),
+        minOrderValue: Number(c.minOrderValue) || 0,
+        maxOrderValue: c.maxOrderValue != null ? Number(c.maxOrderValue) : null,
+        maxDiscount: c.maxDiscount != null ? Number(c.maxDiscount) : null,
+        description: c.description || ''
+      }))
+      .sort((a, b) => a.minOrderValue - b.minOrderValue);
 
     botCouponExpiry = now + (5 * 60 * 1000); // Cache for 5 minutes
     return cachedBotCoupons;
@@ -143,6 +131,40 @@ export async function fetchActiveBotCoupons() {
     console.warn('[Payment] fetchActiveBotCoupons error:', err.message);
     return cachedBotCoupons || [];
   }
+}
+
+/**
+ * Match an order amount or customer budget against active bot coupon slabs.
+ * Evaluates minOrderValue and optional maxOrderValue.
+ */
+export function getMatchingBotCoupon(coupons, amount) {
+  if (!Array.isArray(coupons) || coupons.length === 0) return null;
+  const amt = Number(amount);
+  if (isNaN(amt) || amt <= 0) {
+    return coupons[0];
+  }
+
+  // 1. Explicit slab match: minOrderValue <= amt <= maxOrderValue
+  const explicitMatches = coupons.filter(c => {
+    const min = Number(c.minOrderValue) || 0;
+    const max = c.maxOrderValue != null ? Number(c.maxOrderValue) : null;
+    if (amt < min) return false;
+    if (max != null && amt > max) return false;
+    return true;
+  });
+
+  if (explicitMatches.length > 0) {
+    return explicitMatches.sort((a, b) => (Number(b.minOrderValue) || 0) - (Number(a.minOrderValue) || 0))[0];
+  }
+
+  // 2. Open-ended or boundary fallback: highest minOrderValue <= amt
+  const eligible = coupons.filter(c => amt >= (Number(c.minOrderValue) || 0));
+  if (eligible.length > 0) {
+    return eligible.sort((a, b) => (Number(b.minOrderValue) || 0) - (Number(a.minOrderValue) || 0))[0];
+  }
+
+  // 3. Fallback to lowest slab
+  return coupons.slice().sort((a, b) => (Number(a.minOrderValue) || 0) - (Number(b.minOrderValue) || 0))[0];
 }
 
 /**
