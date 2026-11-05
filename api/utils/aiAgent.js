@@ -841,33 +841,39 @@ export function buildSystemPrompt(ctx) {
       L.push('⚠️ NEVER invent or make up a price for an unavailable number!');
     } else {
       const formatted = tp.formattedNumber || tp.number;
-      const priceGst = tp.totalWithGst ? `₹${tp.totalWithGst.toLocaleString('en-IN')}` : `₹${tp.price}`;
+      const subtotalVal = Number(tp.subtotal || tp.price || (tp.totalWithGst ? Math.round(tp.totalWithGst / 1.18) : 0));
+      const priceGst = tp.totalWithGst ? `₹${tp.totalWithGst.toLocaleString('en-IN')}` : (subtotalVal ? `₹${Math.round(subtotalVal * 1.18).toLocaleString('en-IN')}` : `₹${tp.price}`);
       L.push('');
       L.push('## TARGET NUMBER INQUIRY (CRITICAL — READ CAREFULLY!)');
       L.push(`Customer is inquiring about THIS SINGLE 10-DIGIT NUMBER: *${formatted}* (Raw digits: ${tp.number})`);
       L.push(`- Category: ${tp.category || 'VIP Fancy Number'}`);
-      L.push(`- EXACT Price: ${priceGst} (includes 18% GST and official GST invoice)`);
+      L.push(`- Cart Subtotal (Base price before GST): ₹${subtotalVal.toLocaleString('en-IN')}`);
+      L.push(`- EXACT Total Price: ${priceGst} (includes 18% GST and official GST invoice)`);
       L.push(`- Direct Booking Link: https://numberwale.com/cart-add/${tp.number}`);
       L.push('');
       L.push('STRICT MANDATORY RULES FOR THIS INQUIRY:');
       L.push('1. THIS IS ONE SINGLE 10-DIGIT NUMBER. NEVER SPLIT IT INTO TWO NUMBERS (e.g. NEVER treat "8574 113322" as 8574 and 113322)! NEVER say "dono numbers" or "combined amount"!');
-      L.push(`2. The price is EXACTLY ${priceGst} (including 18% GST). NEVER hallucinate, guess, or invent any other price!`);
+      L.push(`2. The total price payable by customer is EXACTLY ${priceGst} (including 18% GST). NEVER hallucinate, guess, or invent any other price!`);
       const targetCoupons = (ctx && ctx.activeCoupons && ctx.activeCoupons.length > 0)
         ? ctx.activeCoupons
         : (ctx && ctx.activeCoupon ? [ctx.activeCoupon] : []);
 
       if (targetCoupons.length > 0) {
-        // Pick best matching coupon slab for this specific target number price
-        const bestCoupon = getMatchingBotCoupon(targetCoupons, tp.totalWithGst) || targetCoupons[0];
+        // Pick best matching coupon slab for this specific target number price BASED ON CART SUBTOTAL (BEFORE GST)
+        // CRITICAL: In Numberwale cart, coupons validate against cart subtotal, NOT total with GST!
+        const bestCoupon = getMatchingBotCoupon(targetCoupons, subtotalVal) || targetCoupons[0];
         const discountText = bestCoupon.discountType === 'percentage' ? `${bestCoupon.discountValue}% extra discount` : `₹${bestCoupon.discountValue} flat extra discount`;
-        const minNote = bestCoupon.minOrderValue > 0 ? ` (valid on cart value above ₹${bestCoupon.minOrderValue.toLocaleString('en-IN')})` : '';
+        const minNote = bestCoupon.minOrderValue > 0 ? ` (valid on cart subtotal of ₹${bestCoupon.minOrderValue.toLocaleString('en-IN')} and above)` : '';
         L.push('3. If customer asks about price, final rate, discount, or negotiations ("kitna final hoga", "best price", "discount", "kam karo"):');
+        L.push(`   🛑 CRITICAL RULE: COUPONS APPLY ON CART SUBTOTAL (BEFORE GST ₹${subtotalVal.toLocaleString('en-IN')}), NOT ON TOTAL WITH GST (${priceGst})!`);
+        L.push(`   The cart subtotal for this number is ₹${subtotalVal.toLocaleString('en-IN')}. Therefore, it qualifies ONLY for coupon *${bestCoupon.code}* (${discountText}).`);
+        L.push(`   NEVER recommend higher tier coupons (e.g. if subtotal is under ₹5,001, NEVER recommend coupons that require subtotal of ₹5,001+) because the checkout cart will reject them!`);
         if (lang === 'English') {
-          L.push(`   - Explain in English that ${priceGst} is already direct wholesale discounted on Numberwale.`);
+          L.push(`   - Explain in English that ${priceGst} (incl. 18% GST) is already direct wholesale discounted on Numberwale.`);
           L.push(`   - BUT warmly offer them our exclusive coupon code for this slab: *${bestCoupon.code}* for ${discountText}${minNote} on checkout cart!`);
           L.push(`   - Instruct them to click the booking link and apply coupon *${bestCoupon.code}* in cart to claim the savings.`);
         } else {
-          L.push(`   - Explain that ${priceGst} is already direct wholesale discounted on Numberwale.`);
+          L.push(`   - Explain that ${priceGst} (incl. 18% GST) is already direct wholesale discounted on Numberwale.`);
           L.push(`   - BUT warmly offer them our exclusive coupon code for this slab: *${bestCoupon.code}* for ${discountText}${minNote} on checkout cart!`);
           L.push(`   - Tell them to click the booking link and enter coupon *${bestCoupon.code}* in cart to apply the discount.`);
         }
@@ -895,8 +901,13 @@ export function buildSystemPrompt(ctx) {
     L.push('## 🚨 STRICT COUPON RULES (CRITICAL — READ CAREFULLY!)');
     L.push('1. NEVER EVER mention coupon codes, promo codes, or extra discounts UNLESS the customer specifically and explicitly asks for a discount, concession, deal, cheaper price, or best price ("discount hai kya", "kam karo", "best price", "offers kya hai", "koi coupon code hai?").');
     L.push('2. On greetings, normal number searches, category recommendations, or numerology discussions: NEVER mention coupon codes! Keep focus 100% on the numbers and customer requirements.');
-    L.push('3. When (and ONLY when) customer asks for discount, best price, or negotiation:');
-    L.push('   Offer the matching coupon code according to customer\'s budget or order value slabs:');
+    L.push('3. 🛑 CRITICAL RULE: COUPONS ARE EVALUATED ON CART SUBTOTAL (BEFORE 18% GST), NEVER ON TOTAL WITH GST!');
+    L.push('   In Numberwale checkout cart, coupons check the base price (subtotal) before 18% GST is added.');
+    L.push('   Example: For a number with base price ₹4,680 (total with GST ₹5,522):');
+    L.push('   - Subtotal is ₹4,680 (between ₹2,001 and ₹5,000), so it qualifies ONLY for the ₹2,001 - ₹5,000 slab.');
+    L.push('   - It DOES NOT qualify for ₹5,001+ slabs. NEVER say "since your total with GST is 5000+ apply higher coupons"!');
+    L.push('4. When (and ONLY when) customer asks for discount, best price, or negotiation:');
+    L.push('   Offer the matching coupon code according to customer\'s cart subtotal or budget slab (before GST):');
 
     sortedCoupons.forEach((c, idx) => {
       const min = Number(c.minOrderValue) || 0;
@@ -905,13 +916,13 @@ export function buildSystemPrompt(ctx) {
       const maxStr = max != null ? `₹${max.toLocaleString('en-IN')}` : null;
       let rangeText = '';
       if (min === 0 && max != null) {
-        rangeText = `budget/orders up to ${maxStr}`;
+        rangeText = `cart subtotal up to ${maxStr}`;
       } else if (max != null) {
-        rangeText = `budget/orders between ${minStr} and ${maxStr}`;
+        rangeText = `cart subtotal between ${minStr} and ${maxStr}`;
       } else if (min > 0) {
-        rangeText = `budget/orders of ${minStr} and above`;
+        rangeText = `cart subtotal of ${minStr} and above`;
       } else {
-        rangeText = `any budget/order value`;
+        rangeText = `any cart subtotal`;
       }
 
       const disc = c.discountType === 'percentage'
@@ -2692,12 +2703,13 @@ export async function runAgent(opts) {
               number: prod.number,
               price: prod.price,
               basePrice: prod.basePrice,
+              subtotal: subtotal,
               category: prod.category,
               totalWithGst: totalWithGst,
               formattedNumber: formatProductNumberForWhatsApp({ productMobileNumber: prod.number }),
               cartLink: `https://numberwale.com/cart-add/${prod.number}`
             };
-            console.log(`[Agent] Injected targetProduct: ${prod.number} (Price with GST: ₹${totalWithGst})`);
+            console.log(`[Agent] Injected targetProduct: ${prod.number} (Subtotal: ₹${subtotal}, Total with GST: ₹${totalWithGst})`);
           } else {
             // Number unavailable: run Classifier and Website Similarity Finder to locate genuine alternatives
             let alts = { category: { name: 'VIP Fancy Numbers', slug: 'unique-numbers' }, products: [], totalCount: 0, searchJSON: null };
